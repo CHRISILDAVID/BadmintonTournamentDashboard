@@ -1,0 +1,99 @@
+.game-inputs > .game-score-row {
+  display: block;
+  margin: 16px 0;
+}
+.game-score-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  margin-bottom: 7px;
+}
+.game-inputs .game-score-heading > span {
+  color: #214a38;
+  font-weight: 700;
+  font-size: 13px;
+}
+.game-score-sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.game-inputs .score-separator {
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  color: #77927e;
+}
+.score-input {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  border: 1px solid #a9c4b3;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.game-inputs .score-input input {
+  width: 100%;
+  min-width: 0;
+  min-height: 80px;
+  padding: 10px 5px;
+  text-align: center;
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  border: 0;
+  border-radius: 0;
+  background: white;
+  color: #0a3527;
+  outline-offset: -3px;
+}
+.game-inputs .score-input input::placeholder {
+  font-size: 15px;
+  font-weight: 400;
+  color: #7c9485;
+}
+.score-step-buttons {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  border-left: 1px solid #c6d8cc;
+}
+.score-step-buttons button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: #edf5ef;
+  color: #175b3d;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.score-step-buttons button + button {
+  border-top: 1px solid #c6d8cc;
+}
+.score-step-buttons button:active {
+  background: #c5e7d1;
+}
+.score-step-buttons button:disabled {
+  color: #8ca398;
+  background: #f0f3ef;
+  cursor: default;
+}
+.score-input:focus-within {
+  border-color: #16875b;
+  box-shadow: 0 0 0 2px #16875b22;
+}
+@media (max-width: 540px) {
+  .game-score-sides {
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
+  }
+  .game-inputs .score-input input {
+    font-size: 23px;
+  }
+}

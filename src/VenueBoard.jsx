@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Maximize, Radio, Trophy, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Maximize, Trophy, X } from "lucide-react";
 import {
   displayTournamentOptions,
   resolveDisplaySelection,
@@ -7,6 +7,8 @@ import {
   tournamentDisplayData,
 } from "../shared/display.js";
 import { groupName, time } from "./utils.js";
+import useAutoScroll from "./useAutoScroll.js";
+import VenueBracket from "./VenueBracket.jsx";
 import logo from "../assets/logo.jpg";
 import "./venue-board.css";
 
@@ -32,6 +34,7 @@ function StandingsGroup({ group, tournament, hasLeague }) {
       </div>
       <div
         className="vb-table-scroll vb-scroll"
+        data-auto-scroll=""
         tabIndex={0}
         aria-label={`${group.label} standings, scroll for all players`}
       >
@@ -109,6 +112,7 @@ function ResultGroup({ group, teams }) {
       </div>
       <div
         className="vb-result-list vb-scroll"
+        data-auto-scroll=""
         tabIndex={0}
         aria-label={`${group.label} results, scroll for all matches`}
       >
@@ -147,19 +151,14 @@ function TournamentPanel({
     groups,
     onCourt,
     resultGroups,
-    knockoutResults,
+    knockoutRounds,
+    hasKnockouts,
     champion,
   } = data;
-  const results = [...resultGroups];
-  if (knockoutResults.length)
-    results.push({
-      key: "knockouts",
-      label: "Knockouts",
-      results: knockoutResults,
-    });
+  const results = resultGroups;
   return (
     <article
-      className="vb-tournament"
+      className={`vb-tournament ${hasKnockouts ? "vb-knockout" : ""}`}
       aria-label={`${t.name} tournament board`}
     >
       <header className="vb-tournament-heading">
@@ -182,7 +181,11 @@ function TournamentPanel({
         ) : (
           <div className="vb-category-meta">
             <span className="vb-stage">
-              {data.hasLeague ? "LEAGUE + KNOCKOUT" : "REGISTRATION"}
+              {hasKnockouts
+                ? "KNOCKOUTS"
+                : data.hasLeague
+                  ? "LEAGUE"
+                  : "REGISTRATION"}
             </span>
             {onCourt.length > 0 && (
               <div
@@ -209,16 +212,25 @@ function TournamentPanel({
         aria-label={`${t.name} leaderboards`}
       >
         <div className="vb-section-heading">
-          <h3>Standings</h3>
+          <h3>{hasKnockouts ? "League standings" : "Standings"}</h3>
           <span className="vb-qualification">
             <i />
-            {data.hasLeague
-              ? `Top ${t.qualify} per group advance`
-              : "Groups assigned with fixtures"}
+            {hasKnockouts
+              ? `${t.groups * t.qualify} qualified`
+              : data.hasLeague
+                ? `Top ${t.qualify} per group advance`
+                : "Groups assigned with fixtures"}
           </span>
         </div>
         <div
-          className="vb-standings-grid"
+          className={`vb-standings-grid ${hasKnockouts ? "vb-scroll" : ""}`}
+          data-auto-scroll={hasKnockouts ? "" : undefined}
+          tabIndex={hasKnockouts ? 0 : undefined}
+          aria-label={
+            hasKnockouts
+              ? `${t.name} league groups, automatically scrolling`
+              : undefined
+          }
           style={{ "--groups": Math.min(groups.length, 4) }}
         >
           {groups.map((group) => (
@@ -230,93 +242,89 @@ function TournamentPanel({
             />
           ))}
         </div>
-        <p className="vb-standings-key">
-          <span className="vb-full-key">
-            P played · W wins · GD game difference · PD point difference
-          </span>
-          <span className="vb-compact-key">
-            W/P wins / played · PD point difference
-          </span>
-        </p>
       </section>
 
-      <div className="vb-tournament-bottom">
-        <section className="vb-calls" aria-label={`${t.name} upcoming games`}>
-          <div className="vb-section-heading">
-            <h3>Up next</h3>
-            <span>
-              {calls.length} waiting
-              {onCourt.length ? ` · ${onCourt.length} on court` : ""}
-            </span>
-          </div>
-          <div
-            className="vb-call-list vb-scroll"
-            tabIndex={0}
-            aria-label={`${t.name} courts and upcoming calls`}
-          >
-            {calls.map((m) => (
-              <div className="vb-call-row" key={m.id}>
-                <b className="vb-call-number">
-                  {String(callPositions.get(m.id)).padStart(2, "0")}
-                </b>
-                <div>
-                  <small>
-                    {groupName(m.group) || m.stage} ·{" "}
-                    {firstCall === m.id
-                      ? "Next call"
-                      : !manual && m.scheduled
-                        ? time(m.scheduled)
-                        : "On deck"}
-                  </small>
-                  <strong>
-                    {teams.get(m.a)?.name}
-                    <em> vs </em>
-                    {teams.get(m.b)?.name}
-                  </strong>
+      {hasKnockouts ? (
+        <VenueBracket tournament={t} rounds={knockoutRounds} teams={teams} />
+      ) : (
+        <div className="vb-tournament-bottom">
+          <section className="vb-calls" aria-label={`${t.name} upcoming games`}>
+            <div className="vb-section-heading">
+              <h3>Up next</h3>
+              <span>
+                {calls.length} waiting
+                {onCourt.length ? ` · ${onCourt.length} on court` : ""}
+              </span>
+            </div>
+            <div
+              className="vb-call-list vb-scroll"
+              data-auto-scroll=""
+              tabIndex={0}
+              aria-label={`${t.name} courts and upcoming calls`}
+            >
+              {calls.map((m) => (
+                <div className="vb-call-row" key={m.id}>
+                  <b className="vb-call-number">
+                    {String(callPositions.get(m.id)).padStart(2, "0")}
+                  </b>
+                  <div>
+                    <small>
+                      {groupName(m.group) || m.stage} ·{" "}
+                      {firstCall === m.id
+                        ? "Next call"
+                        : !manual && m.scheduled
+                          ? time(m.scheduled)
+                          : "On deck"}
+                    </small>
+                    <strong>
+                      {teams.get(m.a)?.name}
+                      <em> vs </em>
+                      {teams.get(m.b)?.name}
+                    </strong>
+                  </div>
                 </div>
+              ))}
+              {!calls.length && (
+                <p className="vb-empty">
+                  {champion
+                    ? "All matches complete."
+                    : "No upcoming games currently called."}
+                </p>
+              )}
+            </div>
+          </section>
+          <section
+            className="vb-results"
+            aria-label={`${t.name} latest results`}
+          >
+            <div className="vb-section-heading">
+              <h3>Latest results</h3>
+              <span>All {data.completed} · auto-scroll</span>
+            </div>
+            {results.length ? (
+              <div
+                className="vb-results-grid"
+                style={{ "--result-groups": Math.min(results.length, 4) }}
+              >
+                {results.map((group) => (
+                  <ResultGroup key={group.key} group={group} teams={teams} />
+                ))}
               </div>
-            ))}
-            {!calls.length && (
+            ) : (
               <p className="vb-empty">
-                {champion
-                  ? "All matches complete."
-                  : "No upcoming games currently called."}
+                Group results appear after fixtures are created.
               </p>
             )}
-          </div>
-        </section>
-        <section className="vb-results" aria-label={`${t.name} latest results`}>
-          <div className="vb-section-heading">
-            <h3>Latest results</h3>
-            <span>All {data.completed} · scroll by group</span>
-          </div>
-          {results.length ? (
-            <div
-              className="vb-results-grid"
-              style={{ "--result-groups": Math.min(results.length, 4) }}
-            >
-              {results.map((group) => (
-                <ResultGroup key={group.key} group={group} teams={teams} />
-              ))}
-            </div>
-          ) : (
-            <p className="vb-empty">
-              Group results appear after fixtures are created.
-            </p>
-          )}
-        </section>
-      </div>
+          </section>
+        </div>
+      )}
     </article>
   );
 }
 
-export default function VenueBoard({
-  state,
-  calls,
-  callPositions,
-  connected,
-  now,
-}) {
+export default function VenueBoard({ state, calls, callPositions, connected }) {
+  const boardRef = useRef(null);
+  useAutoScroll(boardRef);
   const [preferences, setPreferences] = useState(savedSelection);
   const [error, setError] = useState("");
   const options = useMemo(() => displayTournamentOptions(state), [state]);
@@ -355,28 +363,21 @@ export default function VenueBoard({
   const columns = selection.count <= 3 ? Math.max(1, selection.count) : 2;
   return (
     <div
+      ref={boardRef}
       className={`venue-board ${selection.count > 1 ? "vb-multiple" : "vb-single"} ${selection.count >= 3 ? "vb-dense" : ""}`}
     >
       <header className="vb-header">
         <img className="vb-logo" src={logo} alt="ShuttleHub" />
         <div className="vb-title">
-          <span>THE TOURNAMENT BOARD</span>
           <h1>{state.event.name}</h1>
         </div>
-        <div className="vb-clock">
-          <strong>
-            {now.toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </strong>
-          <span className={connected ? "" : "vb-disconnected"}>
-            <i />
-            {connected
-              ? "Connected locally"
-              : "Reconnecting · standings may be out of date"}
-          </span>
-        </div>
+        <span
+          className={`vb-connection ${connected ? "" : "vb-disconnected"}`}
+          role="status"
+        >
+          <i />
+          {connected ? "Connected" : "Reconnecting"}
+        </span>
       </header>
       {state.demo && (
         <div className="vb-demo">SAMPLE EVENT · Demonstration data</div>
@@ -443,6 +444,8 @@ export default function VenueBoard({
         </button>
       </div>
       <main
+        data-auto-scroll=""
+        data-scroll-speed="10"
         className={`vb-board-grid ${selection.count > 3 ? "vb-many" : ""}`}
         style={{
           "--board-columns": columns,
@@ -472,16 +475,7 @@ export default function VenueBoard({
           </div>
         )}
       </main>
-      <footer className="vb-footer">
-        <span>
-          <Radio size={15} />
-          COURTSIDE UPDATE
-        </span>
-        <p>
-          {state.event.announcement ||
-            "Welcome to ShuttleHub. Play hard. Play fair. Enjoy every rally."}
-        </p>
-      </footer>
+
       {error && (
         <div className="toast error" role="alert">
           {error}

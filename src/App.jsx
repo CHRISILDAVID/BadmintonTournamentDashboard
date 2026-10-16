@@ -42,6 +42,9 @@ import { standings, groupName, time, importTeams, download, playerLabel } from "
 
 import { callQueue } from "../shared/calls.js";
 
+import ScoreInput from "./ScoreInput.jsx";
+import { finalScores } from "./scores.js";
+
 import VenueBoard from "./VenueBoard.jsx";
 
 import shuttleHubLogo from "../assets/logo.jpg";
@@ -2271,7 +2274,11 @@ function MatchEditor() {
       ) || 1,
     ),
     [scheduled, setScheduled] = useState(m.scheduled || ""),
-    [games, setGames] = useState(m.games.length ? m.games : [[0, 0]]);
+    [games, setGames] = useState(m.games.length ? m.games.map(game => game.map(String)) : [["", ""]]);
+  function updateGameScore(index, side, value) {
+    setError("");
+    setGames(current => current.map((game,i) => i === index ? game.map((score,j) => j === side ? value : score) : game));
+  }
   return (
     <>
       <div className="match-dialog-meta">
@@ -2367,46 +2374,16 @@ function MatchEditor() {
           </p>
           <div className="game-inputs">
             {games.map((g, i) => (
-              <div key={i}>
-                <span>Game {i + 1}</span>
-                <input
-                  aria-label={`Game ${i + 1} first team`}
-                  type="number"
-                  min="0"
-                  max={t.cap}
-                  value={g[0]}
-                  onChange={(e) =>
-                    setGames(
-                      games.map((s, j) =>
-                        j === i ? [+e.target.value, s[1]] : s,
-                      ),
-                    )
-                  }
-                />
-                <span>–</span>
-                <input
-                  aria-label={`Game ${i + 1} second team`}
-                  type="number"
-                  min="0"
-                  max={t.cap}
-                  value={g[1]}
-                  onChange={(e) =>
-                    setGames(
-                      games.map((s, j) =>
-                        j === i ? [s[0], +e.target.value] : s,
-                      ),
-                    )
-                  }
-                />
-                {i === games.length - 1 && i > 0 && (
-                  <button
-                    className="icon-btn"
-                    aria-label="Remove last game"
-                    onClick={() => setGames(games.slice(0, -1))}
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+              <div className="game-score-row" key={i}>
+                <div className="game-score-heading">
+                  <span>Game {i + 1}</span>
+                  {i === games.length - 1 && i > 0 && <button type="button" className="icon-btn" disabled={busy} aria-label="Remove last game" onClick={() => setGames(games.slice(0,-1))}><X size={16}/></button>}
+                </div>
+                <div className="game-score-sides">
+                  <ScoreInput label={`Game ${i + 1} first team`} value={g[0]} cap={t.cap} disabled={busy} onChange={value => updateGameScore(i,0,value)}/>
+                  <span className="score-separator">&ndash;</span>
+                  <ScoreInput label={`Game ${i + 1} second team`} value={g[1]} cap={t.cap} disabled={busy} onChange={value => updateGameScore(i,1,value)}/>
+                </div>
               </div>
             ))}
           </div>
@@ -2414,7 +2391,7 @@ function MatchEditor() {
             <button
               className="btn"
               disabled={games.length >= t.bestOf}
-              onClick={() => setGames([...games, [0, 0]])}
+              onClick={() => setGames([...games, ["", ""]])}
             >
               <Plus size={15} />
               Add game
@@ -2423,10 +2400,13 @@ function MatchEditor() {
               className="btn primary"
               disabled={busy}
               onClick={async () => {
+                let completedGames;
+                try { completedGames = finalScores(games); }
+                catch (error) { setError(error.message); return; }
                 if (
                   await act(
                     "finish",
-                    { matchId: m.id, games },
+                    { matchId: m.id, games: completedGames },
                     "Result recorded",
                   )
                 )
@@ -2530,8 +2510,8 @@ function ConfirmForm() {
   );
 }
 function VenueDisplay() {
-  const { state, calls, callPositions, connected, now } = useContext(AppContext);
-  return <VenueBoard state={state} calls={calls} callPositions={callPositions} connected={connected} now={now}/>;
+  const { state, calls, callPositions, connected } = useContext(AppContext);
+  return <VenueBoard state={state} calls={calls} callPositions={callPositions} connected={connected}/>;
 }
 function MapPinIcon() {
   return (

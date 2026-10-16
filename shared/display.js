@@ -54,6 +54,15 @@ export function tournamentDisplayData(state, tournamentId) {
         },
       ];
   const knockoutResults = completed.filter((m) => m.stage !== "League");
+  const knockouts = matches.filter((m) => m.stage !== "League");
+  const knockoutRounds = [...new Set(knockouts.map((m) => m.round))]
+    .sort((a, b) => a - b)
+    .map((round) => {
+      const fixtures = knockouts
+        .filter((m) => m.round === round)
+        .sort((a, b) => a.index - b.index);
+      return { round, stage: fixtures[0].stage, matches: fixtures };
+    });
   const final = matches.find((m) => m.stage === "Final" && m.winner);
   return {
     tournament,
@@ -62,6 +71,8 @@ export function tournamentDisplayData(state, tournamentId) {
       ? groups.map(({ key, label, results }) => ({ key, label, results }))
       : [],
     knockoutResults,
+    knockoutRounds,
+    hasKnockouts: knockoutRounds.length > 0,
     hasLeague,
     completed: completed.length,
     total: matches.length,

@@ -112,12 +112,30 @@ test("knockout results and champion are separate from league groups and rankings
   const leagueRows = tournamentDisplayData(s, tournamentId).groups.map(
     (g) => g.rows,
   );
+  assert.equal(tournamentDisplayData(s, tournamentId).hasKnockouts, false);
   s = applyAction(s, "knockouts", { tournamentId });
+  const draw = tournamentDisplayData(s, tournamentId);
+  assert.equal(draw.hasKnockouts, true);
+  assert.deepEqual(
+    draw.knockoutRounds.map((r) => r.stage),
+    ["Semifinal", "Final"],
+  );
+  assert.equal(draw.knockoutRounds[1].matches[0].a, null);
+  assert.equal(draw.knockoutRounds[1].matches[0].b, null);
   for (const m of s.matches.filter((m) => m.stage !== "League")) {
     s = applyAction(s, "start", { matchId: m.id, court: 1 });
     s = applyAction(s, "finish", { matchId: m.id, games: [[10, 21]] });
   }
   const view = tournamentDisplayData(s, tournamentId);
+  assert.equal(view.hasKnockouts, true);
+  assert.equal(
+    view.knockoutRounds[1].matches[0].a,
+    view.knockoutRounds[0].matches[0].winner,
+  );
+  assert.equal(
+    view.knockoutRounds[1].matches[0].b,
+    view.knockoutRounds[0].matches[1].winner,
+  );
   assert.equal(view.knockoutResults.length, 3);
   assert.equal(view.resultGroups.length, 2);
   assert.ok(
@@ -133,6 +151,49 @@ test("knockout results and champion are separate from league groups and rankings
     view.champion.id,
     s.matches.find((m) => m.stage === "Final").winner,
   );
+});
+
+test("display rounds retain draw order and pending opponents for every supported knockout size", () => {
+  for (const entrants of [2, 4, 8, 16]) {
+    const groups = entrants / 2;
+    let s = applyAction(emptyState(), "tournament", {
+      name: `Draw ${entrants}`,
+      size: 1,
+      groups,
+      qualify: 2,
+      bestOf: 1,
+      points: 21,
+      cap: 30,
+    });
+    const tournamentId = s.tournaments[0].id;
+    s = applyAction(s, "teams", {
+      tournamentId,
+      teams: Array.from({ length: entrants * 2 }, (_, i) => ({
+        players: [`Player ${i}`],
+      })),
+    });
+    s = applyAction(s, "generate", { tournamentId });
+    for (const m of s.matches) {
+      s = applyAction(s, "start", { matchId: m.id, court: 1 });
+      s = applyAction(s, "finish", { matchId: m.id, games: [[21, 15]] });
+    }
+    s = applyAction(s, "knockouts", { tournamentId });
+    // Storage order must not decide the visual column or match order.
+    s.matches.reverse();
+    const view = tournamentDisplayData(s, tournamentId);
+    assert.equal(view.knockoutRounds.length, Math.log2(entrants));
+    assert.equal(view.knockoutRounds.at(-1).stage, "Final");
+    for (const [i, round] of view.knockoutRounds.entries()) {
+      assert.equal(round.matches.length, entrants / 2 ** (i + 1));
+      assert.deepEqual(
+        round.matches.map((m) => m.index),
+        Array.from({ length: round.matches.length }, (_, index) => index),
+      );
+      assert.ok(
+        round.matches.every((m) => (i === 0 ? m.a && m.b : !m.a && !m.b)),
+      );
+    }
+  }
 });
 
 test("result scores follow the displayed winner's side, including best-of-three", () => {

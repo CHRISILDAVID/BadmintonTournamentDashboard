@@ -8,13 +8,25 @@ For isolated practice, use a separate `DATA_DIR` when starting a test server. Th
 
 Open `/display`. Use **Show N tournaments**, then choose a different category in each selector. Categories with unfinished fixtures are offered first. Existing finished categories can still be selected to view their results and champion. The browser remembers its own selection after refresh.
 
-Each selected tournament shows:
+During league play, each selected tournament shows:
 
 - Standings split by league group, with current qualifying places shaded. The normal table shows played, wins, game difference, and point difference. Dense layouts use wins/played and point difference.
 - Upcoming calls in their organizer-controlled global order. Held matches and unknown knockout opponents stay out of the list. Active court numbers appear beside the tournament name.
-- All completed results split into independent Group A, Group B, etc. lists, newest first. Knockouts have their own list. Each list keeps a bounded height and scrolls for older matches; there is no three-result data limit.
+- All completed results split into independent Group A, Group B, etc. lists, newest first. Each list keeps a bounded height and automatically cycles through older matches; there is no three-result data limit.
 
-The screen only offers tournament selection and fullscreen. Organizer actions remain in the tournament desk.
+Once the organizer creates a category's knockout fixtures, only that category switches to **League standings + Knockout bracket**. Its separate upcoming/results sections disappear. League rankings remain unchanged by knockout results. The connected draw shows every round, final scores beside each opponent, highlighted winners, active courts, and placeholders naming the match that supplies an unknown opponent. The final stays centered between its feeder matches, including when long player names wrap. Completed tournaments retain the bracket and show their champion.
+
+Large brackets automatically scroll through all rows before panning across to later rounds, then repeat. Group tables remain in a bounded area above the draw; extra groups also cycle automatically. The display uses rounded green scrollbars with a subtle striped grip for vertical and horizontal scrolling.
+
+[Mixed league and knockout display](output/playwright/knockout-mixed-1080.png), [compact bracket](output/playwright/knockout-1-768.png), [16-qualifier draw](output/playwright/knockout-sixteen-768.png), [phone bracket](output/playwright/knockout-mobile.png), and [completed final](output/playwright/knockout-champion-1080.png). These screenshots use a separate test database.
+
+Verification: all 32 automated tests and the production build pass. Browser checks covered mixed league/knockout categories, bracket creation and winner advancement through server updates, unchanged league tables, 1-4 categories at 1366 x 768, a 16-qualifier draw, phone overflow, scrollbar styling, and automatic bracket panning with manual pause/resume. All test result entry used a separate database on port 3002; the working event was only viewed.
+
+The compact header shows only the logo, title, and connection status. There is no clock, footer, or table legend. The screen offers tournament selection and fullscreen; organizer actions remain in the tournament desk.
+
+Overflowing standings, results, and call lists scroll automatically, pause at the end, return to the beginning, and repeat. Manual touch, keyboard input, or scrolling pauses the movement for eight seconds before it resumes.
+
+[Compact display](output/playwright/board-compact-header.png) and [mobile score entry](output/playwright/mobile-score-entry-blank.png).
 
 The screenshots below use an isolated test database, not the working tournament data:
 
@@ -28,10 +40,15 @@ The screenshots below use an isolated test database, not the working tournament 
 | Multiple categories | Show 2 or 3 tournaments and choose each category. | All selected categories appear together, each with separate data. Duplicate category selections are disabled. |
 | More categories | Show 4 or more. | The layout becomes a grid. Larger selections scroll as needed to retain readable text. |
 | Remember selection | Refresh the display. | The count and selected categories remain. |
-| Older results | Complete more than three matches in each group. Scroll one group's result list. | Every result is available; the other group stays in place. |
+| Older results | Complete more than three matches in each group and leave the display untouched. | Group lists scroll through every result, pause, return to the newest, and repeat. |
 | New result | Record a final result from another organizer window. | Correct group standings and result list update without refreshing; the match leaves upcoming calls. |
 | Opponent B wins | Enter a result where the second opponent wins. | The winner is named first and the score follows the winner's side. |
-| Knockouts | Finish semifinal/final matches. | League rankings stay based on league play; knockout results appear separately and the champion is named. |
+| Knockout transition | Create knockout fixtures while that category is visible. | Without refreshing, its league calls/results layout becomes group standings above a connected bracket. Other league categories retain their usual sections. |
+| Advancing winners | Finish one semifinal, then the other, then the final. | Each winner fills the correct final slot; pending slots name their feeder match. Final scores stay beside the correct opponents, and the champion appears. League rankings do not change. |
+| Bracket sizes | Try 2, 4, 8, and 16 qualifiers. | Draw starts at Final, Semifinal, Quarterfinal, or Round of 16 respectively, with ordered rounds and aligned connections. |
+| Large draw | Show a large bracket in a narrow tournament panel. | Every row scrolls into view before the screen pans across to later rounds. It repeats from the beginning; manual interaction pauses it for eight seconds. |
+| Bracket spacing | View 1-4 categories at 1366 x 768, then on a phone. | Tables and bracket occupy separate areas with visible spacing. Overflow stays inside the relevant area; no horizontal page overflow. |
+| Display scrollbars | Scroll standings, history, calls, the tournament grid, and brackets. | Green rounded rails and striped thumbs appear; horizontal bracket scrolling uses the same treatment. |
 | No fixtures | Select a category that only has registrations. | Entries appear with draw-pending text; no invented group assignments or results. |
 | Delete selected category | Delete an unused selected category from another organizer window. | Its board disappears; selection fills from remaining categories and count shrinks when necessary. |
 | Empty event | Open a new test database without categories. | A clear empty board with no broken selectors. |
@@ -65,9 +82,9 @@ For singles or 3v3 imports, use [singles.csv](examples/singles.csv) and [3v3.csv
 
 ## Verification performed
 
-- `npm test`: **28 passing tests** covering round-robin draws, league-to-knockout progression, final-score validation, court/player conflicts, atomic imports, CSV/XLSX, automatic labels, deletion, practice-data preservation, revision conflicts, persistence, and migration.
+- `npm test`: **31 passing tests** covering round-robin draws, league-to-knockout progression, final-score validation, court/player conflicts, atomic imports, CSV/XLSX, automatic labels, deletion, practice-data preservation, revision conflicts, persistence, and migration.
 - `npm run build`: passed. ExcelJS remains a large, separately loaded import bundle.
-- Real-browser checks: loading the practice pack; manual player entry and automatic label; invalid and valid final results; automatic updates to a separate venue browser session; starting a knockout match and recording its result; cancellation and confirmation of draft deletion; automatic filter recovery after remote deletion; and desktop display at 1920 x 1080 and 1366 x 768. New board checks cover one to five selections, saved preferences, independent result scrolling, read-only controls, knockout/registration views, phone layout, and automatic result updates.
+- Real-browser checks: loading the practice pack; manual player entry and automatic label; invalid and valid final results; automatic updates to a separate venue browser session; starting a knockout match and recording its result; cancellation and confirmation of draft deletion; automatic filter recovery after remote deletion; and desktop display at 1920 x 1080 and 1366 x 768. New board checks cover one to five selections, saved preferences, independent result scrolling, repeated automatic loops, manual pause/resume, a compact display without clock/footer/legends, read-only controls, knockout/registration views, phone layout, automatic result updates, and mobile score entry.
 - Venue board unit checks cover exact and distinct selections, deletion recovery, complete grouped results, empty states, knockout separation, standings, winner score ordering, and ongoing category priority.
 
 ## Flexible match calls
@@ -93,3 +110,15 @@ The automatic tests cover queue ordering, holds/releases, invalid actions, confl
 ## Finish testing
 
 Delete practice categories individually after finishing their on-court matches. Confirmation removes that category's teams, fixtures, and results permanently. To load a fresh practice pack, remove all remaining Practice categories and choose **Tournaments > Load practice tournaments** again.
+
+
+## Mobile final-score checks
+
+| Case | Action | Expected behavior |
+| --- | --- | --- |
+| Blank start | Open an on-court match at phone width. | Fields show Score placeholders; no zero is prefilled. |
+| Typing and clearing | Type 21, clear the field, then type again. | Field stays blank when cleared; no leading zero is forced back in. |
+| Visible arrows | Tap the up/down controls beside each field. | Visible buttons change the correct score and stay between zero and the configured cap. |
+| Missing score | Enter one score, leave its opponent blank, and confirm. | Required-score error; blank does not become zero. |
+| Explicit zero | Enter 21 and 0, then confirm a best-of-one result. | Numeric result 21-0 is saved successfully. |
+| More games | In a best-of-three match, add another game. | Both new fields start blank and require explicit scores. |
