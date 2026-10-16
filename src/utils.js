@@ -1,13 +1,19 @@
 export { standings } from "../shared/standings.js";
+import { playerLabel } from "../shared/players.js";
+export { playerLabel } from "../shared/players.js";
 export const groupName = (g) =>
   g === null || g === undefined ? "" : `Group ${String.fromCharCode(65 + g)}`;
-export const time = (value) =>
-  value
-    ? new Date(value).toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "To be scheduled";
+export const time = (value) => {
+  if (!value) return "To be scheduled";
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+    const [hour, minute] = value.split(":").map(Number);
+    return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "am" : "pm"}`;
+  }
+  return new Date(value).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 export function parseCSV(text) {
   const rows = [];
   let row = [],
@@ -65,22 +71,19 @@ export async function importTeams(file) {
   const headers = rows
     .shift()
     .map((v) => v.toLowerCase().replace(/[ _-]/g, ""));
-  const name = headers.findIndex((h) =>
-      ["team", "teamname", "name"].includes(h),
-    ),
-    seed = headers.indexOf("seed");
+  const seed = headers.indexOf("seed");
   const players = headers
     .map((h, i) => (/^player\d+$/.test(h) ? i : -1))
     .filter((i) => i >= 0)
     .sort((a, b) => Number(headers[a].slice(6)) - Number(headers[b].slice(6)));
-  if (name < 0 || !players.length)
+  if (!players.length)
     throw new Error(
-      "Headers must include team, player1 (and player2, etc. where needed). Seed is optional.",
+      "Headers must include player1 (and player2, etc. where needed). Seed is optional; no team-name column is needed.",
     );
   return rows
     .filter((r) => r.some(Boolean))
     .map((r) => ({
-      name: r[name] || "",
+      name: playerLabel(players.map((i) => r[i] || "").filter(Boolean)),
       players: players.map((i) => r[i] || "").filter(Boolean),
       seed: seed >= 0 && r[seed] ? Number(r[seed]) : undefined,
     }));

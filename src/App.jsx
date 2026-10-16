@@ -3,6 +3,7 @@ import React, {
   createContext,
   useEffect,
   useRef,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -15,6 +16,9 @@ import {
   Monitor,
   ArrowUpRight,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  Pause,
   Plus,
   ChevronRight,
   Check,
@@ -25,18 +29,20 @@ import {
   Upload,
   Download,
   Search,
-  LogOut,
   Radio,
   Maximize,
   ChevronLeft,
   Activity,
   SlidersHorizontal,
   Wifi,
-  ShieldCheck,
   Pencil,
   Trash2,
 } from "lucide-react";
-import { standings, groupName, time, importTeams, download } from "./utils.js";
+import { standings, groupName, time, importTeams, download, playerLabel } from "./utils.js";
+
+import { callQueue } from "../shared/calls.js";
+
+import shuttleHubLogo from "../assets/logo.jpg";
 
 const AppContext = createContext(null);
 const NAV = [
@@ -67,23 +73,7 @@ const presets = [
 function Logo({ small = false }) {
   return (
     <div className={`brand ${small ? "small" : ""}`}>
-      <div className="brand-mark">
-        <svg viewBox="0 0 40 40" aria-hidden="true">
-          <path
-            d="M8 30c6-9 15-5 21-13M10 34c11-7 20-6 23-17M13 21C4 22 10 12 24 10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-          <path d="m21 7 13-3 3 11-12-2z" fill="currentColor" />
-          <path d="m25 6 3 7m2-8 2 9" stroke="#173f36" strokeWidth="1.5" />
-        </svg>
-      </div>
-      <span>
-        Shuttle<span className="brand-green">Hub</span>
-        <small>TOURNAMENT DESK</small>
-      </span>
+      <img src={shuttleHubLogo} alt="ShuttleHub" width="150" height="150" />
     </div>
   );
 }
@@ -148,7 +138,6 @@ function Field({ label, children, hint }) {
 }
 function App() {
   const [state, setState] = useState(null),
-    [session, setSession] = useState(null),
     [page, setPage] = useState("Overview"),
     [filter, setFilter] = useState("all"),
     [modal, setModal] = useState(null),
@@ -174,10 +163,6 @@ function App() {
   }
   useEffect(() => {
     refresh().catch((e) => setError(e.message));
-    fetch("/api/session")
-      .then((r) => r.json())
-      .then(setSession)
-      .catch(() => setError("Cannot connect to the host."));
     const es = new EventSource("/api/events");
     es.onmessage = () => {
       setConnected(true);
@@ -199,6 +184,9 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [notice]);
+  useEffect(() => {
+    if (state && filter !== "all" && !state.tournaments.some(t => t.id === filter)) setFilter("all");
+  }, [state, filter]);
   async function act(
     action,
     payload = {},
@@ -229,8 +217,6 @@ function App() {
               : current,
           );
         }
-        if (r.status === 401)
-          setSession((s) => ({ ...s, authenticated: false }));
         throw new Error(data.error);
       }
       accept(data);
@@ -250,15 +236,17 @@ function App() {
     setError("");
     setModal(data);
   };
-  const admin = session?.authenticated && !display;
+  const admin = !display;
   const selected =
     state?.matches.filter(
       (m) => filter === "all" || m.tournamentId === filter,
     ) || [];
-  const live = selected.filter((m) => m.status === "live");
-  const upcoming = selected
-    .filter((m) => m.status === "upcoming")
-    .sort((a, b) => (a.scheduled || "z").localeCompare(b.scheduled || "z"));
+  const live = selected
+    .filter((m) => m.status === "live")
+    .sort((a, b) => a.court - b.court);
+  const calls = useMemo(() => callQueue(state), [state]);
+  const callPositions = useMemo(() => new Map(calls.map((m,i) => [m.id,i+1])), [calls]);
+  const upcoming = calls.filter(m => filter === "all" || m.tournamentId === filter);
   const completed = selected
     .filter((m) => m.status === "completed")
     .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
@@ -277,7 +265,7 @@ function App() {
       ))}
     </select>
   );
-  if (!state || !session)
+  if (!state)
     return (
       <div className="loading">
         <Logo />
@@ -287,26 +275,27 @@ function App() {
     );
 
   const titles = {
-    Overview: "Tournament overview",
+    Overview: "Courtside",
     Tournaments: "Your tournaments",
     "Teams & players": "Teams & players",
     Matches: "Match centre",
     History: "Match history",
     Standings: "Standings & brackets",
-    Settings: "Event settings",
+    Settings: "Club settings",
   };
   const subtitles = {
-    Overview: "A little less organizing. A lot more badminton.",
-    Tournaments: "Every category. One well-run event.",
-    "Teams & players": "The people who make every rally count.",
-    Matches: "From the first serve to match point.",
-    History: "Every match, every result, all in one place.",
-    Standings: "Follow the road from group stage to the final.",
-    Settings: "Set the stage for a great tournament.",
+    Overview: "On court. Up next. Final results.",
+    Tournaments: "Set up categories, seed groups, and build the draw.",
+    "Teams & players": "Register your players and manage team entries.",
+    Matches: "Assign a court. Call the players. Keep play moving.",
+    History: "Completed matches across all your tournaments.",
+    Standings: "Group tables and the route to the final.",
+    Settings: "Your venue, courts, and connected screens.",
   };
   const contextValue = {
+    callPositions,
+    calls,
     state,
-    session,
     page,
     filter,
     modal,
@@ -328,7 +317,6 @@ function App() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -353,10 +341,10 @@ function App() {
             </span>
             <div>
               <strong>{state.event.name}</strong>
-              <small>{state.demo ? "Sample event" : "Local tournament"}</small>
+              <small>{state.demo ? "Demo courts" : "Organizing desk"}</small>
             </div>
           </div>
-          <span className="nav-label">WORKSPACE</span>
+          <span className="nav-label">TOURNAMENT CONTROL</span>
           <nav>
             {NAV.map(([label, Icon]) => (
               <button
@@ -390,14 +378,14 @@ function App() {
                 <Monitor size={23} />
                 <ArrowUpRight size={16} />
               </span>
-              <strong>Bring it to the big screen.</strong>
+              <strong>The courtside screen</strong>
               <p>
-                Every score. Every court.
+                Scores and next calls,
                 <br />
-                Live at your venue.
+                ready for the whole venue.
               </p>
               <span>
-                Launch venue display
+                Open scoreboard
                 <ArrowRight size={15} />
               </span>
             </a>
@@ -407,42 +395,21 @@ function App() {
                 onClick={() => setPage("Settings")}
               >
                 <Settings size={18} />
-                Event settings
+                Club settings
               </button>
             )}
-            <div className="sidebar-user">
-              <div className="user-avatar">SH</div>
-              <div>
-                <strong>{admin ? "Organizer" : "Spectator"}</strong>
-                <small>ShuttleHub team</small>
-              </div>
-              {admin ? (
-                <button
-                  className="icon-btn"
-                  aria-label="Sign out"
-                  onClick={async () => {
-                    await fetch("/api/logout", { method: "POST" });
-                    setSession({ ...session, authenticated: false });
-                    setPage("Overview");
-                  }}
-                >
-                  <LogOut size={17} />
-                </button>
-              ) : (
-                <button
-                  className="text-btn"
-                  onClick={() => open({ type: "login" })}
-                >
-                  Sign in
-                </button>
-              )}
+            <div className="club-signature">
+              <span>SHUTTLEHUB</span>
+              <span>
+                COURTSIDE CONTROL <ArrowUpRight size={13} />
+              </span>
             </div>
           </div>
         </aside>
         <main>
           <header className="topbar">
             <div className="breadcrumb">
-              Workspace
+              CONTROL DESK
               <ChevronRight size={14} />
               <strong>{page}</strong>
             </div>
@@ -451,14 +418,10 @@ function App() {
                 <i className="dot" />
                 {connected ? "Connected locally" : "Reconnecting…"}
               </span>
-              <span className="topbar-date">
-                {now.toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
+              <span className="topbar-courts">
+                <span className="tiny-court" />
+                {state.event.courts} courts
               </span>
-              <div className="user-avatar small">SH</div>
             </div>
           </header>
           <div className="main-content">
@@ -477,8 +440,8 @@ function App() {
               <div>
                 <div className="eyebrow">
                   {page === "Overview"
-                    ? "YOUR TOURNAMENT, AT A GLANCE"
-                    : "SHUTTLEHUB TOURNAMENT DESK"}
+                    ? "SHUTTLEHUB / CONTROL DESK"
+                    : "SHUTTLEHUB / CONTROL DESK"}
                 </div>
                 <h1>{titles[page]}</h1>
                 <p>{subtitles[page]}</p>
@@ -487,7 +450,7 @@ function App() {
                 {admin && (
                   <button
                     className="btn settings-mobile"
-                    aria-label="Event settings"
+                    aria-label="Club settings"
                     onClick={() => setPage("Settings")}
                   >
                     <Settings size={16} />
@@ -503,25 +466,13 @@ function App() {
                   Venue display
                   <ArrowUpRight size={14} />
                 </a>
-                {admin ? (
-                  <button
-                    className="btn primary"
-                    onClick={() => open({ type: "tournament" })}
-                  >
-                    <Plus size={17} />
-                    New tournament
-                  </button>
-                ) : (
-                  <button
-                    className="btn primary"
-                    onClick={() => open({ type: "login" })}
-                  >
-                    {session.needsSetup
-                      ? "Set up your event"
-                      : "Organizer sign in"}
-                    <ArrowRight size={16} />
-                  </button>
-                )}
+                <button
+                  className="btn primary"
+                  onClick={() => open({ type: "tournament" })}
+                >
+                  <Plus size={17} />
+                  New tournament
+                </button>
               </div>
             </div>
             {page === "Overview" ? (
@@ -551,7 +502,7 @@ function App() {
               </div>
             )}
             <footer className="app-footer">
-              <span>MADE FOR THE GAME. BUILT FOR YOUR COMMUNITY.</span>
+              <span>SHUTTLEHUB.IN / COURTSIDE CONTROL</span>
               <span>
                 ShuttleHub <span className="footer-dot">●</span> Tournament desk
               </span>
@@ -568,13 +519,12 @@ function App() {
                 team: modal.team ? "Edit team" : "Add a team",
                 import: "Import your teams",
                 match: "Match desk",
-                login: session.needsSetup
-                  ? "Welcome to ShuttleHub"
-                  : "Organizer sign in",
                 generate: "Ready to create fixtures?",
                 knockouts: "Create the knockout bracket",
                 resetFixtures: "Reset fixtures",
                 deleteTeam: "Remove team",
+                deleteTournament: "Delete tournament",
+                returnMatch: "Return this match to waiting?",
                 clearDemo: "Start your own event",
               }[modal.type]
             }
@@ -584,11 +534,7 @@ function App() {
               setError("");
             }}
           >
-            {modal.type === "login" ? (
-              <LoginForm />
-            ) : !admin ? (
-              <p>Please sign in to continue.</p>
-            ) : modal.type === "tournament" ? (
+            {modal.type === "tournament" ? (
               <TournamentForm />
             ) : modal.type === "team" || modal.type === "import" ? (
               <TeamForm importing={modal.type === "import"} />
@@ -625,7 +571,6 @@ function App() {
 function MatchCard({ m, compact = false }) {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -647,7 +592,6 @@ function MatchCard({ m, compact = false }) {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -661,23 +605,28 @@ function MatchCard({ m, compact = false }) {
   return (
     <div className={`match-card ${m.status} ${compact ? "compact" : ""}`}>
       <div className="match-meta">
-        <span>{t?.name}</span>
+        <span className="court-heading">
+          {m.status === "live"
+            ? `COURT ${String(m.court).padStart(2, "0")}`
+            : t?.name}
+        </span>
         <Pill tone={m.status === "live" ? "green" : ""}>
           {m.status === "live" ? (
             <>
               <i className="dot" />
-              LIVE
+              ON COURT
             </>
           ) : m.status === "completed" ? (
             "FINAL SCORE"
           ) : (
-            m.stage
+            m.held ? "ON HOLD" : m.stage
           )}
         </Pill>
       </div>
       <div className="match-sub">
-        {groupName(m.group) || m.stage}
-        {m.court ? ` · Court ${m.court}` : ""}
+        {m.status === "live"
+          ? `${t?.name} / ${groupName(m.group) || m.stage}`
+          : groupName(m.group) || m.stage}
       </div>
       <div className="opponents">
         {[a, b].map((t, i) => (
@@ -696,11 +645,10 @@ function MatchCard({ m, compact = false }) {
               <strong>{t?.name || "Awaiting qualifier"}</strong>
               {!compact && (
                 <small>
-                  {t?.players.join(" / ") || "Winner of previous round"}
+                  {t ? `Seed ${t.seed}` : "Winner of previous round"}
                 </small>
               )}
             </div>
-            {m.status === "live" && <b className="live-score">{m.live[i]}</b>}
             {m.status === "completed" && (
               <span className="game-scores">
                 {m.games.map((g, j) => (
@@ -721,6 +669,7 @@ function MatchCard({ m, compact = false }) {
             ? `Court ${m.court}`
             : m.status === "completed"
               ? time(m.completedAt)
+              : m.held ? "Waiting for players"
               : m.scheduled
                 ? time(m.scheduled)
                 : "Ready when called"}
@@ -731,7 +680,7 @@ function MatchCard({ m, compact = false }) {
             onClick={() => open({ type: "match", matchId: m.id })}
           >
             {m.status === "live"
-              ? "Update score"
+              ? "Record result"
               : m.status === "completed"
                 ? "View result"
                 : "Manage match"}
@@ -742,10 +691,27 @@ function MatchCard({ m, compact = false }) {
     </div>
   );
 }
+function CallControls({ m }) {
+  const { calls, callPositions, team, act, busy, state } = useContext(AppContext);
+  if (m.status !== "upcoming") return null;
+  const index = (callPositions.get(m.id) || 0) - 1;
+  const label = `${team(m.a)?.name || "Qualifier"} vs ${team(m.b)?.name || "Qualifier"}`;
+  const move = position => act("moveCall", {matchId:m.id, position}, "Match calls updated", state.revision);
+  return <div className="call-controls">
+    {m.held ? <button className="btn" disabled={busy} onClick={() => act("releaseMatch", {matchId:m.id}, "Match released to the end of the queue", state.revision)}>Release</button> : <>
+      <button className="btn" aria-label={`Call next: ${label}`} disabled={busy || index < 0 || index === 0} onClick={() => move(1)}>Call next</button>
+      <button className="icon-btn" aria-label={`Move up: ${label}`} disabled={busy || index < 1} onClick={() => move(index)}><ArrowUp size={16}/></button>
+      <button className="icon-btn" aria-label={`Move down: ${label}`} disabled={busy || index < 0 || index === calls.length - 1} onClick={() => move(index + 2)}><ArrowDown size={16}/></button>
+      <button className="btn" disabled={busy} onClick={() => act("holdMatch", {matchId:m.id}, "Match placed on hold", state.revision)}><Pause size={14}/>Hold</button>
+    </>}
+  </div>;
+}
+
 function MatchTable({ matches, history = false }) {
   const {
     state,
-    session,
+    callPositions,
+    calls,
     page,
     filter,
     modal,
@@ -767,7 +733,6 @@ function MatchTable({ matches, history = false }) {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -775,14 +740,15 @@ function MatchTable({ matches, history = false }) {
     setNotice,
     setDisplayHistory,
   } = useContext(AppContext);
+  const positions = callPositions;
   return matches.length ? (
     <div className="table-scroll">
-      <table>
+      <table className="match-table">
         <thead>
           <tr>
             <th>MATCH / TOURNAMENT</th>
             <th>STAGE</th>
-            <th>{history ? "RESULT" : "SCHEDULE"}</th>
+            <th>{history ? "RESULT" : "CALL / TIME"}</th>
             <th>STATUS</th>
             {admin && <th />}
           </tr>
@@ -812,26 +778,24 @@ function MatchTable({ matches, history = false }) {
                   </>
                 ) : (
                   <>
-                    <span>
-                      {m.scheduled ? time(m.scheduled) : "Unscheduled"}
-                    </span>
-                    <small>
-                      {m.court ? `Court ${m.court}` : "Court assigned at start"}
-                    </small>
+                    <strong>{m.status === "upcoming" ? (positions.has(m.id) ? `Call #${positions.get(m.id)}` : m.held ? "On hold" : "Awaiting opponents") : `Court ${m.court}`}</strong>
+                    {m.scheduled && <small>Planned {time(m.scheduled)}</small>}
+                    {m.status === "upcoming" && <small>Court assigned at start</small>}
                   </>
                 )}
               </td>
               <td>
                 <Pill tone={m.status === "live" ? "green" : ""}>
                   {m.status === "upcoming"
-                    ? "Upcoming"
+                    ? (m.held ? "On hold" : "Upcoming")
                     : m.status === "completed"
                       ? "Completed"
-                      : "Live"}
+                      : "On court"}
                 </Pill>
               </td>
               {admin && (
-                <td>
+                <td className="match-actions-cell">
+                  <CallControls m={m}/>
                   <button
                     className="icon-btn"
                     aria-label={`Manage ${team(m.a)?.name || "match"}`}
@@ -857,19 +821,8 @@ function MatchTable({ matches, history = false }) {
 function Overview() {
   const {
     state,
-    session,
-    page,
-    filter,
-    modal,
-    error,
-    notice,
-    connected,
-    busy,
-    now,
-    display,
-    displayHistory,
-    admin,
-    selected,
+    callPositions,
+    calls,
     live,
     upcoming,
     completed,
@@ -877,103 +830,77 @@ function Overview() {
     team,
     tournament,
     open,
-    act,
-    setState,
-    setSession,
     setPage,
-    setFilter,
-    setModal,
-    setError,
-    setNotice,
-    setDisplayHistory,
   } = useContext(AppContext);
+  const allLive = state.matches.filter((m) => m.status === "live");
+  const allDone = state.matches.filter((m) => m.status === "completed");
   return (
     <>
-      <div className="hero">
-        <div className="hero-content">
-          <span className="eyebrow">
-            <span className="line" /> EVERY RALLY. ONE PLACE.
-          </span>
-          <h2>
-            Let the games begin<span>.</span>
-          </h2>
-          <p>
-            Your courts, your competitors, your tournament.
-            <br />
-            Keep every rally running smoothly.
-          </p>
-          <div className="hero-bottom">
-            <span>
-              <MapPinIcon />
-              {state.event.venue || "Venue not set"}
-            </span>
-            <span>
-              <CalendarDays size={15} />
-              {state.event.date
-                ? new Date(`${state.event.date}T00:00`).toLocaleDateString(
-                    "en-IN",
-                    { day: "numeric", month: "short", year: "numeric" },
-                  )
-                : "Event date not set"}
-            </span>
-          </div>
+      <div className="venue-strip">
+        <div>
+          <span className="eyebrow">HOME COURT</span>
+          <strong>
+            <MapPinIcon />
+            {state.event.venue || "Set your venue in Club settings"}
+          </strong>
         </div>
-        <div className="court-art" aria-hidden="true">
-          <div className="court-lines">
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="shuttle">
-            <svg viewBox="0 0 100 120">
-              <path d="M24 12 76 12 64 78 37 78z" fill="#d9f3d2" />
-              <path
-                d="M24 12 45 78M37 12 48 78M50 12v66M63 12 53 78M76 12 56 78M30 34h40M34 54h32"
-                stroke="#538c72"
-                strokeWidth="2"
-              />
-              <path d="M37 79h27v10a13.5 13.5 0 0 1-27 0z" fill="#fff" />
-              <path d="M37 79h27" stroke="#c7e783" strokeWidth="6" />
-            </svg>
-          </div>
-          <span className="court-tag">BUILT FOR THE LOVE OF THE GAME</span>
+        <div className="court-switches">
+          {Array.from({ length: state.event.courts }, (_, i) => i + 1).map(
+            (c) => {
+              const m = allLive.find((m) => m.court === c);
+              return (
+                <button
+                  key={c}
+                  className={m ? "occupied" : "available"}
+                  onClick={() =>
+                    m
+                      ? open({ type: "match", matchId: m.id })
+                      : setPage("Matches")
+                  }
+                  aria-label={
+                    m
+                      ? `Manage court ${c}`
+                      : `Court ${c} is available, open matches`
+                  }
+                >
+                  <span className="tiny-court" />{" "}
+                  <b>{String(c).padStart(2, "0")}</b>
+                  <span>{m ? "In play" : "Open"}</span>
+                </button>
+              );
+            },
+          )}
         </div>
       </div>
-      <div className="stats-grid">
+      <div className="score-strip">
         {[
-          [Trophy, "Tournaments", state.tournaments.length, "Running your way"],
-          [
-            Users,
-            "Registered teams",
-            state.teams.length,
-            `${state.teams.reduce((n, t) => n + t.players.length, 0)} player entries`,
-          ],
-          [
-            Activity,
-            "Live matches",
-            state.matches.filter((m) => m.status === "live").length,
-            `${state.event.courts} courts available`,
-          ],
-          [
-            CheckCircle2,
-            "Completed",
-            state.matches.filter((m) => m.status === "completed").length,
-            `${state.matches.length} total fixtures`,
-          ],
-        ].map(([Icon, label, value, sub]) => (
-          <div className="stat" key={label}>
-            <div className="stat-top">
-              <span>{label}</span>
-              <Icon size={18} />
-            </div>
+          ["Categories", state.tournaments.length],
+          ["Teams entered", state.teams.length],
+          ["On court", allLive.length],
+          ["Matches finished", allDone.length],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <span>{label}</span>
             <strong>{String(value).padStart(2, "0")}</strong>
-            <small>{sub}</small>
           </div>
         ))}
+        <div className="score-strip-progress">
+          <span>Draw progress</span>
+          <div className="progress">
+            <span
+              style={{
+                width: `${state.matches.length ? (allDone.length / state.matches.length) * 100 : 0}%`,
+              }}
+            />
+          </div>
+          <small>
+            {allDone.length} / {state.matches.length} fixtures
+          </small>
+        </div>
       </div>
-      <div className="section-heading">
+      <div className="section-heading live-heading">
         <h2>
-          <i className="dot" /> On court{" "}
+          <i className="dot" /> In play{" "}
           <span className="count">{live.length}</span>
         </h2>
         {categorySelect}
@@ -985,77 +912,139 @@ function Overview() {
           ))}
         </div>
       ) : (
-        <div className="quiet-courts">
-          <div className="court-mini">
+        <div className="ready-court">
+          <div className="ready-court-lines" aria-hidden="true">
+            <span />
+            <span />
             <span />
           </div>
-          <div>
-            <strong>The courts are ready.</strong>
+          <div className="ready-copy">
+            <span className="eyebrow">THE FLOOR IS YOURS</span>
+            <h2>
+              {state.tournaments.length
+                ? "Ready for the first serve."
+                : "Build your next draw."}
+            </h2>
             <p>
               {state.matches.length
-                ? "Start an upcoming match to bring the scoreboard to life."
-                : "Set up your first tournament, add your teams, and let’s play."}
+                ? "Choose a fixture, assign an open court, and start the match."
+                : state.tournaments.length
+                  ? "Add your players, then generate the group fixtures."
+                  : "Choose a category. Add your players. We will take care of the draw."}
             </p>
-          </div>
-          {admin && (
             <button
               className="btn primary"
               onClick={() =>
                 state.matches.length
                   ? setPage("Matches")
-                  : open({ type: "tournament" })
+                  : state.tournaments.length
+                    ? setPage("Teams & players")
+                    : open({ type: "tournament" })
               }
             >
-              {state.matches.length ? "Go to matches" : "Set up tournament"}
-              <ArrowRight size={16} />
+              {state.matches.length
+                ? "Call a match"
+                : state.tournaments.length
+                  ? "Add teams"
+                  : "Create a tournament"}
+              <ArrowUpRight size={18} />
             </button>
-          )}
+          </div>
+          <div className="ready-label">
+            COURT
+            <br />
+            <b>01</b>
+            <span>AWAITING PLAYERS</span>
+          </div>
         </div>
       )}
       <div className="overview-bottom">
         <section className="panel upcoming-panel">
           <div className="panel-heading">
-            <h2>
-              Up next <span className="count">{upcoming.length}</span>
-            </h2>
+            <div>
+              <span className="eyebrow">PLAYER CALLS</span>
+              <h2>
+                Next on court <span className="count">{upcoming.length}</span>
+              </h2>
+            </div>
             <button className="text-btn" onClick={() => setPage("Matches")}>
-              All matches <ArrowRight size={15} />
+              Full match queue <ArrowUpRight size={16} />
             </button>
           </div>
-          <MatchTable matches={upcoming.slice(0, 4)} />
+          {upcoming.length ? (
+            <div className="match-queue">
+              {upcoming.slice(0, 4).map((m, i) => (
+                <button
+                  key={m.id}
+                  className="queue-row"
+                  onClick={() => open({ type: "match", matchId: m.id })}
+                >
+                  <span className="queue-rank">
+                    {String(callPositions.get(m.id)).padStart(2, "0")}
+                  </span>
+                  <span className="queue-teams">
+                    <strong>
+                      {team(m.a)?.name || "Awaiting qualifier"} <em>vs</em>{" "}
+                      {team(m.b)?.name || "Awaiting qualifier"}
+                    </strong>
+                    <small>
+                      {tournament(m.tournamentId)?.name} <span>/</span>{" "}
+                      {groupName(m.group) || m.stage}
+                    </small>
+                  </span>
+                  <span className="queue-time">
+                    {state.callOrder ? (calls[0]?.id === m.id ? "Next call" : "On deck") : m.scheduled ? time(m.scheduled) : "On deck"}
+                  </span>
+                  <ArrowUpRight size={18} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Empty title="Your match queue starts here">
+              Group fixtures appear here once you have added teams and generated
+              the draw.
+            </Empty>
+          )}
         </section>
         <section className="panel recent-panel">
           <div className="panel-heading">
-            <h2>Recent results</h2>
-            <button
-              className="text-btn"
-              onClick={() => {
-                setPage("History");
-              }}
-            >
-              History <ArrowUpRight size={15} />
+            <div>
+              <span className="eyebrow">RECENT RESULTS</span>
+              <h2>Just finished</h2>
+            </div>
+            <button className="text-btn" onClick={() => setPage("History")}>
+              All results <ArrowUpRight size={16} />
             </button>
           </div>
           {completed.length ? (
             completed.slice(0, 3).map((m) => (
-              <div className="recent-result" key={m.id}>
+              <div className="result-slip" key={m.id}>
                 <div className="recent-meta">
-                  {tournament(m.tournamentId)?.name}
-                  <span>{time(m.completedAt)}</span>
+                  <span>{tournament(m.tournamentId)?.name}</span>
+                  <span>FINAL</span>
                 </div>
-                <strong>
-                  <Trophy size={14} />
-                  {team(m.winner)?.name}
-                </strong>
-                <div className="result-bottom">
-                  <span>vs {team(m.winner === m.a ? m.b : m.a)?.name}</span>
-                  <b>{m.games.map((g) => g.join("–")).join(" · ")}</b>
-                </div>
+                {[m.a, m.b].map((tid, i) => (
+                  <div
+                    key={tid}
+                    className={`result-team ${m.winner === tid ? "winner" : ""}`}
+                  >
+                    <span>
+                      {m.winner === tid && <ChevronRight size={14} />}{" "}
+                      {team(tid)?.name}
+                    </span>
+                    <b>
+                      {m.games.map((g, j) => (
+                        <span key={j}>{g[i]}</span>
+                      ))}
+                    </b>
+                  </div>
+                ))}
               </div>
             ))
           ) : (
-            <Empty title="The first win is waiting">
-              The three latest results will appear here.
+            <Empty title="No results yet">
+              The three latest completed matches will stay here. All results
+              remain in match history.
             </Empty>
           )}
         </section>
@@ -1066,7 +1055,6 @@ function Overview() {
 function Tournaments() {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -1088,7 +1076,6 @@ function Tournaments() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -1107,6 +1094,13 @@ function Tournaments() {
             when you’re ready.
           </span>
         </div>
+      </div>
+      <div className="practice-banner">
+        <div><strong>Rehearse match day</strong><p>Five practice categories: league play, knockouts, and a draft to try deleting. Your existing tournaments stay in place.</p></div>
+        <button className="btn" disabled={busy || state.tournaments.some(t => t.practice)}
+          onClick={() => act("practice", {}, "Practice tournaments loaded")}>
+          <Play size={16} />{state.tournaments.some(t => t.practice) ? "Practice pack loaded" : "Load practice tournaments"}
+        </button>
       </div>
       {!state.tournaments.length ? (
         <Empty
@@ -1142,7 +1136,7 @@ function Tournaments() {
                     {champ
                       ? "Finished"
                       : matches.length
-                        ? "In progress"
+                        ? (matches.some(m => m.status !== "upcoming") ? "In progress" : "Ready")
                         : "Registration"}
                   </Pill>
                 </div>
@@ -1249,6 +1243,14 @@ function Tournaments() {
                       Reset unplayed fixtures
                     </button>
                   )}
+                <div className="tournament-delete">
+                  <button className="text-btn" aria-label={`Delete ${t.name}`}
+                    disabled={matches.some(m => m.status === "live")}
+                    onClick={() => open({type:"deleteTournament", tournament:t})}>
+                    <Trash2 size={14} />Delete tournament
+                  </button>
+                  {matches.some(m => m.status === "live") && <small>Finish on-court matches first</small>}
+                </div>
               </section>
             );
           })}
@@ -1260,7 +1262,6 @@ function Tournaments() {
 function Teams() {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -1282,7 +1283,6 @@ function Teams() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -1346,7 +1346,6 @@ function Teams() {
                   </td>
                   <td>
                     <strong>{t.name}</strong>
-                    <small>{t.players.join(" / ")}</small>
                   </td>
                   <td>{tournament(t.tournamentId)?.name}</td>
                   <td>{groupName(t.group) || "Not assigned"}</td>
@@ -1381,7 +1380,7 @@ function Teams() {
 function Matches({ history = false }) {
   const {
     state,
-    session,
+    calls,
     page,
     filter,
     modal,
@@ -1403,7 +1402,6 @@ function Matches({ history = false }) {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -1413,15 +1411,22 @@ function Matches({ history = false }) {
   } = useContext(AppContext);
   const [status, setStatus] = useState("all");
   const [query, setQuery] = useState("");
-  const matches = (history ? completed : selected).filter(
+  const waiting = selected.filter(m => m.status === "upcoming" && (m.held || !m.a || !m.b));
+  const matches = (history ? completed : [...live, ...upcoming, ...waiting, ...completed]).filter(
     (m) =>
-      (status === "all" || m.status === status) &&
+      (status === "all" || (status === "held" ? m.held && m.status === "upcoming" : m.status === status && (status !== "upcoming" || !m.held))) &&
       `${team(m.a)?.name} ${team(m.b)?.name}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
   return (
     <section className="panel">
+      {!history && <div className="call-desk-heading">
+        <div><span className="eyebrow">PLAYER CALLS</span><h2>Change the plan. Keep play moving.</h2><p>Call any ready match next, move it up or down, or hold it until players are available. Call numbers run across all tournaments.</p></div>
+        <div><Pill tone="green">{state.callOrder ? "Manual call order" : "Scheduled order"}</Pill>
+          {state.callOrder && <button className="text-btn" disabled={busy} onClick={() => act("resetCallOrder", {}, "Scheduled call order restored", state.revision)}>Use scheduled order</button>}
+        </div>
+      </div>}
       <div className="toolbar">
         <div className="search">
           <Search size={17} />
@@ -1439,8 +1444,9 @@ function Matches({ history = false }) {
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="all">All statuses</option>
-            <option value="live">Live</option>
+            <option value="live">On court</option>
             <option value="upcoming">Upcoming</option>
+            <option value="held">On hold</option>
             <option value="completed">Completed</option>
           </select>
         )}
@@ -1459,7 +1465,6 @@ function Matches({ history = false }) {
 function Standings() {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -1481,7 +1486,6 @@ function Standings() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -1618,7 +1622,6 @@ function Standings() {
 function SettingsPage() {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -1640,7 +1643,6 @@ function SettingsPage() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -1673,16 +1675,16 @@ function SettingsPage() {
             await act(
               "event",
               values,
-              "Event details saved",
+              "Club details saved",
               formRevision.current,
             )
           )
             formRevision.current = state.revision + 1;
         }}
       >
-        <h2>Event details</h2>
-        <p>Make it your tournament.</p>
-        <Field label="Event name">
+        <h2>Club details</h2>
+        <p>Set the defaults for your organizing team.</p>
+        <Field label="Scoreboard title">
           <input
             required
             value={values.name}
@@ -1696,13 +1698,6 @@ function SettingsPage() {
           />
         </Field>
         <div className="form-row">
-          <Field label="Event date">
-            <input
-              type="date"
-              value={values.date}
-              onChange={(e) => setValues({ ...values, date: e.target.value })}
-            />
-          </Field>
           <Field label="Number of courts">
             <input
               required
@@ -1729,7 +1724,7 @@ function SettingsPage() {
           />
         </Field>
         <button className="btn primary" disabled={busy}>
-          Save event details
+          Save club settings
           <Check size={16} />
         </button>
       </form>
@@ -1749,7 +1744,7 @@ function SettingsPage() {
               <a href={url} target="_blank" rel="noreferrer">
                 {url}
               </a>
-              <span>Venue display · no sign-in needed</span>
+              <span>Venue display</span>
               <a href={`${url}/display`} target="_blank" rel="noreferrer">
                 {url}/display
               </a>
@@ -1784,7 +1779,6 @@ function SettingsPage() {
 function TournamentForm() {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -1806,7 +1800,6 @@ function TournamentForm() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -2001,7 +1994,6 @@ function TournamentForm() {
 function TeamForm({ importing = false }) {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -2023,7 +2015,6 @@ function TeamForm({ importing = false }) {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -2045,8 +2036,7 @@ function TeamForm({ importing = false }) {
       "",
   );
   const t = tournament(tid);
-  const [name, setName] = useState(initial?.name || ""),
-    [players, setPlayers] = useState(initial?.players || []),
+  const [players, setPlayers] = useState(initial?.players || []),
     [seed, setSeed] = useState(initial?.seed || ""),
     [rows, setRows] = useState(null),
     [fileName, setFileName] = useState(""),
@@ -2067,7 +2057,6 @@ function TeamForm({ importing = false }) {
           : [
               {
                 id: initial?.id,
-                name,
                 players,
                 seed: seed ? +seed : undefined,
               },
@@ -2135,7 +2124,7 @@ function TeamForm({ importing = false }) {
             onClick={() =>
               download(
                 "shuttlehub-team-template.csv",
-                `team,${Array.from({ length: t?.size || 2 }, (_, i) => `player${i + 1}`).join(",")},seed\nExample Team,${Array.from({ length: t?.size || 2 }, (_, i) => `Player ${i + 1}`).join(",")},1\n`,
+                `${Array.from({ length: t?.size || 2 }, (_, i) => `player${i + 1}`).join(",")},seed\n${Array.from({ length: t?.size || 2 }, (_, i) => `Player ${i + 1}`).join(",")},1\n`,
               )
             }
           >
@@ -2151,7 +2140,6 @@ function TeamForm({ importing = false }) {
                   <thead>
                     <tr>
                       <th>TEAM</th>
-                      <th>PLAYERS</th>
                       <th>SEED</th>
                     </tr>
                   </thead>
@@ -2159,7 +2147,6 @@ function TeamForm({ importing = false }) {
                     {rows.slice(0, 12).map((r, i) => (
                       <tr key={i}>
                         <td>{r.name}</td>
-                        <td>{r.players.join(" / ")}</td>
                         <td>{r.seed || "Auto"}</td>
                       </tr>
                     ))}
@@ -2172,25 +2159,15 @@ function TeamForm({ importing = false }) {
             </div>
           )}
           <p className="help-text">
-            Headers: team, player1
+            Headers: player1
             {t?.size > 1 ? `, player2${t.size > 2 ? ", …" : ""}` : ""}, seed
-            (optional). Names and seeds must be unique within a category. All
+            (optional). Team labels are made from player names. Players and seeds must be unique within a category. All
             rows are validated before anything is saved.
           </p>
         </>
       ) : (
         <>
-          <Field label={t?.size === 1 ? "Entry name" : "Team name"}>
-            <input
-              autoFocus
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={
-                t?.size === 1 ? "Player or entry name" : "e.g. Smash Brothers"
-              }
-            />
-          </Field>
+          <div className="auto-team-name"><span>Entry name (automatic)</span><strong>{playerLabel(players) || "Enter player names below"}</strong></div>
           {Array.from({ length: t?.size || 1 }, (_, i) => (
             <Field key={`${tid}-${i}`} label={`Player ${i + 1}`}>
               <input
@@ -2247,9 +2224,15 @@ function TeamForm({ importing = false }) {
   );
 }
 function MatchForm() {
+  const {state, modal} = useContext(AppContext);
+  if (!state.matches.some(m => m.id === modal.matchId)) return <Empty title="This match was removed">Its tournament or fixtures were removed on another device.</Empty>;
+  return <MatchEditor />;
+}
+function MatchEditor() {
   const {
     state,
-    session,
+    callPositions,
+    calls,
     page,
     filter,
     modal,
@@ -2271,7 +2254,6 @@ function MatchForm() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -2287,9 +2269,7 @@ function MatchForm() {
       ) || 1,
     ),
     [scheduled, setScheduled] = useState(m.scheduled || ""),
-    [score, setScore] = useState(m.live),
     [games, setGames] = useState(m.games.length ? m.games : [[0, 0]]);
-  useEffect(() => setScore(m.live), [m.live[0], m.live[1]]);
   return (
     <>
       <div className="match-dialog-meta">
@@ -2303,52 +2283,23 @@ function MatchForm() {
         {[m.a, m.b].map((tid, i) => (
           <div key={i}>
             <strong>{team(tid)?.name || "Awaiting qualifier"}</strong>
-            <small>{team(tid)?.players.join(" / ")}</small>
-            {m.status === "live" && (
-              <div className="score-controls">
-                <button
-                  className="btn"
-                  disabled={score[i] === 0}
-                  onClick={() =>
-                    setScore(
-                      score.map((v, j) => (j === i ? Math.max(0, v - 1) : v)),
-                    )
-                  }
-                >
-                  −
-                </button>
-                <input
-                  aria-label={`${team(tid)?.name} live score`}
-                  type="number"
-                  min="0"
-                  max={t.cap}
-                  value={score[i]}
-                  onChange={(e) =>
-                    setScore(
-                      score.map((v, j) => (j === i ? +e.target.value : v)),
-                    )
-                  }
-                />
-                <button
-                  className="btn"
-                  disabled={score[i] >= t.cap}
-                  onClick={() =>
-                    setScore(
-                      score.map((v, j) =>
-                        j === i ? Math.min(t.cap, v + 1) : v,
-                      ),
-                    )
-                  }
-                >
-                  +
-                </button>
-              </div>
-            )}
+            <small>{team(tid) ? `Seed ${team(tid).seed}` : "Winner of previous round"}</small>
           </div>
         ))}
       </div>
       {m.status === "upcoming" ? (
         <>
+          <div className="call-editor">
+            <strong>{m.held ? "On hold - hidden from venue calls" : !m.a || !m.b ? "Waiting for both opponents" : `Call #${callPositions.get(m.id)} across all tournaments`}</strong>
+            <p>Change calls here as players become available. Planned times do not prevent you starting another match.</p>
+            <CallControls m={m}/>
+            {!m.held && m.a && m.b && <Field label="Call position (all tournaments)">
+              <select value={callPositions.get(m.id)} disabled={busy}
+                onChange={e => act("moveCall", {matchId:m.id, position:+e.target.value}, "Match calls updated", state.revision)}>
+                {calls.map((x,i) => <option key={x.id} value={i+1}>{i+1}{i===0 ? " - next call" : ""}</option>)}
+              </select>
+            </Field>}
+          </div>
           <Field label="Court">
             <select value={court} onChange={(e) => setCourt(+e.target.value)}>
               {Array.from({ length: state.event.courts }, (_, i) => i + 1).map(
@@ -2373,7 +2324,7 @@ function MatchForm() {
           </Field>
           <Field label="Optional scheduled start">
             <input
-              type="datetime-local"
+              type="time"
               value={scheduled}
               onChange={(e) => setScheduled(e.target.value)}
             />
@@ -2391,10 +2342,10 @@ function MatchForm() {
             </button>
             <button
               className="btn primary"
-              disabled={busy || !m.a || !m.b}
+              disabled={busy || m.held || !m.a || !m.b}
               onClick={async () => {
                 if (
-                  await act("start", { matchId: m.id, court }, "Match is live")
+                  await act("start", { matchId: m.id, court }, "Match started")
                 )
                   setModal(null);
               }}
@@ -2406,21 +2357,7 @@ function MatchForm() {
         </>
       ) : m.status === "live" ? (
         <>
-          <button
-            className="btn primary full"
-            disabled={busy}
-            onClick={() =>
-              act(
-                "score",
-                { matchId: m.id, live: score },
-                "Live score published",
-              )
-            }
-          >
-            Publish current-game score
-            <Radio size={16} />
-          </button>
-          <div className="divider" />
+          <div className="return-match"><p>Players not ready and play has not begun?</p><button className="text-btn" disabled={busy} onClick={() => open({type:"returnMatch", matchId:m.id})}>Free court and put match on hold</button></div>
           <h3>Record the final result</h3>
           <p className="help-text">
             Enter each completed game in opponent order above. This finishes the
@@ -2505,122 +2442,16 @@ function MatchForm() {
             <Trophy />
             <h2>{team(m.winner)?.name} wins</h2>
             <p>{m.games.map((g) => g.join(" – ")).join(" / ")}</p>
-            <small>
-              Completed {new Date(m.completedAt).toLocaleString("en-IN")}
-            </small>
+            <small>Completed {time(m.completedAt)}</small>
           </div>
         </>
       )}
     </>
   );
 }
-function LoginForm() {
-  const {
-    state,
-    session,
-    page,
-    filter,
-    modal,
-    error,
-    notice,
-    connected,
-    busy,
-    now,
-    display,
-    displayHistory,
-    admin,
-    selected,
-    live,
-    upcoming,
-    completed,
-    categorySelect,
-    team,
-    tournament,
-    open,
-    act,
-    setState,
-    setSession,
-    setPage,
-    setFilter,
-    setModal,
-    setError,
-    setNotice,
-    setDisplayHistory,
-  } = useContext(AppContext);
-  const [password, setPassword] = useState(""),
-    [loading, setLoading] = useState(false);
-  return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
-        try {
-          const r = await fetch("/api/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password }),
-          });
-          const data = await r.json();
-          if (!r.ok) throw new Error(data.error);
-          setSession({ ...session, needsSetup: false, authenticated: true });
-          setModal(null);
-          setNotice("Welcome to your tournament desk");
-        } catch (e) {
-          setError(e.message);
-        } finally {
-          setLoading(false);
-        }
-      }}
-    >
-      <div className="login-intro">
-        <ShieldCheck size={32} />
-        <p>
-          {session.needsSetup
-            ? "Create an organizer password to manage your event. Share it with your scoring team on the same Wi-Fi."
-            : "Enter your organizer password to manage teams, fixtures, and scores."}
-        </p>
-      </div>
-      {session.needsSetup && !session.canSetup ? (
-        <p className="error">
-          Open http://localhost:3000 on the host laptop to create the password
-          first.
-        </p>
-      ) : (
-        <>
-          <Field
-            label={
-              session.needsSetup
-                ? "Create organizer password"
-                : "Organizer password"
-            }
-          >
-            <input
-              autoFocus
-              type="password"
-              required
-              minLength={session.needsSetup ? 8 : 1}
-              maxLength="200"
-              autoComplete={
-                session.needsSetup ? "new-password" : "current-password"
-              }
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </Field>
-          <button className="btn primary full" disabled={loading}>
-            {session.needsSetup ? "Create password & get started" : "Sign in"}
-            <ArrowRight size={16} />
-          </button>
-        </>
-      )}
-    </form>
-  );
-}
 function ConfirmForm() {
   const {
     state,
-    session,
     page,
     filter,
     modal,
@@ -2642,7 +2473,6 @@ function ConfirmForm() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -2652,12 +2482,15 @@ function ConfirmForm() {
   } = useContext(AppContext);
   const t = modal.tournament;
   const type = modal.type;
+  const returning = state.matches.find(m => m.id === modal.matchId);
   const descriptions = {
+    returnMatch: `Return ${team(returning?.a)?.name || "this match"} vs ${team(returning?.b)?.name || "opponent"} to waiting? Use this only if play has not begun. The court will be freed and this match placed on hold, hidden from venue calls until you release it.`,
     generate: `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft by seed. Team registration will close for this category.`,
     knockouts: `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
     resetFixtures:
       "Remove the unplayed fixtures for this category and reopen team registration? Your teams will be kept.",
     deleteTeam: `Remove ${modal.team?.name} from this category?`,
+    deleteTournament: `Delete "${t?.name}"? This permanently removes ${state.teams.filter(x => x.tournamentId === t?.id).length} teams, ${state.matches.filter(m => m.tournamentId === t?.id).length} fixtures, and ${state.matches.filter(m => m.tournamentId === t?.id && m.status === "completed").length} completed results. This cannot be undone. Other tournaments are kept.`,
     clearDemo:
       "Clear the entire sample event, including any edits you made to it, and start with an empty tournament desk?",
   };
@@ -2669,14 +2502,14 @@ function ConfirmForm() {
           Cancel
         </button>
         <button
-          className="btn primary"
+          className={`btn ${type === "deleteTournament" ? "danger" : "primary"}`}
           disabled={busy}
           onClick={async () => {
             if (
               await act(
                 type,
-                { tournamentId: t?.id, teamId: modal.team?.id },
-                "Tournament updated",
+                { tournamentId: t?.id, teamId: modal.team?.id, matchId:modal.matchId },
+                type === "returnMatch" ? "Court freed; match placed on hold" : type === "deleteTournament" ? "Tournament deleted" : "Tournament updated",
               )
             ) {
               setModal(null);
@@ -2687,7 +2520,7 @@ function ConfirmForm() {
             }
           }}
         >
-          Confirm
+          {type === "deleteTournament" ? "Delete tournament" : "Confirm"}
           <Check size={16} />
         </button>
       </div>
@@ -2697,7 +2530,8 @@ function ConfirmForm() {
 function VenueDisplay() {
   const {
     state,
-    session,
+    callPositions,
+    calls,
     page,
     filter,
     modal,
@@ -2719,7 +2553,6 @@ function VenueDisplay() {
     open,
     act,
     setState,
-    setSession,
     setPage,
     setFilter,
     setModal,
@@ -2747,7 +2580,9 @@ function VenueDisplay() {
           </strong>
           <span>
             <i className={`dot ${connected ? "" : "offline"}`} />
-            {connected ? "Live updates" : "Reconnecting — scores may be stale"}
+            {connected
+              ? "Live updates"
+              : "Reconnecting — match information may be stale"}
           </span>
         </div>
       </header>
@@ -2822,7 +2657,7 @@ function VenueDisplay() {
                   {upcoming.slice(0, 4).map((m, i) => (
                     <div key={m.id}>
                       <b className="queue-number">
-                        {String(i + 1).padStart(2, "0")}
+                        {String(callPositions.get(m.id)).padStart(2, "0")}
                       </b>
                       <div>
                         <small>
@@ -2835,7 +2670,7 @@ function VenueDisplay() {
                           {team(m.b)?.name || "Awaiting qualifier"}
                         </strong>
                       </div>
-                      <span>{m.scheduled ? time(m.scheduled) : "On deck"}</span>
+                      <span>{state.callOrder ? (calls[0]?.id === m.id ? "Next call" : "On deck") : m.scheduled ? time(m.scheduled) : "On deck"}</span>
                     </div>
                   ))}
                 </div>

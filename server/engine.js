@@ -1,13 +1,14 @@
 import { standings } from "../shared/standings.js";
 export { standings } from "../shared/standings.js";
 import { randomUUID } from "node:crypto";
+import { playerLabel } from "../shared/players.js";
+import { canCall, callQueue } from "../shared/calls.js";
 export const id = () => randomUUID();
 export const emptyState = () => ({
   revision: 0,
   event: {
     name: "ShuttleHub Open",
     venue: "Tournament venue",
-    date: "",
     courts: 4,
     announcement: "",
   },
@@ -40,7 +41,6 @@ const match = (tournamentId, a, b, stage, group, round, index) => ({
   status: "upcoming",
   court: null,
   games: [],
-  live: [0, 0],
   winner: null,
   scheduled: "",
 });
@@ -98,7 +98,6 @@ export function applyAction(previous, action, payload = {}) {
     s.event = {
       name: clean(payload.name),
       venue: clean(payload.venue),
-      date: clean(payload.date, 10),
       courts,
       announcement: clean(payload.announcement, 250),
     };
@@ -123,6 +122,13 @@ export function applyAction(previous, action, payload = {}) {
       fail("Groups × qualifiers must equal 2, 4, 8 or 16 knockout places.");
     if (t) Object.assign(t, config);
     else s.tournaments.push({ id: id(), ...config });
+  } else if (action === "deleteTournament") {
+    if (!t) fail("Tournament not found.");
+    if (s.matches.some((match) => match.tournamentId === t.id && match.status === "live"))
+      fail("Finish the matches currently on court before deleting this tournament.");
+    s.matches = s.matches.filter((match) => match.tournamentId !== t.id);
+    s.teams = s.teams.filter((team) => team.tournamentId !== t.id);
+    s.tournaments = s.tournaments.filter((tournament) => tournament.id !== t.id);
   } else if (action === "teams") {
     if (!t) fail("Category not found.");
     if (
@@ -136,27 +142,18 @@ export function applyAction(previous, action, payload = {}) {
         "Teams are locked after fixtures are generated. Reset unplayed fixtures to edit them.",
       );
     for (const row of payload.teams) {
-      const name = clean(row.name),
-        players = (Array.isArray(row.players) ? row.players : [])
+      const players = (Array.isArray(row.players) ? row.players : [])
           .map((p) => clean(p, 80))
           .filter(Boolean);
-      if (!name || players.length !== t.size)
+      const name = playerLabel(players);
+      if (players.length !== t.size)
         fail(
-          `Each ${t.name} entry needs a team name and exactly ${t.size} player(s).`,
+          `Each ${t.name} entry needs exactly ${t.size} player(s).`,
         );
       const existing = row.id
         ? s.teams.find((x) => x.id === row.id && x.tournamentId === t.id)
         : null;
       if (row.id && !existing) fail("Team not found.");
-      if (
-        s.teams.some(
-          (x) =>
-            x.tournamentId === t.id &&
-            x.id !== row.id &&
-            x.name.toLowerCase() === name.toLowerCase(),
-        )
-      )
-        fail(`Duplicate team name: ${name}.`);
       const normalized = players.map((p) => p.toLowerCase());
       if (
         new Set(normalized).size !== normalized.length ||
@@ -291,16 +288,47 @@ export function applyAction(previous, action, payload = {}) {
       count /= 2;
       round++;
     }
-  } else if (["start", "score", "finish", "schedule"].includes(action)) {
+  } else if (action === "resetCallOrder") {
+    delete s.callOrder;
+  } else if (["moveCall", "holdMatch", "releaseMatch", "returnMatch"].includes(action)) {
+    if (!m) fail("Match not found.");
+    if (action === "returnMatch") {
+      if (m.status !== "live" || m.games.length)
+        fail("Only an on-court match without a recorded result can be returned.");
+      m.status = "upcoming";
+      m.court = null;
+      m.held = true;
+      delete m.startedAt;
+    } else {
+      if (m.status !== "upcoming") fail("Only upcoming matches can change call order.");
+      if (action === "holdMatch") {
+        m.held = true;
+      } else if (action === "releaseMatch") {
+        if (!m.held) fail("This match is not on hold.");
+        const order = callQueue(s).map(x => x.id);
+        delete m.held;
+        if (canCall(m)) order.push(m.id);
+        s.callOrder = order;
+      } else {
+        if (!canCall(m)) fail("Release the hold and confirm both opponents before calling this match.");
+        const queue = callQueue(s);
+        const position = integer(payload.position, 1, queue.length, "Call position");
+        const order = queue.filter(x => x.id !== m.id).map(x => x.id);
+        order.splice(position - 1, 0, m.id);
+        s.callOrder = order;
+      }
+    }
+  } else if (["start", "finish", "schedule"].includes(action)) {
     if (!m) fail("Match not found.");
     const config = s.tournaments.find((t) => t.id === m.tournamentId);
     if (action === "schedule") {
       if (m.status !== "upcoming")
         fail("Only upcoming matches can be scheduled.");
       m.scheduled = clean(payload.scheduled, 40);
-      if (m.scheduled && !Number.isFinite(Date.parse(m.scheduled)))
-        fail("Enter a valid date and time.");
+      if (m.scheduled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(m.scheduled))
+        fail("Enter a valid start time (HH:mm).");
     } else if (action === "start") {
+      if (m.held) fail("Release this match from hold before starting it.");
       if (m.status !== "upcoming" || !m.a || !m.b)
         fail("Both opponents must be known and the match must be upcoming.");
       const court = integer(payload.court, 1, s.event.courts, "Court");
@@ -324,12 +352,6 @@ export function applyAction(previous, action, payload = {}) {
       m.status = "live";
       m.court = court;
       m.startedAt = new Date().toISOString();
-    } else if (action === "score") {
-      if (m.status !== "live")
-        fail("Start this match before updating the score.");
-      if (!Array.isArray(payload.live) || payload.live.length !== 2)
-        fail("Enter both live scores.");
-      m.live = payload.live.map((v) => integer(v, 0, config.cap, "Score"));
     } else {
       if (m.status !== "live")
         fail("Start the match before recording its result.");
@@ -341,6 +363,10 @@ export function applyAction(previous, action, payload = {}) {
       propagate(s, m);
     }
   } else fail("Unknown operation.");
+  if (s.callOrder) {
+    const eligible = new Set(s.matches.filter(canCall).map(x => x.id));
+    s.callOrder = s.callOrder.filter(id => eligible.has(id));
+  }
   s.revision++;
   return s;
 }

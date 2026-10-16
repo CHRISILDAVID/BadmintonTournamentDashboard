@@ -252,44 +252,6 @@ nav button.active {
   width: 100%;
   margin: 18px 0;
 }
-.sidebar-user {
-  border-top: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 0;
-}
-.user-avatar {
-  border: 1px solid #e0e6de;
-  background: #edf2e9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: 700;
-  color: #497756;
-  flex-shrink: 0;
-}
-.user-avatar.small {
-  width: 30px;
-  height: 30px;
-  font-size: 9px;
-}
-.sidebar-user strong {
-  font-size: 11px;
-}
-.sidebar-user small {
-  font-size: 9px;
-  color: #929a96;
-  display: block;
-  margin-top: 4px;
-}
-.sidebar-user > button {
-  margin-left: auto;
-}
 .app-shell > main {
   margin-left: 238px;
   width: calc(100% - 238px);
@@ -341,12 +303,6 @@ nav button.active {
 .disconnected .dot,
 .dot.offline {
   background: #c28c46;
-}
-.topbar-date {
-  color: #6c7b73;
-  border-left: 1px solid var(--line);
-  padding-left: 21px;
-  font-size: 10px;
 }
 .main-content {
   padding: 33px 36px 18px;
@@ -724,14 +680,6 @@ nav button.active {
   color: #a1aaa5;
   margin-top: 4px;
   overflow-wrap: anywhere;
-}
-.live-score {
-  margin-left: auto;
-  font-size: 25px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: #285640;
-  letter-spacing: -0.7px;
 }
 .match-foot {
   border-top: 1px solid #edf0ed;
@@ -1516,29 +1464,6 @@ td small {
   color: #94a596;
   margin: 6px 0;
 }
-.score-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-  margin: 15px 0 0;
-}
-.score-controls .btn {
-  padding: 5px 9px;
-  min-height: 30px;
-}
-.score-controls input {
-  width: 63px;
-  text-align: center;
-  font-size: 25px;
-  font-weight: 600;
-  color: #3e7c51;
-  padding: 7px 2px;
-  appearance: textfield;
-}
-.score-controls input::-webkit-inner-spin-button {
-  display: none;
-}
 .divider {
   height: 1px;
   background: var(--line);
@@ -1580,19 +1505,6 @@ td small {
 }
 .final-result small {
   color: #92a597;
-}
-.login-intro {
-  background: #eff6ed;
-  padding: 20px;
-  border-radius: 8px;
-  margin: 20px 0;
-  color: #6e9779;
-  text-align: center;
-}
-.login-intro p {
-  font-size: 12px;
-  line-height: 1.8;
-  margin-top: 13px;
 }
 .toast {
   position: fixed;
@@ -1735,10 +1647,6 @@ td small {
   width: 39px;
   height: 39px;
   font-size: 12px;
-}
-.venue-live .live-score {
-  font-size: 47px;
-  margin-left: 10px;
 }
 .venue-live .opponents {
   gap: 22px;
@@ -1981,9 +1889,6 @@ td small {
     height: 25px;
     font-size: 8px;
   }
-  .live-score {
-    font-size: 22px;
-  }
   .match-meta {
     font-size: 8px;
   }
@@ -2066,9 +1971,6 @@ td small {
   }
   .opponent small {
     font-size: 9px;
-  }
-  .live-score {
-    font-size: 27px;
   }
   .quiet-courts {
     flex-wrap: wrap;
@@ -2157,7 +2059,6 @@ td small {
     height: 45px;
     padding: 0 20px;
   }
-  .topbar-date,
   .topbar .user-avatar {
     display: none;
   }
@@ -2256,9 +2157,6 @@ td small {
     width: 32px;
     height: 32px;
     font-size: 10px;
-  }
-  .live-score {
-    font-size: 32px;
   }
   .match-foot {
     font-size: 10px;
@@ -2366,16 +2264,6 @@ td small {
   }
   .scoreboard strong {
     font-size: 11px;
-  }
-  .score-controls {
-    gap: 3px;
-  }
-  .score-controls input {
-    width: 46px;
-    font-size: 23px;
-  }
-  .score-controls .btn {
-    padding: 5px 7px;
   }
   .toast {
     left: 50%;

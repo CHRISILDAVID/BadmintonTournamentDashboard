@@ -6,7 +6,7 @@ import {
   standings,
   validateGames,
 } from "../server/engine.js";
-import { demoState } from "../server/demo.js";
+import { demoState, practiceState } from "../server/demo.js";
 import { parseCSV, importTeams } from "../src/utils.js";
 
 function setup(count = 8, groups = 2, qualify = 2) {
@@ -303,7 +303,7 @@ test("real XLSX workbook import reads team, player and seed columns", async () =
     arrayBuffer: async () => bytes,
   };
   assert.deepEqual(await importTeams(file), [
-    { name: "Duo", players: ["A", "B"], seed: 1 },
+    { name: "A - B", players: ["A", "B"], seed: 1 },
   ]);
 });
 test("sample event has live, upcoming and completed matches in three categories", () => {
@@ -312,4 +312,91 @@ test("sample event has live, upcoming and completed matches in three categories"
   assert.equal(s.matches.filter((m) => m.status === "live").length, 3);
   assert.equal(s.matches.filter((m) => m.status === "completed").length, 3);
   assert.ok(s.matches.some((m) => m.status === "upcoming"));
+});
+
+test("reusable tournaments schedule matches by time without an event date", () => {
+  let { s, tournamentId } = setup();
+  assert.equal("date" in s.event, false);
+  s = applyAction(s, "generate", { tournamentId });
+  const matchId = s.matches[0].id;
+  s = applyAction(s, "schedule", { matchId, scheduled: "14:30" });
+  assert.equal(s.matches[0].scheduled, "14:30");
+  for (const scheduled of ["24:00", "12:60", "2026-10-15T14:30", "tomorrow"]) {
+    assert.throws(
+      () => applyAction(s, "schedule", { matchId, scheduled }),
+      /valid start time/,
+    );
+  }
+  s = applyAction(s, "schedule", { matchId, scheduled: "" });
+  assert.equal(s.matches[0].scheduled, "");
+  s = applyAction(s, "event", { ...s.event, date: "2026-10-15" });
+  assert.equal("date" in s.event, false);
+});
+
+
+test("entry labels derive from players for singles, doubles and 3v3, including edits", () => {
+  for (const size of [1,2,3]) {
+    let s = applyAction(emptyState(), "tournament", {name:"Test",size,groups:1,qualify:2,points:21,cap:30,bestOf:1});
+    const tournamentId = s.tournaments[0].id;
+    const players = Array.from({length:size}, (_,i) => `Player ${i+1}`);
+    s = applyAction(s,"teams",{tournamentId,teams:[{name:"Ignore this nickname",players:players.map(p=>` ${p} `)}]});
+    assert.equal(s.teams[0].name,players.join(" - "));
+    const edited = [...players]; edited[0]="Corrected Player";
+    s = applyAction(s,"teams",{tournamentId,teams:[{id:s.teams[0].id,players:edited,seed:1}]});
+    assert.equal(s.teams[0].name,edited.join(" - "));
+  }
+});
+
+test("CSV and XLSX accept player-only columns; legacy team names are ignored", async () => {
+  const csv = "player1,player2,seed\nAnil,Ravi,1\n";
+  assert.deepEqual(await importTeams({name:"teams.csv",size:csv.length,text:async()=>csv}),[{name:"Anil - Ravi",players:["Anil","Ravi"],seed:1}]);
+  const {default:ExcelJS} = await import("exceljs");
+  const wb = new ExcelJS.Workbook(); const sheet = wb.addWorksheet("Players");
+  sheet.addRow(["player1","player2","player3"]); sheet.addRow(["A","B","C"]);
+  const bytes = await wb.xlsx.writeBuffer();
+  assert.deepEqual(await importTeams({name:"players.xlsx",size:bytes.length,arrayBuffer:async()=>bytes}),[{name:"A - B - C",players:["A","B","C"],seed:undefined}]);
+});
+
+test("deletion cascades through draft, unplayed fixtures and completed results, preserving other categories", () => {
+  for (const mode of ["draft","fixtures","completed"]) {
+    let {s,tournamentId} = setup(4,1,2);
+    if (mode !== "draft") s = applyAction(s,"generate",{tournamentId});
+    if (mode === "completed") {
+      s = applyAction(s,"start",{matchId:s.matches[0].id,court:1});
+      s = applyAction(s,"finish",{matchId:s.matches[0].id,games:[[21,10],[21,12]]});
+    }
+    s = practiceState(s);
+    const before = structuredClone(s);
+    const after = applyAction(s,"deleteTournament",{tournamentId});
+    for (const key of ["tournaments","teams","matches"]) {
+      assert.deepEqual(after[key],before[key].filter(x => (key === "tournaments" ? x.id : x.tournamentId) !== tournamentId));
+    }
+    assert.deepEqual(s,before);
+    assert.throws(()=>applyAction(after,"deleteTournament",{tournamentId}),/not found/);
+  }
+});
+
+test("deletion refuses matches on court and does not mutate data", () => {
+  const s = demoState(), before = structuredClone(s);
+  assert.throws(()=>applyAction(s,"deleteTournament",{tournamentId:s.matches.find(m=>m.status === "live").tournamentId}),/on court/);
+  assert.deepEqual(s,before);
+});
+
+test("practice pack appends five marked categories, preserves existing data, and does not double-book courts", () => {
+  const previous = demoState();
+  previous.teams.forEach(t => { t.players = t.players.map(p=>`Existing ${p}`); t.name=t.players.join(" - "); });
+  const snapshot = structuredClone(previous);
+  const s = practiceState(previous);
+  assert.deepEqual(previous,snapshot);
+  for (const key of ["tournaments","teams","matches"]) assert.deepEqual(previous[key].map(x=>s[key].find(y=>y.id===x.id)),previous[key]);
+  assert.deepEqual(s.event,previous.event);
+  assert.equal(s.tournaments.filter(t=>t.practice).length,5);
+  assert.equal(s.teams.length-previous.teams.length,30);
+  assert.equal(s.matches.length-previous.matches.length,41);
+  const live = s.matches.filter(m=>m.status === "live");
+  assert.equal(live.length,4); assert.equal(new Set(live.map(m=>m.court)).size,4);
+  assert.equal(s.revision,previous.revision+1);
+  assert.throws(()=>practiceState(s),/already loaded/);
+  const knockout = s.tournaments.find(t=>t.name.includes("Knockout rehearsal"));
+  assert.equal(s.matches.filter(m=>m.tournamentId===knockout.id && m.stage==="Semifinal").length,2);
 });

@@ -1,12 +1,12 @@
 import express from "express";
 import { DatabaseSync } from "node:sqlite";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { emptyState, applyAction } from "./engine.js";
-import { demoState } from "./demo.js";
+import { demoState, practiceState } from "./demo.js";
+import { playerLabel } from "../shared/players.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = process.env.DATA_DIR || path.join(root, "data");
@@ -26,9 +26,24 @@ const set = (key, value) =>
     )
     .run(key, JSON.stringify(value));
 let state = get("state") || emptyState();
-const sessions = new Map(),
-  clients = new Set(),
-  attempts = new Map();
+// Upgrade existing local data without touching teams, fixtures, or results.
+if (
+  "date" in state.event ||
+  state.matches.some((m) => m.scheduled?.includes("T") || "live" in m) ||
+  state.teams.some((team) => team.name !== playerLabel(team.players))
+) {
+  delete state.event.date;
+  state.teams.forEach((team) => { team.name = playerLabel(team.players); });
+  state.matches.forEach((m) => {
+    delete m.live;
+    if (m.scheduled?.includes("T"))
+      m.scheduled = m.scheduled.split("T")[1].slice(0, 5);
+  });
+  state.revision++;
+  set("state", state);
+}
+db.prepare("DELETE FROM kv WHERE key = ?").run("password");
+const clients = new Set();
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "2mb" }));
@@ -42,96 +57,17 @@ app.use((req, res, next) => {
     req.headers.origin &&
     req.headers.origin !== `${req.protocol}://${req.headers.host}`
   )
-    return res
-      .status(403)
-      .json({
-        error: "Open the organizer page on this host before making changes.",
-      });
-  const sid = req.headers.cookie
-    ?.split("; ")
-    .find((c) => c.startsWith("sh_session="))
-    ?.slice(11);
-  const session = sessions.get(sid);
-  req.auth = !!session && session > Date.now();
-  req.sid = sid;
+    return res.status(403).json({
+      error: "Open the organizer page on this host before making changes.",
+    });
   next();
 });
-const local = (req) =>
-  ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
-const auth = (req, res, next) =>
-  req.auth
-    ? next()
-    : res.status(401).json({ error: "Sign in to manage the tournament." });
 const broadcast = () =>
   clients.forEach((res) =>
     res.write(`data: ${JSON.stringify({ revision: state.revision })}\n\n`),
   );
-app.get("/api/session", (req, res) =>
-  res.json({
-    authenticated: req.auth,
-    needsSetup: !get("password"),
-    canSetup: local(req),
-  }),
-);
-app.post("/api/login", (req, res) => {
-  const key = req.socket.remoteAddress,
-    record = attempts.get(key) || { count: 0, until: Date.now() + 900000 };
-  if (record.until < Date.now()) {
-    record.count = 0;
-    record.until = Date.now() + 900000;
-  }
-  if (record.count >= 15)
-    return res
-      .status(429)
-      .json({ error: "Too many attempts. Try again in 15 minutes." });
-  const password = String(req.body.password || "");
-  if (password.length > 200)
-    return res.status(400).json({ error: "Password is too long." });
-  let stored = get("password");
-  if (!stored) {
-    if (!local(req))
-      return res
-        .status(403)
-        .json({
-          error:
-            "Create the organizer password on the host laptop at localhost first.",
-        });
-    if (password.length < 8)
-      return res
-        .status(400)
-        .json({ error: "Choose a password with at least 8 characters." });
-    const salt = randomBytes(16).toString("hex");
-    stored = { salt, hash: scryptSync(password, salt, 64).toString("hex") };
-    set("password", stored);
-  }
-  if (
-    !timingSafeEqual(
-      Buffer.from(stored.hash, "hex"),
-      scryptSync(password, stored.salt, 64),
-    )
-  ) {
-    record.count++;
-    attempts.set(key, record);
-    return res.status(401).json({ error: "Incorrect organizer password." });
-  }
-  attempts.delete(key);
-  const sid = randomBytes(32).toString("hex");
-  sessions.set(sid, Date.now() + 24 * 60 * 60 * 1000);
-  res.cookie("sh_session", sid, {
-    httpOnly: true,
-    sameSite: "strict",
-    maxAge: 86400000,
-    path: "/",
-  });
-  res.json({ ok: true });
-});
-app.post("/api/logout", (req, res) => {
-  sessions.delete(req.sid);
-  res.clearCookie("sh_session");
-  res.json({ ok: true });
-});
 app.get("/api/state", (req, res) => res.json(state));
-app.get("/api/network", auth, (req, res) => {
+app.get("/api/network", (req, res) => {
   const port = server.address().port;
   const addresses = Object.values(networkInterfaces())
     .flat()
@@ -154,20 +90,21 @@ app.get("/api/events", (req, res) => {
     clearInterval(heartbeat);
   });
 });
-app.post("/api/action", auth, (req, res) => {
+app.post("/api/action", (req, res) => {
   try {
     if (req.body.revision !== state.revision)
-      return res
-        .status(409)
-        .json({
-          error:
-            "Another organizer made a change. The latest data has been loaded; please try again.",
-        });
+      return res.status(409).json({
+        error:
+          "Another organizer made a change. The latest data has been loaded; please try again.",
+      });
     let next;
     if (req.body.action === "demo") {
       if (state.tournaments.length)
         throw new Error("Sample data can only be loaded into an empty event.");
       next = demoState();
+      next.revision = state.revision + 1;
+    } else if (req.body.action === "practice") {
+      next = practiceState(state);
       next.revision = state.revision + 1;
     } else if (req.body.action === "clearDemo") {
       if (!state.demo)
@@ -183,7 +120,7 @@ app.post("/api/action", auth, (req, res) => {
     res.status(400).json({ error: e.message });
   }
 });
-app.get("/api/export", auth, (req, res) => {
+app.get("/api/export", (req, res) => {
   res
     .attachment(
       `shuttlehub-backup-${new Date().toISOString().slice(0, 10)}.json`,
@@ -194,6 +131,9 @@ app.get("/api/export", auth, (req, res) => {
       state,
     });
 });
+app.use("/api", (req, res) =>
+  res.status(404).json({ error: "Unknown API endpoint." }),
+);
 if (process.argv.includes("--dev")) {
   const { createServer } = await import("vite");
   const vite = await createServer({
