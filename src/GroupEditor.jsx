@@ -46,7 +46,7 @@ export default function GroupEditor({ state, tournamentId, initialTeamId = "", b
         <strong>{tournament?.name}</strong>
         <br />
         Swap two teams to keep every group the same size. Their fixtures update;
-        planned times, holds and call positions stay with the fixtures.
+        planned times stay with the fixtures.
       </p>
       {reason && (
         <p className="group-lock" role="status">

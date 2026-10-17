@@ -6,7 +6,7 @@ import {
   resultScore,
   tournamentDisplayData,
 } from "../shared/display.js";
-import { groupName, time } from "./utils.js";
+import { groupName } from "./utils.js";
 import useAutoScroll from "./useAutoScroll.js";
 import VenueBracket from "./VenueBracket.jsx";
 import { directPlaces, isPlayoffFormat } from "../shared/format.js";
@@ -161,11 +161,8 @@ function ResultGroup({ group, teams }) {
 
 function TournamentPanel({
   data,
-  calls,
-  callPositions,
+  upcoming,
   teams,
-  manual,
-  firstCall,
 }) {
   const {
     tournament: t,
@@ -243,7 +240,7 @@ function TournamentPanel({
               <i />
               {isPlayoffFormat(t) && data.hasLeague
                 ? playoffs.length
-                  ? `${t.groups * directPlaces(t) + playoffs.filter((m) => m.winner).length} / 8 qualified`
+                  ? `${t.groups * directPlaces(t) + playoffs.filter((m) => m.winner).length} / ${t.groups * t.qualify} qualified`
                   : `Top ${directPlaces(t)} direct · others playoff`
                 : hasKnockouts
                   ? `${t.groups * t.qualify} qualified`
@@ -253,14 +250,10 @@ function TournamentPanel({
             </span>
           </div>
           <div
-            className={`vb-standings-grid ${hasKnockouts ? "vb-scroll" : ""}`}
-            data-auto-scroll={hasKnockouts ? "" : undefined}
-            tabIndex={hasKnockouts ? 0 : undefined}
-            aria-label={
-              hasKnockouts
-                ? `${t.name} league groups, automatically scrolling`
-                : undefined
-            }
+            className="vb-standings-grid vb-scroll"
+            data-auto-scroll=""
+            tabIndex={0}
+            aria-label={`${t.name} league groups, automatically scrolling`}
             style={{ "--groups": Math.min(groups.length, 4) }}
           >
             {groups.map((group) => (
@@ -288,7 +281,7 @@ function TournamentPanel({
             <div className="vb-section-heading">
               <h3>Up next</h3>
               <span>
-                {calls.length} waiting
+                {upcoming.length} waiting
                 {onCourt.length ? ` · ${onCourt.length} on court` : ""}
               </span>
             </div>
@@ -296,21 +289,14 @@ function TournamentPanel({
               className="vb-call-list vb-scroll"
               data-auto-scroll=""
               tabIndex={0}
-              aria-label={`${t.name} courts and upcoming calls`}
+              aria-label={`${t.name} upcoming games`}
             >
-              {calls.map((m) => (
+              {upcoming.map((m) => (
                 <div className="vb-call-row" key={m.id}>
-                  <b className="vb-call-number">
-                    {String(callPositions.get(m.id)).padStart(2, "0")}
-                  </b>
                   <div>
                     <small>
                       {groupName(m.group) || m.stage} ·{" "}
-                      {firstCall === m.id
-                        ? "Next call"
-                        : !manual && m.scheduled
-                          ? time(m.scheduled)
-                          : "On deck"}
+                      Ready to start
                     </small>
                     <strong>
                       {teams.get(m.a)?.name}
@@ -320,11 +306,11 @@ function TournamentPanel({
                   </div>
                 </div>
               ))}
-              {!calls.length && (
+              {!upcoming.length && (
                 <p className="vb-empty">
                   {champion
                     ? "All matches complete."
-                    : "No upcoming games currently called."}
+                    : "No upcoming games ready to start."}
                 </p>
               )}
             </div>
@@ -358,7 +344,7 @@ function TournamentPanel({
   );
 }
 
-export default function VenueBoard({ state, calls, callPositions, connected }) {
+export default function VenueBoard({ state, upcoming, connected }) {
   const boardRef = useRef(null);
   useAutoScroll(boardRef);
   const [preferences, setPreferences] = useState(savedSelection);
@@ -494,10 +480,7 @@ export default function VenueBoard({ state, calls, callPositions, connected }) {
               key={data.tournament.id}
               data={data}
               teams={teams}
-              calls={calls.filter((m) => m.tournamentId === data.tournament.id)}
-              callPositions={callPositions}
-              manual={!!state.callOrder}
-              firstCall={calls[0]?.id}
+              upcoming={upcoming.filter((m) => m.tournamentId === data.tournament.id)}
             />
           ))
         ) : (

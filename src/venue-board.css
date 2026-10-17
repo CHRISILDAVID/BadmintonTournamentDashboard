@@ -1349,3 +1349,15 @@ body:has(.venue-board)::-webkit-scrollbar-thumb:hover,
   }
   .vb-result-row strong { font-size: 18px; }
 }
+
+/* Keep multi-group tables readable in narrow tournament panels. */
+.venue-board .vb-standings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr));
+  grid-auto-rows: minmax(240px, 1fr);
+}
+.vb-large-draw .vb-bracket-cell { padding: 4px 0; }
+.vb-bracket-canvas.vb-large-draw .vb-ko-card { padding: 4px 6px; }
+.vb-bracket-canvas.vb-large-draw .vb-ko-meta { margin-bottom: 2px; }
+.vb-large-draw .vb-ko-status { padding: 2px 4px; }
+.vb-bracket-canvas.vb-large-draw .vb-ko-opponent { padding: 2px 0; min-height: 0; }
+.vb-large-draw .vb-ko-opponent strong { line-height: 1.15; }

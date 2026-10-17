@@ -1567,3 +1567,15 @@ table td small {
   .match-table .match-actions-cell { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .match-table .match-actions-cell > .icon-btn { margin-top:0; flex-shrink:0; }
 }
+
+.stage-actions { display: grid; gap: 12px; margin-bottom: 20px; }
+.panel > .stage-actions { padding: 20px 20px 0; margin-bottom: 0; }
+.stage-action { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 20px; border: 1px solid var(--line); background: #f5f9f2; border-radius: 4px; }
+.stage-action p { margin: 5px 0 0; color: #527061; font-size: 13px; }
+.stage-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.qualification-review { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; margin: 20px 0; }
+.qualification-review h3 { margin-bottom: 8px; }
+.qualification-review ol { padding-left: 22px; }
+.qualification-review li { padding: 6px 0; }
+.qualification-review li span { display: block; color: #527061; font-size: 12px; }
+@media (max-width: 700px) { .stage-action { flex-direction: column; align-items: flex-start; } }

@@ -73,7 +73,7 @@ for (const [mode, count] of [
     }
   });
 }
-test("swaps preserve fixture IDs, scheduling, holds, manual call order and other categories", () => {
+test("swaps preserve fixture IDs, scheduling and other categories", () => {
   let { s, tournamentId } = setup();
   s = applyAction(s, "tournament", {
     ...playoffPreset("beginner"),
@@ -91,14 +91,11 @@ test("swaps preserve fixture IDs, scheduling, holds, manual call order and other
   s = applyAction(s, "start", { matchId: otherMatch.id, court: 1 });
   s = applyAction(s, "finish", { matchId: otherMatch.id, games: [[15, 14]] });
   const own = s.matches.filter((m) => m.tournamentId === tournamentId);
-  s = applyAction(s, "holdMatch", { matchId: own[0].id });
-  s = applyAction(s, "moveCall", { matchId: own.at(-1).id, position: 1 });
   s.matches.find((m) => m.id === own[1].id).scheduled = "14:30";
   const before = structuredClone(s);
   const after = applyAction(s, "swapGroups", payload(s, tournamentId));
   const metadata = (state) => state.matches.map(({ a, b, ...rest }) => rest);
   assert.deepEqual(metadata(after), metadata(before));
-  assert.deepEqual(after.callOrder, before.callOrder);
   assert.deepEqual(
     after.matches.filter((m) => m.tournamentId === otherId),
     before.matches.filter((m) => m.tournamentId === otherId),

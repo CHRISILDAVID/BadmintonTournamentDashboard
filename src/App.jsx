@@ -16,9 +16,6 @@ import {
   Monitor,
   ArrowUpRight,
   ArrowRight,
-  ArrowUp,
-  ArrowDown,
-  Pause,
   Plus,
   ChevronRight,
   Check,
@@ -40,7 +37,7 @@ import {
 } from "lucide-react";
 import { standings, groupName, time, importTeams, download, playerLabel } from "./utils.js";
 
-import { callQueue } from "../shared/calls.js";
+import { upcomingMatches, tournamentProgress } from "../shared/matches.js";
 
 import ScoreInput from "./ScoreInput.jsx";
 import { finalScores } from "./scores.js";
@@ -255,9 +252,8 @@ function App() {
   const live = selected
     .filter((m) => m.status === "live")
     .sort((a, b) => a.court - b.court);
-  const calls = useMemo(() => callQueue(state), [state]);
-  const callPositions = useMemo(() => new Map(calls.map((m,i) => [m.id,i+1])), [calls]);
-  const upcoming = calls.filter(m => filter === "all" || m.tournamentId === filter);
+  const readyMatches = useMemo(() => upcomingMatches(state), [state]);
+  const upcoming = readyMatches.filter(m => filter === "all" || m.tournamentId === filter);
   const completed = selected
     .filter((m) => m.status === "completed")
     .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
@@ -295,17 +291,16 @@ function App() {
     Settings: "Club settings",
   };
   const subtitles = {
-    Overview: "On court. Up next. Final results.",
+    Overview: "On court. Upcoming games. Final results.",
     Tournaments: "Set up categories, seed groups, and build the draw.",
     "Teams & players": "Register your players and manage team entries.",
-    Matches: "Assign a court. Call the players. Keep play moving.",
+    Matches: "Choose any ready game, assign a court, and record the result.",
     History: "Completed matches across all your tournaments.",
     Standings: "Group tables and the route to the final.",
     Settings: "Your venue, courts, and connected screens.",
   };
   const contextValue = {
-    callPositions,
-    calls,
+    readyMatches,
     state,
     page,
     filter,
@@ -391,7 +386,7 @@ function App() {
               </span>
               <strong>The courtside screen</strong>
               <p>
-                Scores and next calls,
+                Results and upcoming games,
                 <br />
                 ready for the whole venue.
               </p>
@@ -634,7 +629,7 @@ function MatchCard({ m, compact = false }) {
           ) : m.status === "completed" ? (
             "FINAL SCORE"
           ) : (
-            m.held ? "ON HOLD" : m.stage
+            m.stage
           )}
         </Pill>
       </div>
@@ -684,21 +679,21 @@ function MatchCard({ m, compact = false }) {
             ? `Court ${m.court}`
             : m.status === "completed"
               ? time(m.completedAt)
-              : m.held ? "Waiting for players"
               : m.scheduled
                 ? time(m.scheduled)
-                : "Ready when called"}
+                : "Ready to start"}
         </span>
         {admin && (
           <button
             className="text-btn"
+            disabled={m.status === "upcoming" && (!m.a || !m.b)}
             onClick={() => open({ type: "match", matchId: m.id })}
           >
             {m.status === "live"
               ? "Record result"
               : m.status === "completed"
                 ? "View result"
-                : "Manage match"}
+                : "Start game"}
             <ArrowUpRight size={15} />
           </button>
         )}
@@ -706,27 +701,10 @@ function MatchCard({ m, compact = false }) {
     </div>
   );
 }
-function CallControls({ m }) {
-  const { calls, callPositions, team, act, busy, state } = useContext(AppContext);
-  if (m.status !== "upcoming") return null;
-  const index = (callPositions.get(m.id) || 0) - 1;
-  const label = `${team(m.a)?.name || "Qualifier"} vs ${team(m.b)?.name || "Qualifier"}`;
-  const move = position => act("moveCall", {matchId:m.id, position}, "Match calls updated", state.revision);
-  return <div className="call-controls">
-    {m.held ? <button className="btn" disabled={busy} onClick={() => act("releaseMatch", {matchId:m.id}, "Match released to the end of the queue", state.revision)}>Release</button> : <>
-      <button className="btn" aria-label={`Call next: ${label}`} disabled={busy || index < 0 || index === 0} onClick={() => move(1)}>Call next</button>
-      <button className="icon-btn" aria-label={`Move up: ${label}`} disabled={busy || index < 1} onClick={() => move(index)}><ArrowUp size={16}/></button>
-      <button className="icon-btn" aria-label={`Move down: ${label}`} disabled={busy || index < 0 || index === calls.length - 1} onClick={() => move(index + 2)}><ArrowDown size={16}/></button>
-      <button className="btn" disabled={busy} onClick={() => act("holdMatch", {matchId:m.id}, "Match placed on hold", state.revision)}><Pause size={14}/>Hold</button>
-    </>}
-  </div>;
-}
-
 function MatchTable({ matches, history = false }) {
   const {
     state,
-    callPositions,
-    calls,
+    readyMatches,
     page,
     filter,
     modal,
@@ -755,7 +733,6 @@ function MatchTable({ matches, history = false }) {
     setNotice,
     setDisplayHistory,
   } = useContext(AppContext);
-  const positions = callPositions;
   return matches.length ? (
     <div className="table-scroll">
       <table className="match-table">
@@ -763,7 +740,7 @@ function MatchTable({ matches, history = false }) {
           <tr>
             <th>MATCH / TOURNAMENT</th>
             <th>STAGE</th>
-            <th>{history ? "RESULT" : "CALL / TIME"}</th>
+            <th>{history ? "RESULT" : "COURT / TIME"}</th>
             <th>STATUS</th>
             {admin && <th />}
           </tr>
@@ -793,7 +770,7 @@ function MatchTable({ matches, history = false }) {
                   </>
                 ) : (
                   <>
-                    <strong>{m.status === "upcoming" ? (positions.has(m.id) ? `Call #${positions.get(m.id)}` : m.held ? "On hold" : "Awaiting opponents") : `Court ${m.court}`}</strong>
+                    <strong>{m.status === "upcoming" ? (m.a && m.b ? "Ready to start" : "Awaiting opponents") : `Court ${m.court}`}</strong>
                     {m.scheduled && <small>Planned {time(m.scheduled)}</small>}
                     {m.status === "upcoming" && <small>Court assigned at start</small>}
                   </>
@@ -802,7 +779,7 @@ function MatchTable({ matches, history = false }) {
               <td>
                 <Pill tone={m.status === "live" ? "green" : ""}>
                   {m.status === "upcoming"
-                    ? (m.held ? "On hold" : "Upcoming")
+                    ? "Upcoming"
                     : m.status === "completed"
                       ? "Completed"
                       : "On court"}
@@ -810,13 +787,13 @@ function MatchTable({ matches, history = false }) {
               </td>
               {admin && (
                 <td className="match-actions-cell">
-                  <CallControls m={m}/>
                   <button
-                    className="icon-btn"
-                    aria-label={`Manage ${team(m.a)?.name || "match"}`}
+                    className="btn"
+                    disabled={m.status === "upcoming" && (!m.a || !m.b)}
+                    aria-label={`${m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : "View result"}: ${team(m.a)?.name || "match"} vs ${team(m.b)?.name || "qualifier"}`}
                     onClick={() => open({ type: "match", matchId: m.id })}
                   >
-                    <ArrowUpRight size={18} />
+                    {m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : "View result"}
                   </button>
                 </td>
               )}
@@ -836,8 +813,7 @@ function MatchTable({ matches, history = false }) {
 function Overview() {
   const {
     state,
-    callPositions,
-    calls,
+    readyMatches,
     live,
     upcoming,
     completed,
@@ -958,7 +934,7 @@ function Overview() {
               }
             >
               {state.matches.length
-                ? "Call a match"
+                ? "Start a game"
                 : state.tournaments.length
                   ? "Add teams"
                   : "Create a tournament"}
@@ -973,17 +949,18 @@ function Overview() {
           </div>
         </div>
       )}
+      <StageActions />
       <div className="overview-bottom">
         <section className="panel upcoming-panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">PLAYER CALLS</span>
+              <span className="eyebrow">UPCOMING GAMES</span>
               <h2>
                 Next on court <span className="count">{upcoming.length}</span>
               </h2>
             </div>
             <button className="text-btn" onClick={() => setPage("Matches")}>
-              Full match queue <ArrowUpRight size={16} />
+              All matches <ArrowUpRight size={16} />
             </button>
           </div>
           {upcoming.length ? (
@@ -994,9 +971,7 @@ function Overview() {
                   className="queue-row"
                   onClick={() => open({ type: "match", matchId: m.id })}
                 >
-                  <span className="queue-rank">
-                    {String(callPositions.get(m.id)).padStart(2, "0")}
-                  </span>
+
                   <span className="queue-teams">
                     <strong>
                       {team(m.a)?.name || "Awaiting qualifier"} <em>vs</em>{" "}
@@ -1008,14 +983,14 @@ function Overview() {
                     </small>
                   </span>
                   <span className="queue-time">
-                    {state.callOrder ? (calls[0]?.id === m.id ? "Next call" : "On deck") : m.scheduled ? time(m.scheduled) : "On deck"}
+                    Start game
                   </span>
                   <ArrowUpRight size={18} />
                 </button>
               ))}
             </div>
           ) : (
-            <Empty title="Your match queue starts here">
+            <Empty title="Your upcoming games appear here">
               Group fixtures appear here once you have added teams and generated
               the draw.
             </Empty>
@@ -1421,10 +1396,27 @@ function Teams() {
     </section>
   );
 }
+function StageActions() {
+  const { state, filter, page, busy, open, setFilter, setPage } = useContext(AppContext);
+  const categories = state.tournaments.map(t => ({ t, progress: tournamentProgress(state, t.id) }))
+    .filter(({ t, progress }) => filter === "all" ? progress.canCreateKnockouts : t.id === filter);
+  if (!categories.length) return null;
+  return <div className="stage-actions" aria-label="Tournament next steps">
+    {categories.map(({ t, progress }) => <section className="stage-action" key={t.id} aria-label={`${t.name} next steps`}>
+      <div><strong>{t.name}</strong><p>{progress.champion ? "Tournament complete" : progress.canCreateKnockouts ? "League complete. Ready for the next stage." : progress.postseason ? "Playoffs and knockouts are ready. Winners advance automatically." : progress.hasFixtures ? `${progress.remaining} league games remaining` : "Add players, then generate fixtures."}</p></div>
+      <div className="stage-buttons">
+        {progress.canCreateKnockouts && <button className="btn primary" disabled={busy} onClick={() => open({ type: "knockouts", tournament: t })}>{isPlayoffFormat(t) ? "Create playoffs + bracket" : "Create knockouts"}</button>}
+        {progress.hasFixtures && page !== "Matches" && <button className="btn" onClick={() => { setFilter(t.id); setPage("Matches"); }}>Manage games</button>}
+        {progress.hasFixtures && page !== "Standings" && <button className="btn" onClick={() => { setFilter(t.id); setPage("Standings"); }}>{progress.postseason ? "Standings & bracket" : "Review standings"}</button>}
+      </div>
+    </section>)}
+  </div>;
+}
+
 function Matches({ history = false }) {
   const {
     state,
-    calls,
+    readyMatches,
     page,
     filter,
     modal,
@@ -1455,22 +1447,21 @@ function Matches({ history = false }) {
   } = useContext(AppContext);
   const [status, setStatus] = useState("all");
   const [query, setQuery] = useState("");
-  const waiting = selected.filter(m => m.status === "upcoming" && (m.held || !m.a || !m.b));
+  const [stage, setStage] = useState("all");
+  const postseasonCount = selected.filter(m => m.stage !== "League").length;
+  useEffect(() => { setStatus("all"); setQuery(""); setStage(filter !== "all" && postseasonCount ? "postseason" : "all"); }, [filter, postseasonCount]);
+  const waiting = selected.filter(m => m.status === "upcoming" && (!m.a || !m.b));
   const matches = (history ? completed : [...live, ...upcoming, ...waiting, ...completed]).filter(
     (m) =>
-      (status === "all" || (status === "held" ? m.held && m.status === "upcoming" : m.status === status && (status !== "upcoming" || !m.held))) &&
+      (status === "all" || m.status === status) &&
+      (history || stage === "all" || (stage === "postseason" ? m.stage !== "League" : m.stage === stage)) &&
       `${team(m.a)?.name} ${team(m.b)?.name}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
   return (
     <section className="panel">
-      {!history && <div className="call-desk-heading">
-        <div><span className="eyebrow">PLAYER CALLS</span><h2>Change the plan. Keep play moving.</h2><p>Call any ready match next, move it up or down, or hold it until players are available. Call numbers run across all tournaments.</p></div>
-        <div><Pill tone="green">{state.callOrder ? "Manual call order" : "Scheduled order"}</Pill>
-          {state.callOrder && <button className="text-btn" disabled={busy} onClick={() => act("resetCallOrder", {}, "Scheduled call order restored", state.revision)}>Use scheduled order</button>}
-        </div>
-      </div>}
+      {!history && <StageActions />}
       <div className="toolbar">
         <div className="search">
           <Search size={17} />
@@ -1490,10 +1481,13 @@ function Matches({ history = false }) {
             <option value="all">All statuses</option>
             <option value="live">On court</option>
             <option value="upcoming">Upcoming</option>
-            <option value="held">On hold</option>
             <option value="completed">Completed</option>
           </select>
         )}
+        {!history && <select aria-label="Match stage" value={stage} onChange={e => setStage(e.target.value)}>
+          <option value="all">All stages</option><option value="League">League</option>
+          <option value="postseason">Playoffs & knockouts</option>
+        </select>}
         <button
           className="btn"
           onClick={() => setPage(history ? "Matches" : "History")}
@@ -1548,6 +1542,7 @@ function Standings() {
           Ranked by wins → game difference → point difference → seed.
         </span>
       </div>
+      <StageActions />
       {ts.length ? (
         ts.map((t) => (
           <section key={t.id} className="standing-section">
@@ -1612,8 +1607,8 @@ function Standings() {
               <i className="dot" /> {isPlayoffFormat(t) ? "Green: direct places or playoff winners. Amber: playoff places. League rankings stay unchanged after playoffs." : "Shaded places qualify once the league is complete."} Seed breaks any remaining tie.
             </p>
             {state.matches.some(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE) && <section className="organizer-playoffs">
-              <h3>Qualification playoffs</h3><p className="muted">{scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Winners fill the named quarterfinal slots.</p>
-              <div className="organizer-playoff-groups">{[0,1].map(g => <div key={g}><h4>{groupName(g)}</h4>{state.matches.filter(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE && m.group === g).map(m => <MatchCard key={m.id} m={m} compact/>)}</div>)}</div>
+              <h3>Qualification playoffs</h3><p className="muted">{scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Winners fill the named knockout slots.</p>
+              <div className="organizer-playoff-groups">{Array.from({ length: t.groups }, (_, g) => g).map(g => <div key={g}><h4>{groupName(g)}</h4>{state.matches.filter(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE && m.group === g).map(m => <MatchCard key={m.id} m={m} compact/>)}</div>)}</div>
             </section>}
             {state.matches.some(
               (m) => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
@@ -2212,8 +2207,7 @@ function MatchForm() {
 function MatchEditor() {
   const {
     state,
-    callPositions,
-    calls,
+    readyMatches,
     page,
     filter,
     modal,
@@ -2274,17 +2268,7 @@ function MatchEditor() {
       </div>
       {m.status === "upcoming" ? (
         <>
-          <div className="call-editor">
-            <strong>{m.held ? "On hold - hidden from venue calls" : !m.a || !m.b ? "Waiting for both opponents" : `Call #${callPositions.get(m.id)} across all tournaments`}</strong>
-            <p>Change calls here as players become available. Planned times do not prevent you starting another match.</p>
-            <CallControls m={m}/>
-            {!m.held && m.a && m.b && <Field label="Call position (all tournaments)">
-              <select value={callPositions.get(m.id)} disabled={busy}
-                onChange={e => act("moveCall", {matchId:m.id, position:+e.target.value}, "Match calls updated", state.revision)}>
-                {calls.map((x,i) => <option key={x.id} value={i+1}>{i+1}{i===0 ? " - next call" : ""}</option>)}
-              </select>
-            </Field>}
-          </div>
+          <p className="help-text">{m.a && m.b ? "Choose a free court and start when both teams are ready." : "Both opponents must qualify before this game can start."}</p>
           <Field label="Court">
             <select value={court} onChange={(e) => setCourt(+e.target.value)}>
               {Array.from({ length: state.event.courts }, (_, i) => i + 1).map(
@@ -2327,7 +2311,7 @@ function MatchEditor() {
             </button>
             <button
               className="btn primary"
-              disabled={busy || m.held || !m.a || !m.b}
+              disabled={busy || !m.a || !m.b || state.matches.some(x => x.status === "live" && x.court === court)}
               onClick={async () => {
                 if (
                   await act("start", { matchId: m.id, court }, "Match started")
@@ -2336,13 +2320,13 @@ function MatchEditor() {
               }}
             >
               <Play size={16} />
-              Start match
+              Start game
             </button>
           </div>
         </>
       ) : m.status === "live" ? (
         <>
-          <div className="return-match"><p>Players not ready and play has not begun?</p><button className="text-btn" disabled={busy} onClick={() => open({type:"returnMatch", matchId:m.id})}>Free court and put match on hold</button></div>
+          <div className="return-match"><p>Players not ready and play has not begun?</p><button className="text-btn" disabled={busy} onClick={() => open({type:"returnMatch", matchId:m.id})}>Undo start and free court</button></div>
           <h3>Record the final result</h3>
           <p className="help-text">
             Enter each completed game in opponent order above. This finishes the
@@ -2385,8 +2369,16 @@ function MatchEditor() {
                     { matchId: m.id, games: completedGames },
                     "Result recorded",
                   )
-                )
-                  setModal(null);
+                ) {
+                  const leagueComplete = m.stage === "League" && state.matches
+                    .filter(x => x.tournamentId === t.id && x.stage === "League" && x.id !== m.id)
+                    .every(x => x.status === "completed");
+                  if (leagueComplete) {
+                    setFilter(t.id);
+                    setPage("Matches");
+                    open({ type: "knockouts", tournament: t });
+                  } else setModal(null);
+                }
               }}
             >
               Confirm final result
@@ -2442,9 +2434,9 @@ function ConfirmForm() {
   const type = modal.type;
   const returning = state.matches.find(m => m.id === modal.matchId);
   const descriptions = {
-    returnMatch: `Return ${team(returning?.a)?.name || "this match"} vs ${team(returning?.b)?.name || "opponent"} to waiting? Use this only if play has not begun. The court will be freed and this match placed on hold, hidden from venue calls until you release it.`,
+    returnMatch: `Return ${team(returning?.a)?.name || "this match"} vs ${team(returning?.b)?.name || "opponent"} to waiting? Use this only if play has not begun. The court will be freed and this game will return to the upcoming list.`,
     generate: `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft by seed. Team registration will close for this category.`,
-    knockouts: isPlayoffFormat(t) ? `Create qualification playoffs and the quarterfinal bracket for ${t.name}? Top ${directPlaces(t)} per group advance directly; playoff winners earn the remaining slots. Playoffs: ${scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Main knockout: ${scoringLabel(scoringRules(t, "Final"))}. Review final league standings before confirming. League ranks will not change after playoffs.` : `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
+    knockouts: isPlayoffFormat(t) ? `Create qualification playoffs and the knockout bracket for ${t.name}? Top ${directPlaces(t)} per group advance directly; playoff winners earn the remaining slots. Playoffs: ${scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Main knockout: ${scoringLabel(scoringRules(t, "Final"))}. Review final league standings before confirming. League ranks will not change after playoffs.` : `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
     resetFixtures:
       "Remove the unplayed fixtures for this category and reopen team registration? Your teams will be kept.",
     deleteTeam: `Remove ${modal.team?.name} from this category?`,
@@ -2455,6 +2447,14 @@ function ConfirmForm() {
   return (
     <>
       <p className="form-intro">{descriptions[type]}</p>
+      {type === "knockouts" && <div className="qualification-review" aria-label="League qualification review">
+        {Array.from({ length: t.groups }, (_, group) => <section key={group}>
+          <h3>{groupName(group)}</h3>
+          <ol>{standings(state, t.id, group).map((row, rank) => <li key={row.id}>
+            <strong>{row.name}</strong><span>{rank < directPlaces(t) ? "Direct qualifier" : isPlayoffFormat(t) ? "Qualification playoff" : "Eliminated"}</span>
+          </li>)}</ol>
+        </section>)}
+      </div>}
       <div className="modal-actions">
         <button className="btn" onClick={() => setModal(null)}>
           Cancel
@@ -2467,10 +2467,14 @@ function ConfirmForm() {
               await act(
                 type,
                 { tournamentId: t?.id, teamId: modal.team?.id, matchId:modal.matchId },
-                type === "returnMatch" ? "Court freed; match placed on hold" : type === "deleteTournament" ? "Tournament deleted" : "Tournament updated",
+                type === "returnMatch" ? "Court freed; game returned to upcoming" : type === "deleteTournament" ? "Tournament deleted" : "Tournament updated",
               )
             ) {
               setModal(null);
+              if (type === "knockouts" || type === "generate") {
+                setFilter(t.id);
+                setPage("Matches");
+              }
               if (type === "clearDemo") {
                 setFilter("all");
                 setPage("Overview");
@@ -2478,7 +2482,7 @@ function ConfirmForm() {
             }
           }}
         >
-          {type === "deleteTournament" ? "Delete tournament" : "Confirm"}
+          {type === "deleteTournament" ? "Delete tournament" : type === "knockouts" ? isPlayoffFormat(t) ? "Create playoffs + bracket" : "Create knockouts" : "Confirm"}
           <Check size={16} />
         </button>
       </div>
@@ -2486,8 +2490,8 @@ function ConfirmForm() {
   );
 }
 function VenueDisplay() {
-  const { state, calls, callPositions, connected } = useContext(AppContext);
-  return <VenueBoard state={state} calls={calls} callPositions={callPositions} connected={connected}/>;
+  const { state, readyMatches, connected } = useContext(AppContext);
+  return <VenueBoard state={state} upcoming={readyMatches} connected={connected}/>;
 }
 function MapPinIcon() {
   return (

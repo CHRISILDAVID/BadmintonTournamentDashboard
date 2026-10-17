@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { emptyState, applyAction } from "./engine.js";
 import { demoState, practiceState } from "./demo.js";
+import { removeLegacyCalls } from "../shared/matches.js";
 import { playerLabel } from "../shared/players.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,8 +27,10 @@ const set = (key, value) =>
     )
     .run(key, JSON.stringify(value));
 let state = get("state") || emptyState();
+const retiredCalls = removeLegacyCalls(state);
 // Upgrade existing local data without touching teams, fixtures, or results.
 if (
+  retiredCalls ||
   "date" in state.event ||
   state.matches.some((m) => m.scheduled?.includes("T") || "live" in m) ||
   state.teams.some((team) => team.name !== playerLabel(team.players))

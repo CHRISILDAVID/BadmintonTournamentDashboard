@@ -136,8 +136,11 @@ test(
       await start();
       const restored = await fetch(base + "/api/state").then((r) => r.json());
       assert.equal(restored.teams.length, 24);
-      assert.equal(restored.teams[0].name,oldState.teams[0].players.join(" - "));
-      assert.equal(restored.teams[0].id,oldState.teams[0].id);
+      assert.equal(
+        restored.teams[0].name,
+        oldState.teams[0].players.join(" - "),
+      );
+      assert.equal(restored.teams[0].id, oldState.teams[0].id);
       assert.equal(restored.revision, 2);
       assert.equal("date" in restored.event, false);
       assert.equal(restored.matches[0].scheduled, "14:30");
@@ -160,37 +163,104 @@ test(
         ).status,
         200,
       );
-      const beforePractice = await fetch(base + "/api/state").then(r=>r.json());
-      const practiceResponse = await post("/api/action",{revision:beforePractice.revision,action:"practice"});
-      assert.equal(practiceResponse.status,200);
+      const beforePractice = await fetch(base + "/api/state").then((r) =>
+        r.json(),
+      );
+      const practiceResponse = await post("/api/action", {
+        revision: beforePractice.revision,
+        action: "practice",
+      });
+      assert.equal(practiceResponse.status, 200);
       const practice = await practiceResponse.json();
-      assert.equal(practice.tournaments.length,beforePractice.tournaments.length+5);
-      const draft = practice.tournaments.find(t=>t.name === "Practice / Unused draft");
-      const deletedResponse = await post("/api/action",{revision:practice.revision,action:"deleteTournament",payload:{tournamentId:draft.id}});
-      assert.equal(deletedResponse.status,200);
+      assert.equal(
+        practice.tournaments.length,
+        beforePractice.tournaments.length + 5,
+      );
+      const draft = practice.tournaments.find(
+        (t) => t.name === "Practice / Unused draft",
+      );
+      const deletedResponse = await post("/api/action", {
+        revision: practice.revision,
+        action: "deleteTournament",
+        payload: { tournamentId: draft.id },
+      });
+      assert.equal(deletedResponse.status, 200);
       const deleted = await deletedResponse.json();
-      assert.equal(deleted.teams.some(t=>t.tournamentId === draft.id),false);
-      assert.equal(deleted.tournaments.some(t=>t.id === draft.id),false);
-      const callEvents = new AbortController();
-      const callStream = await fetch(base + "/api/events", {signal:callEvents.signal});
-      const callReader = callStream.body.getReader();
-      await callReader.read();
-      const called = deleted.matches.findLast(m=>m.status === "upcoming" && m.a && m.b);
-      const moveResponse = await post("/api/action",{revision:deleted.revision,action:"moveCall",payload:{matchId:called.id,position:1}});
-      assert.equal(moveResponse.status,200);
-      const moved = await moveResponse.json();
-      assert.equal(moved.callOrder[0],called.id);
-      const callEvent = new TextDecoder().decode((await callReader.read()).value);
-      assert.ok(callEvent.includes(`"revision":${moved.revision}`));
-      callEvents.abort();
-      assert.equal((await post("/api/action",{revision:deleted.revision,action:"holdMatch",payload:{matchId:called.id}})).status,409);
-      const holdResponse = await post("/api/action",{revision:moved.revision,action:"holdMatch",payload:{matchId:called.id}});
-      assert.equal(holdResponse.status,200);
-      const held = await holdResponse.json();
-      assert.equal(held.matches.find(m=>m.id===called.id).held,true);
-      assert.ok(!held.callOrder.includes(called.id));
-      await stop(); await start();
-      assert.deepEqual(await fetch(base + "/api/state").then(r=>r.json()),held);
+      assert.equal(
+        deleted.teams.some((t) => t.tournamentId === draft.id),
+        false,
+      );
+      assert.equal(
+        deleted.tournaments.some((t) => t.id === draft.id),
+        false,
+      );
+      const gameEvents = new AbortController();
+      const gameStream = await fetch(base + "/api/events", {
+        signal: gameEvents.signal,
+      });
+      const gameReader = gameStream.body.getReader();
+      await gameReader.read();
+      const chosenGame = deleted.matches.find(
+        (m) => m.status === "upcoming" && m.stage === "Semifinal" && m.a && m.b,
+      );
+      const startResponse = await post("/api/action", {
+        revision: deleted.revision,
+        action: "start",
+        payload: { matchId: chosenGame.id, court: 4 },
+      });
+      assert.equal(startResponse.status, 200);
+      const startedState = await startResponse.json();
+      assert.equal(
+        startedState.matches.find((m) => m.id === chosenGame.id).status,
+        "live",
+      );
+      const gameEvent = new TextDecoder().decode(
+        (await gameReader.read()).value,
+      );
+      assert.ok(gameEvent.includes(`"revision":${startedState.revision}`));
+      gameEvents.abort();
+      assert.equal(
+        (
+          await post("/api/action", {
+            revision: deleted.revision,
+            action: "returnMatch",
+            payload: { matchId: chosenGame.id },
+          })
+        ).status,
+        409,
+      );
+      const returnedResponse = await post("/api/action", {
+        revision: startedState.revision,
+        action: "returnMatch",
+        payload: { matchId: chosenGame.id },
+      });
+      assert.equal(returnedResponse.status, 200);
+      const returnedState = await returnedResponse.json();
+      assert.equal(
+        returnedState.matches.find((m) => m.id === chosenGame.id).status,
+        "upcoming",
+      );
+      await stop();
+      const legacy = structuredClone(returnedState);
+      legacy.callOrder = [chosenGame.id];
+      legacy.matches.find((m) => m.id === chosenGame.id).held = true;
+      const legacyDb = new DatabaseSync(join(dataDir, "shuttlehub.sqlite"));
+      legacyDb
+        .prepare("UPDATE kv SET value=? WHERE key='state'")
+        .run(JSON.stringify(legacy));
+      legacyDb.close();
+      await start();
+      returnedState.revision++;
+      assert.deepEqual(
+        await fetch(base + "/api/state").then((r) => r.json()),
+        returnedState,
+      );
+      await stop();
+      await start();
+      assert.deepEqual(
+        await fetch(base + "/api/state").then((r) => r.json()),
+        returnedState,
+      );
     } finally {
       await stop();
       const resolved = resolve(dataDir);

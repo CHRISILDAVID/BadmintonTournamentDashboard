@@ -2,7 +2,7 @@ import { standings } from "../shared/standings.js";
 export { standings } from "../shared/standings.js";
 import { randomUUID } from "node:crypto";
 import { playerLabel } from "../shared/players.js";
-import { canCall, callQueue } from "../shared/calls.js";
+import { removeLegacyCalls } from "../shared/matches.js";
 import { groupEditLockReason } from "../shared/groups.js";
 import {
   PLAYOFF_STAGE,
@@ -10,6 +10,7 @@ import {
   qualificationFormat,
   isPlayoffFormat,
   scoringRules,
+  knockoutStage,
 } from "../shared/format.js";
 export const id = () => randomUUID();
 export const emptyState = () => ({
@@ -125,6 +126,7 @@ function validateScoring(input, label) {
 }
 export function applyAction(previous, action, payload = {}) {
   const s = structuredClone(previous);
+  removeLegacyCalls(s);
   const t = s.tournaments.find((t) => t.id === payload.tournamentId);
   const m = s.matches.find((m) => m.id === payload.matchId);
   if (action === "event") {
@@ -176,14 +178,16 @@ export function applyAction(previous, action, payload = {}) {
       fail("Set scoring rules for league, playoffs and knockouts.");
     if (
       isPlayoffFormat(config) &&
-      (config.size !== 2 || config.groups !== 2 || config.qualify !== 4)
+      (config.size !== 2 || config.qualify !== 4)
     )
       fail(
-        "These playoff formats require doubles, two groups and four knockout slots per group.",
+        "These playoff formats require doubles and four knockout slots per group.",
       );
+    if (![1, 2, 4, 8].includes(config.groups))
+      fail("Choose 1, 2, 4 or 8 groups.");
     if (![1, 3, 5].includes(config.bestOf)) fail("Best of must be 1, 3 or 5.");
     const total = config.groups * config.qualify;
-    if (![2, 4, 8, 16].includes(total))
+    if (!(isPlayoffFormat(config) ? [4, 8, 16, 32] : [2, 4, 8, 16]).includes(total))
       fail("Groups × qualifiers must equal 2, 4, 8 or 16 knockout places.");
     if (t) {
       delete t.scoring;
@@ -279,7 +283,7 @@ export function applyAction(previous, action, payload = {}) {
       [m.a, m.b].some((id) => id === first.id || id === second.id)))
       fail("A selected team is on court. Return its match to waiting before swapping groups.");
     [first.group, second.group] = [second.group, first.group];
-    // Exchange their places in the existing draw, retaining IDs and call metadata.
+    // Exchange their places in the existing draw, retaining fixture IDs and planned times.
     for (const fixture of fixtures) {
       for (const side of ["a", "b"]) {
         if (fixture[side] === first.id) fixture[side] = second.id;
@@ -399,14 +403,7 @@ export function applyAction(previous, action, payload = {}) {
     let count = entrants.length / 2,
       round = 1;
     while (count >= 1) {
-      const stage =
-        count === 1
-          ? "Final"
-          : count === 2
-            ? "Semifinal"
-            : count === 4
-              ? "Quarterfinal"
-              : "Round of 16";
+      const stage = knockoutStage(count * 2);
       for (let i = 0; i < count; i++) {
         const fixture = match(
           t.id,
@@ -427,49 +424,13 @@ export function applyAction(previous, action, payload = {}) {
       count /= 2;
       round++;
     }
-  } else if (action === "resetCallOrder") {
-    delete s.callOrder;
-  } else if (
-    ["moveCall", "holdMatch", "releaseMatch", "returnMatch"].includes(action)
-  ) {
+  } else if (action === "returnMatch") {
     if (!m) fail("Match not found.");
-    if (action === "returnMatch") {
-      if (m.status !== "live" || m.games.length)
-        fail(
-          "Only an on-court match without a recorded result can be returned.",
-        );
-      m.status = "upcoming";
-      m.court = null;
-      m.held = true;
-      delete m.startedAt;
-    } else {
-      if (m.status !== "upcoming")
-        fail("Only upcoming matches can change call order.");
-      if (action === "holdMatch") {
-        m.held = true;
-      } else if (action === "releaseMatch") {
-        if (!m.held) fail("This match is not on hold.");
-        const order = callQueue(s).map((x) => x.id);
-        delete m.held;
-        if (canCall(m)) order.push(m.id);
-        s.callOrder = order;
-      } else {
-        if (!canCall(m))
-          fail(
-            "Release the hold and confirm both opponents before calling this match.",
-          );
-        const queue = callQueue(s);
-        const position = integer(
-          payload.position,
-          1,
-          queue.length,
-          "Call position",
-        );
-        const order = queue.filter((x) => x.id !== m.id).map((x) => x.id);
-        order.splice(position - 1, 0, m.id);
-        s.callOrder = order;
-      }
-    }
+    if (m.status !== "live" || m.games.length)
+      fail("Only an on-court match without a recorded result can be returned.");
+    m.status = "upcoming";
+    m.court = null;
+    delete m.startedAt;
   } else if (["start", "finish", "schedule"].includes(action)) {
     if (!m) fail("Match not found.");
     const config = s.tournaments.find((t) => t.id === m.tournamentId);
@@ -480,7 +441,6 @@ export function applyAction(previous, action, payload = {}) {
       if (m.scheduled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(m.scheduled))
         fail("Enter a valid start time (HH:mm).");
     } else if (action === "start") {
-      if (m.held) fail("Release this match from hold before starting it.");
       if (m.status !== "upcoming" || !m.a || !m.b)
         fail("Both opponents must be known and the match must be upcoming.");
       const court = integer(payload.court, 1, s.event.courts, "Court");
@@ -518,10 +478,6 @@ export function applyAction(previous, action, payload = {}) {
       propagate(s, m);
     }
   } else fail("Unknown operation.");
-  if (s.callOrder) {
-    const eligible = new Set(s.matches.filter(canCall).map((x) => x.id));
-    s.callOrder = s.callOrder.filter((id) => eligible.has(id));
-  }
   s.revision++;
   return s;
 }

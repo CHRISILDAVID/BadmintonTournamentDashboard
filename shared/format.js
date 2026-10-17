@@ -45,11 +45,18 @@ export function scoringLabel(rules) {
   return `${rules.points} points, ${rules.goldenPoint ? "golden point" : `deuce to ${rules.cap}`} · Best of ${rules.bestOf}`;
 }
 
-export function playoffPreset(mode) {
+export function knockoutStage(entrants) {
+  return (
+    { 2: "Final", 4: "Semifinal", 8: "Quarterfinal" }[entrants] ||
+    `Round of ${entrants}`
+  );
+}
+
+export function playoffPreset(mode, groups = 2) {
   return {
     qualification: mode,
     size: 2,
-    groups: 2,
+    groups,
     qualify: 4,
     scoring: {
       league: { points: 15, cap: 15, goldenPoint: true, bestOf: 1 },

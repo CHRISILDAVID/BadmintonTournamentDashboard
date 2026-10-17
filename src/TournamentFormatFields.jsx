@@ -5,6 +5,7 @@ import {
   isPlayoffFormat,
   playoffPreset,
   scoringRules,
+  knockoutStage,
 } from "../shared/format.js";
 import "./tournament-format.css";
 
@@ -101,7 +102,7 @@ export default function TournamentFormatFields({ form, setForm }) {
             setForm((current) =>
               mode === "direct"
                 ? { ...current, qualification: mode }
-                : { ...current, ...playoffPreset(mode) },
+                : { ...current, ...playoffPreset(mode, current.groups) },
             );
           }}
         >
@@ -112,10 +113,25 @@ export default function TournamentFormatFields({ form, setForm }) {
           ))}
         </select>
       </label>
+      <label className="field">
+        <span>Number of groups</span>
+        <select
+          aria-label="Number of groups"
+          value={form.groups}
+          onChange={(e) => change("groups", +e.target.value)}
+        >
+          {[1, 2, 4, 8].map((n) => (
+            <option key={n}>{n}</option>
+          ))}
+        </select>
+      </label>
       {custom ? (
         <div className="format-preview">
           <div>
-            <strong>2 groups of {details.teamsPerGroup} doubles teams</strong>
+            <strong>
+              {form.groups} group{form.groups > 1 ? "s" : ""} of{" "}
+              {details.teamsPerGroup} doubles teams
+            </strong>
             <span>
               Top {details.direct} per group advance directly.{" "}
               {details.pairs
@@ -127,29 +143,26 @@ export default function TournamentFormatFields({ form, setForm }) {
               in each group.
             </span>
             <span>
-              8 quarterfinalists · Cross-group quarterfinals → Semifinals →
-              Final
+              {form.groups * 4} knockout places · Starts at{" "}
+              {knockoutStage(form.groups * 4)}
+              {form.groups > 1
+                ? " · Opening matches pair different groups"
+                : " · 1st vs 4th, 2nd vs 3rd"}
             </span>
             <span>
-              {details.teamsPerGroup === 5 ? "29" : "41"} matches including
-              league, playoffs and main knockout.
+              Exactly {form.groups * details.teamsPerGroup} teams required.{" "}
+              {form.groups *
+                ((details.teamsPerGroup * (details.teamsPerGroup - 1)) / 2 +
+                  details.pairs.length +
+                  4) -
+                1}{" "}
+              matches including league, playoffs and main knockout.
             </span>
           </div>
         </div>
       ) : (
         <>
           <div className="form-row">
-            <label className="field">
-              <span>Number of groups</span>
-              <select
-                value={form.groups}
-                onChange={(e) => change("groups", +e.target.value)}
-              >
-                {[1, 2, 4, 8].map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
-              </select>
-            </label>
             <label className="field">
               <span>Qualifiers per group</span>
               <select

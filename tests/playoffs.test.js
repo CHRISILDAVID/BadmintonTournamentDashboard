@@ -14,15 +14,16 @@ import {
   scoringRules,
 } from "../shared/format.js";
 import { tournamentDisplayData } from "../shared/display.js";
-import { callQueue } from "../shared/calls.js";
+import { upcomingMatches } from "../shared/matches.js";
 
-function setup(mode, count) {
+function setup(mode, count, groups = 2) {
   let s = applyAction(emptyState(), "tournament", {
     name: mode,
-    ...playoffPreset(mode),
+    ...playoffPreset(mode, groups),
   });
   const tournamentId = s.tournaments[0].id;
-  const n = count ?? qualificationFormat(s.tournaments[0]).teamsPerGroup * 2;
+  const n =
+    count ?? qualificationFormat(s.tournaments[0]).teamsPerGroup * groups;
   s = applyAction(s, "teams", {
     tournamentId,
     teams: Array.from({ length: n }, (_, i) => ({
@@ -36,8 +37,8 @@ function finish(s, m, games = [[15, 14]]) {
   s = applyAction(s, "start", { matchId: m.id, court: 1 });
   return applyAction(s, "finish", { matchId: m.id, games });
 }
-function leagueFinished(mode) {
-  let { s, tournamentId } = setup(mode);
+function leagueFinished(mode, groups = 2) {
+  let { s, tournamentId } = setup(mode, undefined, groups);
   s = applyAction(s, "generate", { tournamentId });
   for (const m of s.matches) s = finish(s, m);
   return { s, tournamentId };
@@ -138,7 +139,7 @@ for (const mode of ["intermediate", "beginner"]) {
       playoffs.length * 2,
     );
     assert.equal(
-      callQueue(s).filter((m) => m.stage === "Quarterfinal").length,
+      upcomingMatches(s).filter((m) => m.stage === "Quarterfinal").length,
       mode === "intermediate" ? 2 : 0,
     );
     const slots = ranks.map((rows) => rows.slice(0, 4).map((r) => r.id));
@@ -154,7 +155,10 @@ for (const mode of ["intermediate", "beginner"]) {
       s = finish(s, m, [[14, 15]]); // Lower league rank wins every playoff.
       assert.equal(
         tournamentDisplayData(s, tournamentId).showLeagueStandings,
-        s.matches.some((match) => match.stage === PLAYOFF_STAGE && match.status !== "completed"),
+        s.matches.some(
+          (match) =>
+            match.stage === PLAYOFF_STAGE && match.status !== "completed",
+        ),
       );
       slots[m.group][m.qualifyingSlot - 1] = m.b;
       assert.equal(
@@ -181,7 +185,7 @@ for (const mode of ["intermediate", "beginner"]) {
       [0, 1].map((g) => standings(s, tournamentId, g)),
       ranks,
     );
-    assert.equal(callQueue(s).length, 4);
+    assert.equal(upcomingMatches(s).length, 4);
     s = JSON.parse(JSON.stringify(s)); // Saved feeder references survive persistence.
     for (const m of s.matches.filter(
       (m) => m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
@@ -220,7 +224,7 @@ test("playoff formats validate exact entrants and configuration before locking f
   }
   const config = { name: "Invalid", ...playoffPreset("intermediate") };
   for (const bad of [
-    { groups: 1 },
+    { groups: 3 },
     { qualify: 2 },
     { size: 1 },
     { qualification: "unknown" },
@@ -249,7 +253,7 @@ test("playoff formats validate exact entrants and configuration before locking f
   );
 });
 
-test("pending playoff slots stay uncallable; holds and wrong-stage scores cannot advance a winner", () => {
+test("pending playoff slots cannot start; wrong-stage scores cannot advance a winner", () => {
   let { s, tournamentId } = leagueFinished("beginner");
   s = applyAction(s, "knockouts", { tournamentId });
   const pending = s.matches.find((m) => m.stage === "Quarterfinal");
@@ -258,13 +262,6 @@ test("pending playoff slots stay uncallable; holds and wrong-stage scores cannot
     /Both opponents/,
   );
   const m = s.matches.find((m) => m.stage === PLAYOFF_STAGE);
-  s = applyAction(s, "holdMatch", { matchId: m.id });
-  assert.ok(!callQueue(s).some((x) => x.id === m.id));
-  assert.throws(
-    () => applyAction(s, "start", { matchId: m.id, court: 1 }),
-    /hold/,
-  );
-  s = applyAction(s, "releaseMatch", { matchId: m.id });
   s = applyAction(s, "start", { matchId: m.id, court: 1 });
   const before = structuredClone(s);
   assert.throws(
@@ -292,3 +289,98 @@ test("stage best-of rules are independent and legacy tournaments retain original
       goldenPoint: false,
     });
 });
+
+for (const mode of ["intermediate", "beginner"]) {
+  for (const groups of [1, 2, 4, 8]) {
+    test(`${mode}: ${groups} groups preserve ranks and advance a complete ${groups * 4}-team draw`, () => {
+      const config = playoffPreset(mode, groups);
+      const format = qualificationFormat(config);
+      const entrants = groups * format.teamsPerGroup;
+      for (const count of [entrants - 1, entrants + 1]) {
+        const { s, tournamentId } = setup(mode, count, groups);
+        assert.throws(
+          () => applyAction(s, "generate", { tournamentId }),
+          /exactly/,
+        );
+      }
+      let { s, tournamentId } = leagueFinished(mode, groups);
+      const ranks = Array.from({ length: groups }, (_, g) =>
+        standings(s, tournamentId, g),
+      );
+      for (let g = 0; g < groups; g++) {
+        assert.equal(ranks[g].length, format.teamsPerGroup);
+        const fixtures = s.matches.filter((m) => m.group === g);
+        assert.equal(
+          fixtures.length,
+          (format.teamsPerGroup * (format.teamsPerGroup - 1)) / 2,
+        );
+        assert.equal(
+          new Set(fixtures.map((m) => [m.a, m.b].sort().join())).size,
+          fixtures.length,
+        );
+      }
+      s = applyAction(s, "knockouts", { tournamentId });
+      const playoffs = s.matches.filter((m) => m.stage === PLAYOFF_STAGE);
+      assert.equal(playoffs.length, groups * format.pairs.length);
+      const expectedStages = {
+        1: ["Semifinal", "Final"],
+        2: ["Quarterfinal", "Semifinal", "Final"],
+        4: ["Round of 16", "Quarterfinal", "Semifinal", "Final"],
+        8: ["Round of 32", "Round of 16", "Quarterfinal", "Semifinal", "Final"],
+      }[groups];
+      assert.deepEqual(
+        tournamentDisplayData(s, tournamentId).knockoutRounds.map(
+          (r) => r.stage,
+        ),
+        expectedStages,
+      );
+      const slots = ranks.map((rows) => rows.slice(0, 4).map((r) => r.id));
+      for (const m of playoffs.toReversed()) {
+        assert.equal(m.a, ranks[m.group][m.playoffRanks[0] - 1].id);
+        assert.equal(m.b, ranks[m.group][m.playoffRanks[1] - 1].id);
+        s = finish(s, m, [[14, 15]]);
+        slots[m.group][m.qualifyingSlot - 1] = m.b;
+      }
+      assert.equal(
+        tournamentDisplayData(s, tournamentId).showLeagueStandings,
+        false,
+      );
+      const main = s.matches.filter(
+        (m) => m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
+      );
+      assert.equal(main.length, groups * 4 - 1);
+      const opening = main.filter((m) => m.round === 1);
+      assert.deepEqual(
+        new Set(opening.flatMap((m) => [m.a, m.b])),
+        new Set(slots.flat()),
+      );
+      if (groups === 1) {
+        assert.deepEqual(
+          opening.map((m) => [m.a, m.b]),
+          [
+            [slots[0][0], slots[0][3]],
+            [slots[0][1], slots[0][2]],
+          ],
+        );
+      } else {
+        for (const m of opening) {
+          const aGroup = slots.findIndex((ids) => ids.includes(m.a));
+          const bGroup = slots.findIndex((ids) => ids.includes(m.b));
+          assert.notEqual(aGroup, bGroup);
+          assert.equal(
+            slots[aGroup].indexOf(m.a) + slots[bGroup].indexOf(m.b),
+            3,
+          );
+        }
+      }
+      s = JSON.parse(JSON.stringify(s));
+      for (const m of main) s = finish(s, m, [[30, 29]]);
+      assert.ok(s.matches.every((m) => m.status === "completed"));
+      assert.ok(tournamentDisplayData(s, tournamentId).champion);
+      assert.deepEqual(
+        Array.from({ length: groups }, (_, g) => standings(s, tournamentId, g)),
+        ranks,
+      );
+    });
+  }
+}

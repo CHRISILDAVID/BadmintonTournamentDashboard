@@ -14,11 +14,9 @@ function BracketMatch({ match, teams, previousStage }) {
       ? "Final score"
       : match.status === "live"
         ? `Court ${match.court} · On court`
-        : match.held
-          ? "On hold"
-          : ready
-            ? "Ready"
-            : "Awaiting opponents";
+        : ready
+          ? "Ready"
+          : "Awaiting opponents";
   return (
     <article
       className={`vb-ko-card ${match.status} ${match.stage === "Final" ? "vb-ko-final" : ""}`}
@@ -83,15 +81,32 @@ export default function VenueBracket({
     const frame = viewport.current;
     const cards = [...element.querySelectorAll(".vb-ko-card")];
     const measure = () => {
-      const row = Math.max(118, ...cards.map((card) => card.offsetHeight + 16));
-      element.style.setProperty("--vb-bracket-row", `${row}px`);
-      const width = element.offsetWidth;
-      const height = element.offsetHeight;
-      const scale = Math.min(
-        1.5,
-        frame.clientWidth / width,
-        frame.clientHeight / height,
-      );
+      const compact = rounds[0].matches.length >= 8;
+      const baseWidth = rounds.length * 310 + (rounds.length - 1) * 26;
+      element.style.width = `${baseWidth}px`;
+      let row, width, scale;
+      // Height-limited draws can use wider cards instead of leaving empty sides.
+      // Re-measure wrapped names after widening; keep a uniform text scale.
+      for (let pass = 0; pass < 4; pass++) {
+        row = Math.max(
+          compact ? 80 : 118,
+          ...cards.map((card) => card.offsetHeight + (compact ? 8 : 16)),
+        );
+        element.style.setProperty("--vb-bracket-row", `${row}px`);
+        width = element.offsetWidth;
+        scale = Math.min(
+          1.5,
+          frame.clientWidth / width,
+          frame.clientHeight / element.offsetHeight,
+        );
+        const heightScale = Math.min(
+          1.5,
+          frame.clientHeight / element.offsetHeight,
+        );
+        if (pass < 3 && heightScale > 0) {
+          element.style.width = `${Math.max(baseWidth, frame.clientWidth / heightScale)}px`;
+        }
+      }
       // Spread the rounds over the available height when width limits the scale.
       if (scale > 0) {
         const headings = [
@@ -179,7 +194,7 @@ export default function VenueBracket({
         <div className="vb-bracket-viewport" ref={viewport}>
           <div
             ref={canvas}
-            className="vb-bracket-canvas"
+            className={`vb-bracket-canvas ${rounds[0].matches.length >= 8 ? "vb-large-draw" : ""}`}
             style={{
               "--bracket-rounds": rounds.length,
               "--bracket-slots": rounds[0].matches.length,
