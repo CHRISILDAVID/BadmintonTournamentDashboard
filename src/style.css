@@ -1073,6 +1073,52 @@ td small {
 .search input:focus {
   outline: none;
 }
+/* Matches tab "Find a match" – animated search highlight */
+@keyframes search-pulse {
+  0%   { box-shadow: 0 0 0 0 #1b775740, 0 0 0 0 #1b775718; }
+  50%  { box-shadow: 0 0 0 4px #1b775722, 0 0 8px 3px #21a37f18; }
+  100% { box-shadow: 0 0 0 0 #1b775740, 0 0 0 0 #1b775718; }
+}
+@keyframes search-sweep {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.search-match {
+  position: relative;
+  border: 1px solid #b4d4c2;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  animation: search-pulse 2.6s ease-in-out infinite;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+.search-match::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    #21a37f14 50%,
+    transparent 65%
+  );
+  background-size: 200% 100%;
+  animation: search-sweep 3s linear infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.search-match:focus-within {
+  border-color: #1b7757;
+  box-shadow: 0 0 0 3px #1b775728;
+  animation: none;
+}
+.search-match:focus-within::after {
+  display: none;
+}
+.search-match input {
+  background: none;
+}
 .seed {
   display: inline-block;
   background: #f0f4ef;

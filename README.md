@@ -80,6 +80,21 @@ Tournament data is stored in `data/shuttlehub.sqlite` on the host. SQLite commit
 
 **Event settings → Export event data** downloads a readable JSON snapshot of tournament data. JSON re-import is not included. For a restorable backup, stop the server with Ctrl+C, then copy the entire `data` directory to another location. To restore, stop the server, retain a copy of the existing directory, and replace it with the backup before starting. Do not copy only the `.sqlite` file while the server is running, because recent writes may be in its WAL file.
 
+## Reset the database
+
+Use this after a rehearsal run to wipe all tournament data and start a clean slate for the real event.
+
+> [!CAUTION]
+> This permanently deletes **all** tournaments, teams, fixtures, results, and settings. Back up the `data/` folder first if you want to keep anything.
+
+```powershell
+# 1. Stop the server (Ctrl+C in the server terminal), then run:
+Remove-Item -Recurse -Force data
+npm start
+```
+
+The server recreates a fresh `data/` directory and an empty database on next start. Club settings (venue name, courts, announcement) will also be reset to defaults.
+
 Accounts are intentionally omitted. Result corrections, walkovers/withdrawals, print exports, and player ID matching beyond normalized names are not included in this version.
 
 ## Development and verification

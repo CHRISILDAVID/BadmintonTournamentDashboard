@@ -1085,13 +1085,6 @@ function Tournaments() {
           </span>
         </div>
       </div>
-      <div className="practice-banner">
-        <div><strong>Rehearse match day</strong><p>Five practice categories: league play, knockouts, and a draft to try deleting. Your existing tournaments stay in place.</p></div>
-        <button className="btn" disabled={busy || state.tournaments.some(t => t.practice)}
-          onClick={() => act("practice", {}, "Practice tournaments loaded")}>
-          <Play size={16} />{state.tournaments.some(t => t.practice) ? "Practice pack loaded" : "Load practice tournaments"}
-        </button>
-      </div>
       {!state.tournaments.length ? (
         <Empty
           title="Your first tournament starts here"
@@ -1463,7 +1456,7 @@ function Matches({ history = false }) {
     <section className="panel">
       {!history && <StageActions />}
       <div className="toolbar">
-        <div className="search">
+        <div className="search search-match">
           <Search size={17} />
           <input
             placeholder="Find a match…"
