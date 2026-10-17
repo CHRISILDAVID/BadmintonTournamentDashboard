@@ -46,6 +46,10 @@ import ScoreInput from "./ScoreInput.jsx";
 import { finalScores } from "./scores.js";
 
 import VenueBoard from "./VenueBoard.jsx";
+import TournamentFormatFields from "./TournamentFormatFields.jsx";
+import GroupEditor from "./GroupEditor.jsx";
+import { groupEditLockReason } from "../shared/groups.js";
+import { PLAYOFF_STAGE, directPlaces, isPlayoffFormat, qualificationStatus, playoffPreset, pendingOpponent, scoringRules, scoringLabel } from "../shared/format.js";
 
 import shuttleHubLogo from "../assets/logo.jpg";
 
@@ -67,6 +71,8 @@ const defaults = {
   bestOf: 3,
 };
 const presets = [
+  ["2v2 Intermediate men", 2, "intermediate"],
+  ["2v2 Beginner men", 2, "beginner"],
   ["Men’s Doubles", 2],
   ["Men’s Singles", 1],
   ["Women’s Singles", 1],
@@ -527,13 +533,14 @@ function App() {
                 generate: "Ready to create fixtures?",
                 knockouts: "Create the knockout bracket",
                 resetFixtures: "Reset fixtures",
+                groups: "Edit groups",
                 deleteTeam: "Remove team",
                 deleteTournament: "Delete tournament",
                 returnMatch: "Return this match to waiting?",
                 clearDemo: "Start your own event",
               }[modal.type]
             }
-            wide={["tournament", "import"].includes(modal.type)}
+            wide={["tournament", "import", "groups"].includes(modal.type)}
             close={() => {
               setModal(null);
               setError("");
@@ -545,6 +552,9 @@ function App() {
               <TeamForm importing={modal.type === "import"} />
             ) : modal.type === "match" ? (
               <MatchForm />
+            ) : modal.type === "groups" ? (
+              <GroupEditor state={state} tournamentId={modal.tournament.id}
+                initialTeamId={modal.team?.id} busy={busy} act={act} close={() => setModal(null)} />
             ) : (
               <ConfirmForm />
             )}
@@ -629,7 +639,7 @@ function MatchCard({ m, compact = false }) {
         </Pill>
       </div>
       <div className="match-sub">
-        {m.status === "live"
+        {m.stage === PLAYOFF_STAGE ? `${groupName(m.group)} · ${m.playoffRanks.join(" vs ")} → slot ${m.qualifyingSlot}` : m.status === "live"
           ? `${t?.name} / ${groupName(m.group) || m.stage}`
           : groupName(m.group) || m.stage}
       </div>
@@ -647,7 +657,7 @@ function MatchCard({ m, compact = false }) {
                 .join("") || "?"}
             </span>
             <div>
-              <strong>{t?.name || "Awaiting qualifier"}</strong>
+              <strong>{t?.name || pendingOpponent(m, i === 0 ? "a" : "b")}</strong>
               {!compact && (
                 <small>
                   {t ? `Seed ${t.seed}` : "Winner of previous round"}
@@ -763,9 +773,9 @@ function MatchTable({ matches, history = false }) {
             <tr key={m.id}>
               <td>
                 <strong>
-                  {team(m.a)?.name || "Awaiting qualifier"}{" "}
+                  {team(m.a)?.name || pendingOpponent(m, "a")}{" "}
                   <span className="versus">vs</span>{" "}
-                  {team(m.b)?.name || "Awaiting qualifier"}
+                  {team(m.b)?.name || pendingOpponent(m, "b")}
                 </strong>
                 <small>{tournament(m.tournamentId)?.name}</small>
               </td>
@@ -1172,8 +1182,9 @@ function Tournaments() {
                   />
                 </div>
                 <small>
-                  {done} of {matches.length} matches completed · Best of{" "}
-                  {t.bestOf}, {t.points} points
+                  {done} of {matches.length} matches completed · League: {scoringLabel(scoringRules(t))}
+                  {t.scoring && <><br/>Main knockout: {scoringLabel(scoringRules(t, "Final"))}</>}
+                  {isPlayoffFormat(t) && <><br/>Playoffs: {scoringLabel(scoringRules(t, PLAYOFF_STAGE))}</>}
                 </small>
                 {champ && (
                   <p className="champion">
@@ -1182,6 +1193,13 @@ function Tournaments() {
                   </p>
                 )}
                 <div className="tournament-actions">
+                  {matches.length > 0 && t.groups > 1 && (
+                    <button className="btn" disabled={!!groupEditLockReason(state, t.id)}
+                      title={groupEditLockReason(state, t.id) || "Swap teams between groups"}
+                      onClick={() => open({ type: "groups", tournament: t })}>
+                      Edit groups
+                    </button>
+                  )}
                   <button
                     className="btn"
                     onClick={() => {
@@ -1221,7 +1239,7 @@ function Tournaments() {
                           open({ type: "knockouts", tournament: t })
                         }
                       >
-                        Knockouts
+                        {isPlayoffFormat(t) ? "Playoffs + bracket" : "Knockouts"}
                       </button>
                     ) : (
                       <button
@@ -1296,6 +1314,8 @@ function Teams() {
     setDisplayHistory,
   } = useContext(AppContext);
   const [query, setQuery] = useState("");
+  const selectedTournament = state.tournaments.find((t) => t.id === filter);
+  const groupLock = selectedTournament ? groupEditLockReason(state, filter) : "";
   const teams = state.teams.filter(
     (t) =>
       (filter === "all" || t.tournamentId === filter) &&
@@ -1315,6 +1335,12 @@ function Teams() {
           />
         </div>
         {categorySelect}
+        {selectedTournament?.groups > 1 && (
+          <button className="btn" disabled={!!groupLock} title={groupLock || "Swap teams between groups"}
+            onClick={() => open({ type: "groups", tournament: selectedTournament })}>
+            <Pencil size={16} />Edit groups
+          </button>
+        )}
         {admin && (
           <>
             <button className="btn" onClick={() => open({ type: "import" })}>
@@ -1331,6 +1357,9 @@ function Teams() {
           </>
         )}
       </div>
+      {selectedTournament?.groups > 1 && <p className="group-edit-hint">
+        {groupLock || "Edit groups by swapping teams. Group sizes stay fixed; editing locks after the first completed match."}
+      </p>}
       {teams.length ? (
         <div className="table-scroll">
           <table>
@@ -1356,7 +1385,17 @@ function Teams() {
                   <td>{groupName(t.group) || "Not assigned"}</td>
                   {admin && (
                     <td>
-                      <button
+                      {t.group != null ? (
+                        <button
+                          className="text-btn"
+                          aria-label={`Change group for ${t.name} in ${tournament(t.tournamentId)?.name}`}
+                          disabled={!!groupEditLockReason(state, t.tournamentId)}
+                          title={groupEditLockReason(state, t.tournamentId) || "Swap with a team in another group"}
+                          onClick={() => open({ type: "groups", tournament: tournament(t.tournamentId), team: t })}
+                        >
+                          <Pencil size={14} />Change group
+                        </button>
+                      ) : <button
                         className="icon-btn"
                         aria-label={`Edit ${t.name}`}
                         disabled={state.matches.some(
@@ -1365,7 +1404,7 @@ function Teams() {
                         onClick={() => open({ type: "team", team: t })}
                       >
                         <Pencil size={16} />
-                      </button>
+                      </button>}
                     </td>
                   )}
                 </tr>
@@ -1514,7 +1553,7 @@ function Standings() {
           <section key={t.id} className="standing-section">
             <div className="section-heading">
               <h2>{t.name}</h2>
-              <Pill>{t.qualify} qualify per group</Pill>
+              <Pill>{isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct + playoffs` : `${t.qualify} qualify per group`}</Pill>
             </div>
             <div className="standings-grid">
               {Array.from({ length: t.groups }, (_, g) => {
@@ -1543,11 +1582,12 @@ function Standings() {
                             {rows.map((r, i) => (
                               <tr
                                 key={r.id}
-                                className={i < t.qualify ? "qualified" : ""}
+                                className={["direct", "qualified"].includes(qualificationStatus(state, t, r, i)) ? "qualified" : qualificationStatus(state,t,r,i) === "playoff" ? "playoff-place" : ""}
                               >
                                 <td>{i + 1}</td>
                                 <td>
                                   <strong>{r.name}</strong>
+                                  {isPlayoffFormat(t) && <small className={`qualification-marker ${qualificationStatus(state,t,r,i)}`}>{({direct:"Direct place",playoff:"Qualification playoff",qualified:"Qualified via playoff",eliminated:"Eliminated in playoff"})[qualificationStatus(state,t,r,i)]}</small>}
                                 </td>
                                 <td>{r.played}</td>
                                 <td>{r.wins}</td>
@@ -1569,18 +1609,21 @@ function Standings() {
               })}
             </div>
             <p className="standings-note">
-              <i className="dot" /> Shaded places qualify once the league is
-              complete. Seed breaks any remaining tie.
+              <i className="dot" /> {isPlayoffFormat(t) ? "Green: direct places or playoff winners. Amber: playoff places. League rankings stay unchanged after playoffs." : "Shaded places qualify once the league is complete."} Seed breaks any remaining tie.
             </p>
+            {state.matches.some(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE) && <section className="organizer-playoffs">
+              <h3>Qualification playoffs</h3><p className="muted">{scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Winners fill the named quarterfinal slots.</p>
+              <div className="organizer-playoff-groups">{[0,1].map(g => <div key={g}><h4>{groupName(g)}</h4>{state.matches.filter(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE && m.group === g).map(m => <MatchCard key={m.id} m={m} compact/>)}</div>)}</div>
+            </section>}
             {state.matches.some(
-              (m) => m.tournamentId === t.id && m.stage !== "League",
+              (m) => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
             ) && (
               <div className="bracket">
                 {[
                   ...new Set(
                     state.matches
                       .filter(
-                        (m) => m.tournamentId === t.id && m.stage !== "League",
+                        (m) => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
                       )
                       .map((m) => m.round),
                   ),
@@ -1593,7 +1636,7 @@ function Standings() {
                           state.matches.find(
                             (m) =>
                               m.tournamentId === t.id &&
-                              m.stage !== "League" &&
+                              m.stage !== "League" && m.stage !== PLAYOFF_STAGE &&
                               m.round === round,
                           )?.stage
                         }
@@ -1603,7 +1646,7 @@ function Standings() {
                           .filter(
                             (m) =>
                               m.tournamentId === t.id &&
-                              m.stage !== "League" &&
+                              m.stage !== "League" && m.stage !== PLAYOFF_STAGE &&
                               m.round === round,
                           )
                           .map((m) => (
@@ -1817,7 +1860,10 @@ function TournamentForm() {
     if (modal?.conflictRevision) formRevision.current = modal.conflictRevision;
   }, [modal?.conflictRevision]);
   const existing = modal.tournament;
-  const [form, setForm] = useState(existing || defaults),
+  const [form, setForm] = useState(() => {
+    const initial = existing || defaults;
+    return { ...initial, scoring: initial.scoring || { league: scoringRules(initial), knockout: scoringRules(initial, "Final") } };
+  }),
     [step, setStep] = useState(1);
   const change = (key, value) => setForm({ ...form, [key]: value });
   return (
@@ -1857,7 +1903,7 @@ function TournamentForm() {
             fixtures later.
           </p>
           <div className="preset-grid">
-            {presets.map(([name, size]) => (
+            {presets.map(([name, size, mode]) => (
               <button
                 key={name}
                 type="button"
@@ -1867,6 +1913,7 @@ function TournamentForm() {
                     ...form,
                     name: name === "Custom" ? "" : name,
                     size,
+                    ...(mode ? playoffPreset(mode) : {}),
                   })
                 }
               >
@@ -1901,78 +1948,7 @@ function TournamentForm() {
             Teams play everyone in their group once. Qualifiers advance to a
             single-elimination bracket.
           </p>
-          <div className="form-row">
-            <Field label="Number of groups">
-              <select
-                value={form.groups}
-                onChange={(e) => change("groups", +e.target.value)}
-              >
-                {[1, 2, 4, 8].map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Qualifiers per group">
-              <select
-                value={form.qualify}
-                onChange={(e) => change("qualify", +e.target.value)}
-              >
-                {[1, 2, 4, 8, 16].map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          <div className="format-preview">
-            <GitBranch size={20} />
-            <div>
-              <strong>{form.groups * form.qualify} knockout places</strong>
-              <span>
-                {[2, 4, 8, 16].includes(form.groups * form.qualify)
-                  ? `${form.groups} groups → ${form.groups * form.qualify === 8 ? "Quarterfinals → Semifinals → Final" : form.groups * form.qualify === 4 ? "Semifinals → Final" : form.groups * form.qualify === 2 ? "Final" : "Round of 16 → Quarterfinals → Semifinals → Final"}`
-                  : "Choose a combination with 2, 4, 8 or 16 qualifiers."}
-              </span>
-            </div>
-          </div>
-          <div className="form-row three">
-            <Field label="Best of">
-              <select
-                value={form.bestOf}
-                onChange={(e) => change("bestOf", +e.target.value)}
-              >
-                {[1, 3, 5].map((n) => (
-                  <option value={n} key={n}>
-                    {n} game{n > 1 ? "s" : ""}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Points per game">
-              <input
-                type="number"
-                min="5"
-                max="50"
-                required
-                value={form.points}
-                onChange={(e) => change("points", +e.target.value)}
-              />
-            </Field>
-            <Field label="Score cap">
-              <input
-                type="number"
-                min={form.points + 1}
-                max="60"
-                required
-                value={form.cap}
-                onChange={(e) => change("cap", +e.target.value)}
-              />
-            </Field>
-          </div>
-          <p className="help-text">
-            Win by two, up to the score cap. Standings use wins, game
-            difference, point difference, then seed. Formats stay editable until
-            fixtures are generated.
-          </p>
+          <TournamentFormatFields form={form} setForm={setForm}/>
         </>
       )}
       <div className="modal-actions">
@@ -2268,6 +2244,7 @@ function MatchEditor() {
   } = useContext(AppContext);
   const m = state.matches.find((m) => m.id === modal.matchId),
     t = tournament(m.tournamentId);
+  const rules = scoringRules(t, m.stage);
   const [court, setCourt] = useState(
       Array.from({ length: state.event.courts }, (_, i) => i + 1).find(
         (c) => !state.matches.some((x) => x.status === "live" && x.court === c),
@@ -2284,14 +2261,13 @@ function MatchEditor() {
       <div className="match-dialog-meta">
         <Pill>{t.name}</Pill>
         <span>
-          {groupName(m.group) || m.stage} · Best of {t.bestOf} · {t.points}{" "}
-          points
+          {m.stage}{groupName(m.group) ? ` · ${groupName(m.group)}` : ""} · {scoringLabel(rules)}
         </span>
       </div>
       <div className="scoreboard">
         {[m.a, m.b].map((tid, i) => (
           <div key={i}>
-            <strong>{team(tid)?.name || "Awaiting qualifier"}</strong>
+            <strong>{team(tid)?.name || pendingOpponent(m, i === 0 ? "a" : "b")}</strong>
             <small>{team(tid) ? `Seed ${team(tid).seed}` : "Winner of previous round"}</small>
           </div>
         ))}
@@ -2380,9 +2356,9 @@ function MatchEditor() {
                   {i === games.length - 1 && i > 0 && <button type="button" className="icon-btn" disabled={busy} aria-label="Remove last game" onClick={() => setGames(games.slice(0,-1))}><X size={16}/></button>}
                 </div>
                 <div className="game-score-sides">
-                  <ScoreInput label={`Game ${i + 1} first team`} value={g[0]} cap={t.cap} disabled={busy} onChange={value => updateGameScore(i,0,value)}/>
+                  <ScoreInput label={`Game ${i + 1} first team`} value={g[0]} cap={rules.cap} disabled={busy} onChange={value => updateGameScore(i,0,value)}/>
                   <span className="score-separator">&ndash;</span>
-                  <ScoreInput label={`Game ${i + 1} second team`} value={g[1]} cap={t.cap} disabled={busy} onChange={value => updateGameScore(i,1,value)}/>
+                  <ScoreInput label={`Game ${i + 1} second team`} value={g[1]} cap={rules.cap} disabled={busy} onChange={value => updateGameScore(i,1,value)}/>
                 </div>
               </div>
             ))}
@@ -2390,7 +2366,7 @@ function MatchEditor() {
           <div className="modal-actions">
             <button
               className="btn"
-              disabled={games.length >= t.bestOf}
+              disabled={games.length >= rules.bestOf}
               onClick={() => setGames([...games, ["", ""]])}
             >
               <Plus size={15} />
@@ -2468,7 +2444,7 @@ function ConfirmForm() {
   const descriptions = {
     returnMatch: `Return ${team(returning?.a)?.name || "this match"} vs ${team(returning?.b)?.name || "opponent"} to waiting? Use this only if play has not begun. The court will be freed and this match placed on hold, hidden from venue calls until you release it.`,
     generate: `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft by seed. Team registration will close for this category.`,
-    knockouts: `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
+    knockouts: isPlayoffFormat(t) ? `Create qualification playoffs and the quarterfinal bracket for ${t.name}? Top ${directPlaces(t)} per group advance directly; playoff winners earn the remaining slots. Playoffs: ${scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Main knockout: ${scoringLabel(scoringRules(t, "Final"))}. Review final league standings before confirming. League ranks will not change after playoffs.` : `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
     resetFixtures:
       "Remove the unplayed fixtures for this category and reopen team registration? Your teams will be kept.",
     deleteTeam: `Remove ${modal.team?.name} from this category?`,

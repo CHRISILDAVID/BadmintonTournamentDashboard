@@ -65,6 +65,11 @@ test(
       });
     try {
       await start();
+      for (const route of ["/", "/display", "/index.html"]) {
+        const page = await fetch(base + route);
+        assert.equal(page.status, 200);
+        assert.equal(page.headers.get("cache-control"), "no-store");
+      }
       assert.equal((await fetch(base + "/api/session")).status, 404);
       assert.equal(
         (await post("/api/login", { password: "unused" })).status,

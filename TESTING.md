@@ -14,13 +14,13 @@ During league play, each selected tournament shows:
 - Upcoming calls in their organizer-controlled global order. Held matches and unknown knockout opponents stay out of the list. Active court numbers appear beside the tournament name.
 - All completed results split into independent Group A, Group B, etc. lists, newest first. Each list keeps a bounded height and automatically cycles through older matches; there is no three-result data limit.
 
-Once the organizer creates a category's knockout fixtures, only that category switches to **League standings + Knockout bracket**. Its separate upcoming/results sections disappear. League rankings remain unchanged by knockout results. The connected draw shows every round, final scores beside each opponent, highlighted winners, active courts, and placeholders naming the match that supplies an unknown opponent. The final stays centered between its feeder matches, including when long player names wrap. Completed tournaments retain the bracket and show their champion.
+Once the organizer creates a category's knockout fixtures, only that category switches to its draw. **League standings + Qualification Playoffs + Knockouts** remain visible while qualification playoffs are unfinished; after the last playoff, only **Knockouts** remains. Direct qualification categories show only Knockouts as soon as the draw is created. Its separate upcoming/results sections disappear. League rankings remain unchanged by knockout results. The connected draw shows every round, final scores beside each opponent, highlighted winners, active courts, and placeholders naming the match that supplies an unknown opponent. The final stays centered between its feeder matches, including when long player names wrap. Completed tournaments retain the bracket and show their champion.
 
-Large brackets automatically scroll through all rows before panning across to later rounds, then repeat. Group tables remain in a bounded area above the draw; extra groups also cycle automatically. The display uses rounded green scrollbars with a subtle striped grip for vertical and horizontal scrolling.
+The Knockouts section scales every round into its available space without scrolling. Qualification Playoffs is a separate, automatically scrolling list, alongside Knockouts on desktop and above it on phones. It lists all group playoffs until the last one finishes, then disappears together with the league standings and the bracket expands to fill the panel. While playoffs remain unfinished, group tables stay in a bounded area above the draw; extra groups cycle automatically. The display uses rounded green scrollbars with a subtle striped grip for vertical and horizontal scrolling.
 
 [Mixed league and knockout display](output/playwright/knockout-mixed-1080.png), [compact bracket](output/playwright/knockout-1-768.png), [16-qualifier draw](output/playwright/knockout-sixteen-768.png), [phone bracket](output/playwright/knockout-mobile.png), and [completed final](output/playwright/knockout-champion-1080.png). These screenshots use a separate test database.
 
-Verification: all 32 automated tests and the production build pass. Browser checks covered mixed league/knockout categories, bracket creation and winner advancement through server updates, unchanged league tables, 1-4 categories at 1366 x 768, a 16-qualifier draw, phone overflow, scrollbar styling, and automatic bracket panning with manual pause/resume. All test result entry used a separate database on port 3002; the working event was only viewed.
+Verification: all 45 automated tests and the production build pass. Browser checks covered mixed league/knockout categories, bracket creation and winner advancement through server updates, unchanged league tables, 1-4 categories at 1366 x 768, a 16-qualifier draw, phone overflow, scrollbar styling, and full-bracket fitting without scroll or pan. All test result entry used a separate database on port 3002; the working event was only viewed.
 
 The compact header shows only the logo, title, and connection status. There is no clock, footer, or table legend. The screen offers tournament selection and fullscreen; organizer actions remain in the tournament desk.
 
@@ -43,12 +43,12 @@ The screenshots below use an isolated test database, not the working tournament 
 | Older results | Complete more than three matches in each group and leave the display untouched. | Group lists scroll through every result, pause, return to the newest, and repeat. |
 | New result | Record a final result from another organizer window. | Correct group standings and result list update without refreshing; the match leaves upcoming calls. |
 | Opponent B wins | Enter a result where the second opponent wins. | The winner is named first and the score follows the winner's side. |
-| Knockout transition | Create knockout fixtures while that category is visible. | Without refreshing, its league calls/results layout becomes group standings above a connected bracket. Other league categories retain their usual sections. |
+| Knockout transition | Create knockout fixtures while that category is visible. | Without refreshing, its league calls/results layout becomes the draw. Qualification playoff formats keep group standings until all playoffs finish; direct qualification shows the bracket alone. Other league categories retain their usual sections. |
 | Advancing winners | Finish one semifinal, then the other, then the final. | Each winner fills the correct final slot; pending slots name their feeder match. Final scores stay beside the correct opponents, and the champion appears. League rankings do not change. |
 | Bracket sizes | Try 2, 4, 8, and 16 qualifiers. | Draw starts at Final, Semifinal, Quarterfinal, or Round of 16 respectively, with ordered rounds and aligned connections. |
-| Large draw | Show a large bracket in a narrow tournament panel. | Every row scrolls into view before the screen pans across to later rounds. It repeats from the beginning; manual interaction pauses it for eight seconds. |
+| Large draw | Show a large bracket in a narrow tournament panel. | Every card and connector fits inside the Knockouts section. Mouse wheel, touch and timers do not scroll the bracket; it shrinks when necessary. |
 | Bracket spacing | View 1-4 categories at 1366 x 768, then on a phone. | Tables and bracket occupy separate areas with visible spacing. Overflow stays inside the relevant area; no horizontal page overflow. |
-| Display scrollbars | Scroll standings, history, calls, the tournament grid, and brackets. | Green rounded rails and striped thumbs appear; horizontal bracket scrolling uses the same treatment. |
+| Display scrollbars | Scroll standings, history, calls, qualification playoffs, and the tournament grid. | Green rounded rails and striped thumbs appear. The main knockout bracket has no scrollbar. |
 | No fixtures | Select a category that only has registrations. | Entries appear with draw-pending text; no invented group assignments or results. |
 | Delete selected category | Delete an unused selected category from another organizer window. | Its board disappears; selection fills from remaining categories and count shrinks when necessary. |
 | Empty event | Open a new test database without categories. | A clear empty board with no broken selectors. |
@@ -82,7 +82,7 @@ For singles or 3v3 imports, use [singles.csv](examples/singles.csv) and [3v3.csv
 
 ## Verification performed
 
-- `npm test`: **31 passing tests** covering round-robin draws, league-to-knockout progression, final-score validation, court/player conflicts, atomic imports, CSV/XLSX, automatic labels, deletion, practice-data preservation, revision conflicts, persistence, and migration.
+- `npm test`: **45 passing tests** covering round-robin draws, league-to-knockout progression, final-score validation, court/player conflicts, atomic imports, CSV/XLSX, automatic labels, deletion, practice-data preservation, revision conflicts, persistence, and migration.
 - `npm run build`: passed. ExcelJS remains a large, separately loaded import bundle.
 - Real-browser checks: loading the practice pack; manual player entry and automatic label; invalid and valid final results; automatic updates to a separate venue browser session; starting a knockout match and recording its result; cancellation and confirmation of draft deletion; automatic filter recovery after remote deletion; and desktop display at 1920 x 1080 and 1366 x 768. New board checks cover one to five selections, saved preferences, independent result scrolling, repeated automatic loops, manual pause/resume, a compact display without clock/footer/legends, read-only controls, knockout/registration views, phone layout, automatic result updates, and mobile score entry.
 - Venue board unit checks cover exact and distinct selections, deletion recovery, complete grouped results, empty states, knockout separation, standings, winner score ordering, and ongoing category priority.
@@ -112,6 +112,30 @@ The automatic tests cover queue ordering, holds/releases, invalid actions, confl
 Delete practice categories individually after finishing their on-court matches. Confirmation removes that category's teams, fixtures, and results permanently. To load a fresh practice pack, remove all remaining Practice categories and choose **Tournaments > Load practice tournaments** again.
 
 
+## Qualification playoff formats
+
+Create these only in a separate test database (`DATA_DIR`), or use the presets for a new real tournament when ready. Fixture generation requires exactly 10 Intermediate or 12 Beginner doubles entries. Existing tournaments are not converted automatically.
+
+| Case | Action | Expected behavior |
+| --- | --- | --- |
+| Intermediate setup | Choose the Intermediate preset in New tournament. | 2 groups of 5; top 3 direct; 4th vs 5th plays for slot 4. League and playoffs use 15/golden point; main knockout uses 21/deuce/cap 30. |
+| Beginner setup | Choose the Beginner preset. | 2 groups of 6; top 2 direct; 3rd vs 6th earns slot 3, 4th vs 5th earns slot 4. Both preliminary stages use 15/golden point. |
+| Stage game counts | Select different best-of settings for league, playoff and main knockout, save and reopen setup. | Each setting persists independently and the match desk uses the appropriate stage's value. |
+| Wrong entrant count | Try generating with 9 or 11 Intermediate entries, or 10/11/13 Beginner entries. | Clear exact-count error; no fixtures or group assignments are saved. |
+| Incomplete league | Try creating playoffs before every league game finishes. | Action is disabled in the UI and rejected by the server. |
+| Generate postseason | Finish the league, review standings, select Playoffs + bracket and confirm. | 2 Intermediate or 4 Beginner group playoffs plus 7 main knockout fixtures appear; 29 or 41 matches total including league. |
+| Golden-point boundary | Save 15–14 in league/playoffs; try 16–14 or 21–19. | 15–14 succeeds; scores above 15 fail without finishing or advancing the match. |
+| Deuce boundary | In a quarterfinal try 15–14, 21–20, then 22–20 or 30–29. | First two fail; the latter two succeed. |
+| Upset winner | Let 5th beat 4th (Intermediate), or 6th beat 3rd (Beginner). | Winner earns A4/B4 or A3/B3 respectively; there is no reseeding. Loser is marked eliminated. League ranking, wins and differences remain unchanged. |
+| Cross-group draw | Finish all qualification playoffs. | QFs are A1–B4, B2–A3, B1–A4, A2–B3. QF1/2 feed SF1; QF3/4 feed SF2. Winners advance through final. |
+| Pending opponents | Try starting/calling a quarterfinal with an unknown playoff winner. | It cannot start or enter the calls. Ready fixtures remain flexible, including ones that need no playoff winner. |
+| Hold/return | Hold a playoff, release it, or return an accidental start to hold. | Existing call controls work; no winner advances until a valid final result is saved. |
+| Venue update | Keep both categories on display while creating playoffs and saving results elsewhere. | Each category switches independently. Group playoff cards have their own section, including their scoring rules. Named pending slots fill through server updates. Finishing one category's playoffs removes only its playoff section. |
+| Display movement | Leave a narrow display unattended, then manually scroll. | The qualification playoff list scrolls through all its matches and repeats; manual interaction pauses then resumes movement. The main knockout bracket stays completely visible and stationary. |
+| Persistence | Restart the test server after playoff results. | Scores, qualifying slots, feeder references and stage rules remain intact. |
+
+Browser previews: [setup](output/playwright/playoff-setup-desktop.png), [mobile score entry](output/playwright/playoff-mobile-score.png), [organizer playoffs and bracket](output/playwright/playoff-organizer-bracket.png), [two categories on display](output/playwright/playoff-both-categories-1920.png), [phone display](output/playwright/playoff-both-categories-390.png). These use isolated QA data.
+
 ## Mobile final-score checks
 
 | Case | Action | Expected behavior |
@@ -122,3 +146,36 @@ Delete practice categories individually after finishing their on-court matches. 
 | Missing score | Enter one score, leave its opponent blank, and confirm. | Required-score error; blank does not become zero. |
 | Explicit zero | Enter 21 and 0, then confirm a best-of-one result. | Numeric result 21-0 is saved successfully. |
 | More games | In a best-of-three match, add another game. | Both new fields start blank and require explicit scores. |
+
+
+## Edit groups after fixtures
+
+Open **Tournaments > Edit groups**, or **Teams & players > select a tournament > Edit groups**. You can also select **Change group** beside any assigned team; this preselects that team and works with All tournaments selected. Pick a team from another group, review the destinations, and select **Swap teams**. Repeat as needed. Swapping preserves each group's existing capacity, including balanced groups of unequal sizes in standard formats. After an app update, refresh the browser to load the new controls; HTML pages use `Cache-Control: no-store`.
+
+| Case | Action | Expected result |
+| --- | --- | --- |
+| Intermediate / Beginner | Swap two teams across groups after generation. | Still 5/5 or 6/6; updated group rosters and round-robin opponents appear immediately. Every pair in each revised group plays exactly once. |
+| Calls and holds | Set planned times, move a call and hold a match before swapping. | Fixture IDs, times, holds and call positions survive; only the swapped teams' opponents change. |
+| On-court player | Open the editor while a match is on court. | Its participants cannot be selected. Other teams can swap. Returning the match to waiting makes its participants eligible again. |
+| First completed match | Keep the editor open on one device and complete the tournament's first match on another. | Editor controls and both Edit groups entry points disable immediately. Server rejects further swaps. |
+| Independent categories | Complete a match in another tournament. | The untouched category's group editor remains available. |
+| Invalid swap | Try the same group, an unknown team, or a team from another category through the API. | Request rejected without partial changes. |
+| Phone | Open the editor at 390px, select two teams and swap. | All names, counts, selectors and actions remain accessible without horizontal page overflow. |
+| Separate postseason sections | Show two categories with unfinished playoffs. | Each has standings, Qualification Playoffs and Knockouts. Playoff lists cycle independently; all main bracket cards fit without scrolling. |
+| Last playoff | Complete playoffs one by one from another device. | Standings and playoffs remain after partial completion; both disappear after that category's last playoff. Its bracket fills the panel; other categories retain their own unfinished playoffs and standings. |
+
+Latest verification: 45 automated tests pass and production build passes (existing ExcelJS bundle-size warning). Isolated browser checks cover desktop/mobile group swaps, fixed counts, persisted changes, on-court restrictions, locking an already-open editor after a remote result, both disabled entry points, 1-4 tournament selections at 1920/1366px, phone layout, a 16-qualifier draw, playoff auto-scrolling, independent section removal and bracket expansion. No test entries were added to the working database.
+
+Previews: [group editor](output/playwright/group-editor-desktop.png), [separate playoff and knockout sections](output/playwright/group-layout-1920-2.png), [after playoffs finish](output/playwright/playoffs-finished-fit.png).
+
+
+## Venue readability and knockout-only view
+
+- Player names, final scores, headings, group labels, tournament selectors and supporting text are larger across desktop and mobile layouts. Main league names/results/calls use 20px or larger at 1920px with two tournaments. Bracket names scale with the full draw (approximately 22px for two quarterfinal draws at 1920 x 1080).
+- Complete all but one qualification playoff: league standings must remain visible. Complete the last playoff from another organizer window: both league standings and Qualification Playoffs disappear without refreshing. Knockouts fills the remaining panel and stays fully visible without a scrollbar.
+- Show two categories in different phases: finishing one category's playoffs must not hide the other category's standings. Completed league results and standings remain available in the organizer.
+- For direct qualification, creating the knockout draw immediately switches that category to its bracket alone.
+
+Verified with all 45 automated tests, the production build, and isolated browser checks at 1920 x 1080, 1366 x 768 and 390px phone width. Checks cover one to four selected categories, a 16-qualifier draw, automatic phase changes, and all bracket cards/connectors fitting their panels.
+
+Updated previews: [larger league and playoff text](output/playwright/readability-mixed-1920.png), [knockouts only](output/playwright/readability-knockouts-1920.png), [compact venue display](output/playwright/readability-1366-2.png).

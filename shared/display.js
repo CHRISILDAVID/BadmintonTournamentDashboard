@@ -1,4 +1,5 @@
 import { standings } from "./standings.js";
+import { PLAYOFF_STAGE, qualificationStatus } from "./format.js";
 
 export function displayTournamentOptions(state) {
   const priority = (t) => {
@@ -40,7 +41,15 @@ export function tournamentDisplayData(state, tournamentId) {
     ? Array.from({ length: tournament.groups }, (_, group) => ({
         key: `group-${group}`,
         label: `Group ${String.fromCharCode(65 + group)}`,
-        rows: standings(state, tournamentId, group),
+        rows: standings(state, tournamentId, group).map((row, rank) => ({
+          ...row,
+          qualificationStatus: qualificationStatus(
+            state,
+            tournament,
+            row,
+            rank,
+          ),
+        })),
         results: completed.filter(
           (m) => m.stage === "League" && m.group === group,
         ),
@@ -54,7 +63,12 @@ export function tournamentDisplayData(state, tournamentId) {
         },
       ];
   const knockoutResults = completed.filter((m) => m.stage !== "League");
-  const knockouts = matches.filter((m) => m.stage !== "League");
+  const playoffs = matches
+    .filter((m) => m.stage === PLAYOFF_STAGE)
+    .sort((a, b) => a.group - b.group || a.qualifyingSlot - b.qualifyingSlot);
+  const knockouts = matches.filter(
+    (m) => m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
+  );
   const knockoutRounds = [...new Set(knockouts.map((m) => m.round))]
     .sort((a, b) => a - b)
     .map((round) => {
@@ -71,8 +85,12 @@ export function tournamentDisplayData(state, tournamentId) {
       ? groups.map(({ key, label, results }) => ({ key, label, results }))
       : [],
     knockoutResults,
+    playoffs,
     knockoutRounds,
     hasKnockouts: knockoutRounds.length > 0,
+    showLeagueStandings:
+      knockoutRounds.length === 0 ||
+      playoffs.some((m) => m.status !== "completed"),
     hasLeague,
     completed: completed.length,
     total: matches.length,

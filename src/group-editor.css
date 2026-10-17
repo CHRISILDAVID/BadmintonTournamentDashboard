@@ -1,0 +1,76 @@
+.group-editor > p {
+  line-height: 1.6;
+}
+.group-editor-rosters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.group-editor-rosters section {
+  border: 1px solid #d4e0d7;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.group-editor-rosters h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  margin: 0;
+  font-size: 14px;
+  background: #f2f6ef;
+}
+.group-editor-rosters h3 span {
+  font-size: 12px;
+  font-weight: 400;
+}
+.group-editor-rosters ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.group-editor-rosters li {
+  padding: 9px 12px;
+  border-top: 1px solid #e5ebe5;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.group-editor-rosters li.selected {
+  background: #e2f1e5;
+  color: #087451;
+}
+.group-editor-rosters small {
+  display: block;
+  color: #087451;
+}
+.group-editor fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.group-editor label {
+  display: grid;
+  gap: 6px;
+}
+.group-editor select {
+  width: 100%;
+  min-width: 0;
+}
+.group-editor-help,
+.group-edit-hint {
+  font-size: 12px;
+  color: #677c70;
+}
+.group-swap-preview,
+.group-lock {
+  padding: 12px;
+  background: #edf4e9;
+  border-left: 3px solid #17815e;
+}
+.group-edit-hint {
+  margin: 0 20px 14px;
+}

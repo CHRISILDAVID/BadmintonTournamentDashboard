@@ -87,6 +87,7 @@ test("results retain every completed match in its own group, newest first", () =
     4,
   );
   assert.equal(view.completed, 9);
+  assert.equal(view.showLeagueStandings, true);
 });
 
 test("empty groups and registration categories stay understandable without fake results", () => {
@@ -97,6 +98,7 @@ test("empty groups and registration categories stay understandable without fake 
   s = applyAction(s, "resetFixtures", { tournamentId });
   const draft = tournamentDisplayData(s, tournamentId);
   assert.equal(draft.hasLeague, false);
+  assert.equal(draft.showLeagueStandings, true);
   assert.equal(draft.groups[0].rows.length, 10);
   assert.equal(draft.groups[0].label, "Entries \u00b7 draw pending");
   assert.deepEqual(draft.resultGroups, []);
@@ -116,6 +118,7 @@ test("knockout results and champion are separate from league groups and rankings
   s = applyAction(s, "knockouts", { tournamentId });
   const draw = tournamentDisplayData(s, tournamentId);
   assert.equal(draw.hasKnockouts, true);
+  assert.equal(draw.showLeagueStandings, false);
   assert.deepEqual(
     draw.knockoutRounds.map((r) => r.stage),
     ["Semifinal", "Final"],

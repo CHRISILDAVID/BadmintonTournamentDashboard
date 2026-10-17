@@ -9,6 +9,7 @@ import {
 import { groupName, time } from "./utils.js";
 import useAutoScroll from "./useAutoScroll.js";
 import VenueBracket from "./VenueBracket.jsx";
+import { directPlaces, isPlayoffFormat } from "../shared/format.js";
 import logo from "../assets/logo.jpg";
 import "./venue-board.css";
 
@@ -73,11 +74,31 @@ function StandingsGroup({ group, tournament, hasLeague }) {
               <tr
                 key={row.id}
                 className={
-                  hasLeague && i < tournament.qualify ? "vb-qualifier" : ""
+                  hasLeague
+                    ? ["direct", "qualified"].includes(row.qualificationStatus)
+                      ? "vb-qualifier"
+                      : row.qualificationStatus === "playoff"
+                        ? "vb-playoff-place"
+                        : ""
+                    : ""
                 }
               >
                 <td>{i + 1}</td>
-                <th scope="row">{row.name}</th>
+                <th scope="row">
+                  {row.name}
+                  {hasLeague && isPlayoffFormat(tournament) && (
+                    <small className="vb-entry-route">
+                      {
+                        {
+                          direct: "Direct place",
+                          playoff: "Playoff place",
+                          qualified: "Qualified via playoff",
+                          eliminated: "Eliminated in playoff",
+                        }[row.qualificationStatus]
+                      }
+                    </small>
+                  )}
+                </th>
                 <td className="vb-stat-played">{row.played}</td>
                 <td className="vb-wins vb-stat-wins">{row.wins}</td>
                 <td className="vb-stat-game">
@@ -152,13 +173,15 @@ function TournamentPanel({
     onCourt,
     resultGroups,
     knockoutRounds,
+    playoffs,
     hasKnockouts,
+    showLeagueStandings,
     champion,
   } = data;
   const results = resultGroups;
   return (
     <article
-      className={`vb-tournament ${hasKnockouts ? "vb-knockout" : ""}`}
+      className={`vb-tournament ${hasKnockouts ? "vb-knockout" : ""} ${!showLeagueStandings ? "vb-bracket-only" : ""}`}
       aria-label={`${t.name} tournament board`}
     >
       <header className="vb-tournament-heading">
@@ -182,7 +205,9 @@ function TournamentPanel({
           <div className="vb-category-meta">
             <span className="vb-stage">
               {hasKnockouts
-                ? "KNOCKOUTS"
+                ? playoffs.some((m) => m.status !== "completed")
+                  ? "PLAYOFFS"
+                  : "KNOCKOUTS"
                 : data.hasLeague
                   ? "LEAGUE"
                   : "REGISTRATION"}
@@ -207,45 +232,56 @@ function TournamentPanel({
         )}
       </header>
 
-      <section
-        className="vb-leaderboards"
-        aria-label={`${t.name} leaderboards`}
-      >
-        <div className="vb-section-heading">
-          <h3>{hasKnockouts ? "League standings" : "Standings"}</h3>
-          <span className="vb-qualification">
-            <i />
-            {hasKnockouts
-              ? `${t.groups * t.qualify} qualified`
-              : data.hasLeague
-                ? `Top ${t.qualify} per group advance`
-                : "Groups assigned with fixtures"}
-          </span>
-        </div>
-        <div
-          className={`vb-standings-grid ${hasKnockouts ? "vb-scroll" : ""}`}
-          data-auto-scroll={hasKnockouts ? "" : undefined}
-          tabIndex={hasKnockouts ? 0 : undefined}
-          aria-label={
-            hasKnockouts
-              ? `${t.name} league groups, automatically scrolling`
-              : undefined
-          }
-          style={{ "--groups": Math.min(groups.length, 4) }}
+      {showLeagueStandings && (
+        <section
+          className="vb-leaderboards"
+          aria-label={`${t.name} leaderboards`}
         >
-          {groups.map((group) => (
-            <StandingsGroup
-              key={group.key}
-              group={group}
-              tournament={t}
-              hasLeague={data.hasLeague}
-            />
-          ))}
-        </div>
-      </section>
+          <div className="vb-section-heading">
+            <h3>{hasKnockouts ? "League standings" : "Standings"}</h3>
+            <span className="vb-qualification">
+              <i />
+              {isPlayoffFormat(t) && data.hasLeague
+                ? playoffs.length
+                  ? `${t.groups * directPlaces(t) + playoffs.filter((m) => m.winner).length} / 8 qualified`
+                  : `Top ${directPlaces(t)} direct · others playoff`
+                : hasKnockouts
+                  ? `${t.groups * t.qualify} qualified`
+                  : data.hasLeague
+                    ? `Top ${t.qualify} per group advance`
+                    : "Groups assigned with fixtures"}
+            </span>
+          </div>
+          <div
+            className={`vb-standings-grid ${hasKnockouts ? "vb-scroll" : ""}`}
+            data-auto-scroll={hasKnockouts ? "" : undefined}
+            tabIndex={hasKnockouts ? 0 : undefined}
+            aria-label={
+              hasKnockouts
+                ? `${t.name} league groups, automatically scrolling`
+                : undefined
+            }
+            style={{ "--groups": Math.min(groups.length, 4) }}
+          >
+            {groups.map((group) => (
+              <StandingsGroup
+                key={group.key}
+                group={group}
+                tournament={t}
+                hasLeague={data.hasLeague}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {hasKnockouts ? (
-        <VenueBracket tournament={t} rounds={knockoutRounds} teams={teams} />
+        <VenueBracket
+          tournament={t}
+          rounds={knockoutRounds}
+          playoffs={playoffs}
+          teams={teams}
+        />
       ) : (
         <div className="vb-tournament-bottom">
           <section className="vb-calls" aria-label={`${t.name} upcoming games`}>

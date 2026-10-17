@@ -142,9 +142,13 @@ if (process.argv.includes("--dev")) {
   });
   app.use(vite.middlewares);
 } else {
-  app.use(express.static(path.join(root, "dist")));
+  app.use(express.static(path.join(root, "dist"), {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-store");
+    },
+  }));
   app.get("/{*path}", (req, res) =>
-    res.sendFile(path.join(root, "dist/index.html")),
+    res.set("Cache-Control", "no-store").sendFile(path.join(root, "dist/index.html")),
   );
 }
 app.use((err, req, res, next) => {

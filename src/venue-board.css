@@ -35,7 +35,7 @@
 }
 .vb-title > span,
 .vb-kicker {
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 1.7px;
   font-weight: 700;
 }
@@ -44,7 +44,7 @@
 }
 .vb-title h1 {
   font-family: var(--sport);
-  font-size: 28px;
+  font-size: 38px;
   line-height: 1.15;
   font-weight: 400;
   text-transform: uppercase;
@@ -53,7 +53,7 @@
   overflow-wrap: anywhere;
 }
 .vb-demo {
-  font-size: 11px;
+  font-size: 15px;
   color: #875c23;
   background: #fff0d7;
   padding: 6px 12px;
@@ -75,7 +75,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 15px;
   color: #587060;
 }
 .vb-selectors select {
@@ -84,7 +84,7 @@
   border-radius: 4px;
   color: var(--vb-ink);
   font: inherit;
-  font-size: 12px;
+  font-size: 17px;
   padding: 8px 28px 8px 10px;
   min-height: 35px;
   max-width: 260px;
@@ -146,7 +146,7 @@
 }
 .vb-kicker {
   display: block;
-  font-size: 9px;
+  font-size: 13px;
   color: #91c3b1;
   letter-spacing: 1.3px;
   line-height: 1.3;
@@ -166,20 +166,20 @@
   background: #17493f;
   color: #9dedc7;
   border: 1px solid #2a6452;
-  font-size: 9px;
+  font-size: 13px;
   padding: 3px 5px;
   border-radius: 2px;
   white-space: nowrap;
 }
 .vb-tournament-heading h2 {
   margin: 5px 0 0;
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 750;
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
 .vb-stage {
-  font-size: 9px;
+  font-size: 13px;
   letter-spacing: 0.8px;
   color: #a1ccbc;
   text-align: right;
@@ -189,7 +189,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 17px;
   max-width: 45%;
   color: #87efbd;
   line-height: 1.4;
@@ -213,14 +213,14 @@
 }
 .vb-section-heading h3 {
   font-family: var(--sport);
-  font-size: 23px;
+  font-size: 31px;
   font-weight: 400;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   margin: 0;
 }
 .vb-section-heading > span {
-  font-size: 10px;
+  font-size: 14px;
   color: #62796b;
   text-align: right;
 }
@@ -260,18 +260,19 @@
   gap: 8px;
   flex-shrink: 0;
   height: var(--vb-group-head);
+  min-height: 34px;
   padding: 5px 10px;
   background: #eef3ed;
   border-bottom: 1px solid var(--vb-line);
 }
 .vb-group-heading h4 {
-  font-size: 12px;
+  font-size: 17px;
   margin: 0;
   color: #204936;
   font-weight: 750;
 }
 .vb-group-heading > span {
-  font-size: 9px;
+  font-size: 13px;
   color: #697e70;
   white-space: nowrap;
 }
@@ -298,7 +299,7 @@
   z-index: 1;
 }
 .vb-table thead th {
-  font-size: 10px;
+  font-size: 14px;
   color: #6d8072;
   background: #fafbf8;
   padding: 9px 3px;
@@ -314,22 +315,22 @@
   text-align: left;
 }
 .vb-table thead th:nth-child(n + 3) {
-  width: 30px;
+  width: 38px;
 }
 .vb-table thead th:last-child {
   padding-right: 9px;
-  width: 36px;
+  width: 44px;
 }
 .vb-table tbody th,
 .vb-table tbody td {
   border-bottom: 1px solid #e7ede6;
   padding: 12px 3px;
-  font-size: 14px;
+  font-size: 20px;
   line-height: 1.35;
   background: transparent;
 }
 .vb-table tbody th {
-  font-size: 15px;
+  font-size: 21px;
   text-align: left;
   font-weight: 650;
   color: var(--vb-ink);
@@ -342,7 +343,7 @@
 }
 .vb-table tbody td:first-child {
   text-align: center;
-  font-size: 12px;
+  font-size: 17px;
   color: #6a8272;
 }
 .vb-table tbody td:last-child {
@@ -392,7 +393,7 @@
 }
 .vb-call-number {
   font-family: var(--sport);
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 400;
   color: #729887;
   flex-shrink: 0;
@@ -404,19 +405,19 @@
 .vb-call-row small {
   display: block;
   color: #6b8271;
-  font-size: 10px;
+  font-size: 14px;
   margin-bottom: 3px;
 }
 .vb-call-row strong {
   display: block;
-  font-size: 14px;
+  font-size: 20px;
   font-weight: 650;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 .vb-call-row em {
   font-style: normal;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 400;
   color: #7d9181;
 }
@@ -466,7 +467,7 @@
   min-width: 0;
 }
 .vb-result-row strong {
-  font-size: 14px;
+  font-size: 20px;
   display: block;
   line-height: 1.3;
   font-weight: 700;
@@ -475,7 +476,7 @@
 }
 .vb-result-row span {
   display: block;
-  font-size: 11px;
+  font-size: 15px;
   color: #627661;
   margin-top: 3px;
   line-height: 1.3;
@@ -483,10 +484,10 @@
 }
 .vb-result-row small {
   color: #6a8069;
-  font-size: 9px;
+  font-size: 13px;
 }
 .vb-final-score {
-  font-size: 14px;
+  font-size: 20px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
   color: #267444;
@@ -496,7 +497,7 @@
 }
 .vb-empty {
   padding: 18px 12px;
-  font-size: 12px;
+  font-size: 17px;
   color: #748773;
   line-height: 1.6;
   margin: 0;
@@ -509,12 +510,12 @@
   padding: 30px;
 }
 .vb-no-tournaments h2 {
-  font-size: 24px;
+  font-size: 32px;
   margin: 18px 0 10px;
   color: var(--vb-ink);
 }
 .vb-no-tournaments p {
-  font-size: 14px;
+  font-size: 20px;
   line-height: 1.5;
 }
 .vb-multiple {
@@ -529,13 +530,13 @@
   height: calc(2 * var(--vb-call-row));
 }
 .vb-multiple .vb-tournament-heading h2 {
-  font-size: 22px;
+  font-size: 30px;
 }
 .vb-single .vb-table tbody th {
-  font-size: 18px;
+  font-size: 25px;
 }
 .vb-single .vb-table tbody td {
-  font-size: 16px;
+  font-size: 22px;
 }
 .vb-multiple .vb-table tbody th,
 .vb-multiple .vb-table tbody td {
@@ -559,13 +560,13 @@
   padding: 12px;
 }
 .vb-dense .vb-section-heading h3 {
-  font-size: 21px;
+  font-size: 29px;
 }
 .vb-dense .vb-table tbody th {
-  font-size: 13px;
+  font-size: 18px;
 }
 .vb-dense .vb-table tbody td {
-  font-size: 12px;
+  font-size: 17px;
 }
 .vb-dense .vb-table thead th:nth-child(n + 3) {
   width: 25px;
@@ -575,13 +576,13 @@
   padding: 8px;
 }
 .vb-dense .vb-result-row strong {
-  font-size: 12px;
+  font-size: 17px;
 }
 .vb-dense .vb-result-row span {
-  font-size: 10px;
+  font-size: 14px;
 }
 .vb-dense .vb-final-score {
-  font-size: 12px;
+  font-size: 17px;
 }
 .vb-many .vb-tournament {
   --vb-call-row: 64px;
@@ -595,7 +596,7 @@
   padding-bottom: 8px;
 }
 .vb-many .vb-tournament-heading h2 {
-  font-size: 18px;
+  font-size: 25px;
 }
 .vb-many .vb-leaderboards {
   min-height: 80px;
@@ -605,7 +606,7 @@
   margin-bottom: 4px;
 }
 .vb-many .vb-section-heading h3 {
-  font-size: 19px;
+  font-size: 26px;
 }
 .vb-many .vb-call-list {
   height: var(--vb-call-row);
@@ -656,13 +657,13 @@
     width: 23px;
   }
   .vb-table tbody th {
-    font-size: 12px;
+    font-size: 17px;
   }
   .vb-table tbody td {
-    font-size: 11px;
+    font-size: 15px;
   }
   .vb-qualification {
-    font-size: 9px;
+    font-size: 13px;
   }
   .vb-results-grid {
     grid-template-columns: repeat(min(var(--result-groups), 2), minmax(0, 1fr));
@@ -674,7 +675,7 @@
   }
   .vb-final-score {
     max-width: none;
-    font-size: 12px;
+    font-size: 17px;
   }
 }
 @media (max-height: 850px) and (min-width: 901px) {
@@ -694,17 +695,17 @@
     height: 34px;
   }
   .vb-title h1 {
-    font-size: 29px;
+    font-size: 39px;
     margin-top: 3px;
   }
   .vb-title > span {
-    font-size: 9px;
+    font-size: 13px;
   }
   .vb-toolbar select {
     min-height: 30px;
     padding-top: 6px;
     padding-bottom: 6px;
-    font-size: 11px;
+    font-size: 15px;
   }
   .vb-tournament {
     padding-bottom: 9px;
@@ -716,7 +717,7 @@
   }
   .vb-tournament-heading h2,
   .vb-multiple .vb-tournament-heading h2 {
-    font-size: 19px;
+    font-size: 26px;
     margin-top: 3px;
   }
   .vb-section-heading {
@@ -724,7 +725,7 @@
     margin-bottom: 5px;
   }
   .vb-section-heading h3 {
-    font-size: 21px;
+    font-size: 29px;
   }
   .vb-table thead th {
     padding-top: 6px;
@@ -736,10 +737,10 @@
     padding-bottom: 8px;
   }
   .vb-single .vb-table tbody th {
-    font-size: 16px;
+    font-size: 22px;
   }
   .vb-single .vb-table tbody td {
-    font-size: 14px;
+    font-size: 20px;
   }
   .vb-call-row {
     padding: 6px 10px;
@@ -747,10 +748,10 @@
   }
   .vb-call-row strong,
   .vb-result-row strong {
-    font-size: 12px;
+    font-size: 17px;
   }
   .vb-call-row small {
-    font-size: 9px;
+    font-size: 13px;
     margin-bottom: 2px;
   }
   .vb-multiple .vb-call-list {
@@ -760,11 +761,11 @@
     padding: 6px 9px;
   }
   .vb-result-row span {
-    font-size: 10px;
+    font-size: 14px;
     margin-top: 2px;
   }
   .vb-final-score {
-    font-size: 12px;
+    font-size: 17px;
   }
 }
 @media (max-width: 1500px) and (min-width: 901px) {
@@ -787,7 +788,7 @@
     display: none;
   }
   .vb-dense .vb-table tbody th {
-    font-size: 12px;
+    font-size: 17px;
   }
   .vb-dense .vb-table tbody th,
   .vb-dense .vb-table tbody td {
@@ -823,10 +824,10 @@
     height: 36px;
   }
   .vb-title h1 {
-    font-size: 27px;
+    font-size: 36px;
   }
   .vb-title > span {
-    font-size: 8px;
+    font-size: 12px;
   }
   .vb-board-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -869,7 +870,7 @@
     height: 34px;
   }
   .vb-title h1 {
-    font-size: 23px;
+    font-size: 31px;
   }
   .vb-selectors {
     flex: 1;
@@ -889,7 +890,7 @@
     align-items: flex-start;
   }
   .vb-tournament-heading h2 {
-    font-size: 20px;
+    font-size: 27px;
   }
   .vb-stage {
     display: none;
@@ -905,7 +906,7 @@
     width: 20px;
   }
   .vb-table thead th {
-    font-size: 8px;
+    font-size: 12px;
   }
   .vb-table .vb-stat-played,
   .vb-table .vb-stat-wins,
@@ -922,12 +923,12 @@
   .vb-table tbody th,
   .vb-dense .vb-table tbody th,
   .vb-single .vb-table tbody th {
-    font-size: 11px;
+    font-size: 15px;
   }
   .vb-table tbody td,
   .vb-dense .vb-table tbody td,
   .vb-single .vb-table tbody td {
-    font-size: 10px;
+    font-size: 14px;
   }
   .vb-table tbody td:last-child,
   .vb-table thead th:last-child {
@@ -938,16 +939,16 @@
     padding-right: 7px;
   }
   .vb-group-heading h4 {
-    font-size: 11px;
+    font-size: 15px;
   }
   .vb-group-heading > span {
-    font-size: 8px;
-  }
-  .vb-result-row strong {
     font-size: 12px;
   }
+  .vb-result-row strong {
+    font-size: 17px;
+  }
   .vb-result-row span {
-    font-size: 10px;
+    font-size: 14px;
   }
 }
 
@@ -956,7 +957,7 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 14px;
   color: #587161;
 }
 .vb-connection i {
@@ -974,7 +975,49 @@
 .vb-scroll {
   scroll-behavior: auto;
 }
-
+.vb-table tr.vb-playoff-place {
+  background: #fff8e8;
+}
+.vb-table tr.vb-playoff-place td:first-child {
+  border-left: 3px solid #c8953b;
+}
+.vb-entry-route {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #758577;
+  margin-top: 3px;
+}
+.vb-playoff-place .vb-entry-route {
+  color: #9b7029;
+}
+.vb-qualifier .vb-entry-route { color:#087d59; }
+.vb-playoff-section {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 10px;
+  border-top: 1px solid var(--vb-line);
+}
+.vb-playoff-rules { font-size: 14px; color: #758577; margin-bottom: 5px; }
+.vb-playoff-list { flex: 1; min-height: 0; overflow: auto; padding-right: 4px; }
+.vb-playoff-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+.vb-playoff-grid h5 {
+  margin: 12px 0 8px;
+  font-size: 15px;
+  color: #587566;
+}
+.vb-playoff-grid .vb-ko-card {
+  margin-bottom: 10px;
+}
+.vb-playoff-grid .vb-ko-card::before {
+  display: none;
+}
 /* The draw takes over the tournament panel when knockout fixtures exist. */
 .venue-board .vb-tournament.vb-knockout {
   display: flex;
@@ -990,8 +1033,14 @@
   grid-auto-rows: minmax(150px, 1fr);
 }
 .vb-board-grid.vb-many:has(.vb-knockout) {
-  grid-template-rows: repeat(var(--board-rows), minmax(520px, 1fr));
+  grid-template-rows: repeat(var(--board-rows), minmax(650px, 1fr));
 }
+.vb-postseason { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.vb-postseason.vb-with-playoffs { grid-template-columns: minmax(145px, 1fr) minmax(0, 2fr); }
+.vb-postseason .vb-section-heading { flex-wrap: wrap; gap: 4px 10px; }
+.vb-playoff-section .vb-section-heading h3 { font-size: clamp(22px, 2.8cqi, 31px); }
+.vb-postseason .vb-bracket-section { min-width: 0; }
+.vb-bracket-only .vb-bracket-section { border-top: 0; padding-top: 0; }
 @container (max-width: 700px) {
   .vb-knockout .vb-standings-grid {
     grid-template-columns: repeat(min(var(--groups), 2), minmax(0, 1fr));
@@ -999,35 +1048,31 @@
 }
 .vb-bracket-section {
   flex: 1;
-  min-height: 180px;
+  min-height: 120px;
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--vb-line);
   padding-top: 10px;
 }
 .vb-bracket-viewport {
+  position: relative;
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 0 4px 4px;
+  overflow: clip;
 }
 .vb-bracket-canvas {
-  --vb-bracket-gap: 32px;
-  --vb-bracket-row: 150px;
+  --vb-bracket-gap: 26px;
+  --vb-bracket-row: 118px;
+  position: absolute;
+  transform-origin: top left;
   display: grid;
-  grid-template-columns: repeat(var(--bracket-rounds), minmax(210px, 1fr));
+  grid-template-columns: repeat(var(--bracket-rounds), minmax(0, 1fr));
   column-gap: var(--vb-bracket-gap);
-  min-width: calc(
-    var(--bracket-rounds) * 210px + (var(--bracket-rounds) - 1) *
-      var(--vb-bracket-gap)
-  );
-  max-width: calc(
-    var(--bracket-rounds) * 400px + (var(--bracket-rounds) - 1) *
-      var(--vb-bracket-gap)
-  );
-  min-height: 100%;
-  margin-inline: auto;
+  width: calc(var(--bracket-rounds) * 310px + (var(--bracket-rounds) - 1) * var(--vb-bracket-gap));
 }
+.vb-bracket-canvas .vb-ko-card { padding: 8px 10px; }
+.vb-bracket-canvas .vb-ko-meta { margin-bottom: 4px; }
+.vb-bracket-canvas .vb-ko-opponent { padding: 5px 0; min-height: 30px; }
 .vb-bracket-round {
   display: flex;
   flex-direction: column;
@@ -1041,7 +1086,7 @@
   padding: 8px 0 10px;
   background: #fff;
   color: #587566;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.4;
   letter-spacing: 1.2px;
   text-transform: uppercase;
@@ -1060,7 +1105,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  padding: 12px 0;
+  padding: 8px 0;
 }
 .vb-bracket-cell::before,
 .vb-bracket-cell::after,
@@ -1127,8 +1172,8 @@
   justify-content: space-between;
   gap: 6px;
   margin-bottom: 12px;
-  font-size: 9px;
-  color: #708578;
+  font-size: 13px;
+  color: #536d5e;
 }
 .vb-ko-status {
   padding: 4px 6px;
@@ -1157,8 +1202,8 @@
   border-top: 1px solid #e3ebe4;
 }
 .vb-ko-opponent strong {
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 24px;
+  line-height: 1.3;
   overflow-wrap: anywhere;
   font-weight: 650;
 }
@@ -1166,8 +1211,8 @@
   color: #087d59;
 }
 .vb-ko-pending strong {
-  color: #7f9186;
-  font-size: 12px;
+  color: #536d5e;
+  font-size: 20px;
   font-weight: 500;
 }
 .vb-ko-scores {
@@ -1180,11 +1225,11 @@
   padding-right: 21px;
   position: relative;
   color: #85948b;
-  font-size: 12px;
+  font-size: 17px;
   font-variant-numeric: tabular-nums;
 }
 .vb-ko-scores b {
-  min-width: 16px;
+  min-width: 22px;
   text-align: right;
   font-weight: 500;
 }
@@ -1232,9 +1277,11 @@
     flex: none;
     height: 430px;
   }
+  .vb-postseason, .vb-postseason.vb-with-playoffs { flex: none; grid-template-columns: minmax(0, 1fr); }
+  .vb-playoff-section { height: 210px; }
 }
 
-/* A slim court-green rail, including horizontal bracket scrollbars. */
+/* A slim court-green rail for the display lists and tournament grid. */
 html:has(.venue-board),
 body:has(.venue-board),
 .venue-board,
@@ -1288,4 +1335,17 @@ body:has(.venue-board)::-webkit-scrollbar-thumb:hover,
 }
 .venue-board *::-webkit-scrollbar-button {
   display: none;
+}
+
+
+@media (max-width: 540px) {
+  .vb-standings-grid,
+  .vb-knockout .vb-standings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vb-table thead th:nth-child(n + 3),
+  .vb-dense .vb-table thead th:nth-child(n + 3) {
+    width: 38px;
+  }
+  .vb-result-row strong { font-size: 18px; }
 }

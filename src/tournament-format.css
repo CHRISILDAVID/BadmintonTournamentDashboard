@@ -1,0 +1,75 @@
+.stage-scoring {
+  border: 1px solid #d4dfd7;
+  border-radius: 5px;
+  margin: 18px 0;
+  padding: 14px;
+  min-width: 0;
+}
+.stage-scoring legend {
+  padding: 0 7px;
+  color: #087d59;
+  font-weight: 700;
+  font-size: 13px;
+}
+.stage-scoring .form-row {
+  margin-top: 0;
+}
+.stage-scoring .field:last-of-type {
+  margin-bottom: 0;
+}
+.stage-scoring .field { margin-bottom: 6px; }
+.stage-scoring .help-text {
+  margin: 8px 0 0;
+}
+.format-preview span {
+  display: block;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.standing-table tr.playoff-place {
+  background: #fff8e8;
+}
+.standing-table tr.playoff-place td:first-child {
+  border-left: 3px solid #c8953b;
+}
+.qualification-marker {
+  display: block;
+  color: #9b7029;
+  font-size: 10px;
+  font-weight: 500;
+  margin-top: 3px;
+}
+.qualification-marker.qualified,
+.qualification-marker.direct {
+  color: #087d59;
+}
+.qualification-marker.eliminated { color:#758577; }
+.organizer-playoffs {
+  margin: 26px 0 18px;
+  padding: 16px;
+  border: 1px solid #d4dfd7;
+  background: #fafbf7;
+  border-radius: 5px;
+}
+.organizer-playoffs > h3 {
+  margin: 0 0 7px;
+}
+.organizer-playoff-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.organizer-playoff-groups h4 {
+  margin: 14px 0 10px;
+}
+.organizer-playoff-groups .match-card {
+  margin-bottom: 12px;
+}
+@media (max-width: 650px) {
+  .organizer-playoff-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stage-scoring .form-row.three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
