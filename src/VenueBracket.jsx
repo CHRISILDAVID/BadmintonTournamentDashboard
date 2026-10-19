@@ -5,13 +5,14 @@ import {
   scoringRules,
   scoringLabel,
   pendingOpponent,
+  groupLabel,
 } from "../shared/format.js";
 
 function BracketMatch({ match, teams, previousStage }) {
   const ready = !!match.a && !!match.b;
   const status =
     match.status === "completed"
-      ? "Final score"
+      ? (match.bye ? "Advances by bye" : "Final score")
       : match.status === "live"
         ? `Court ${match.court} · On court`
         : ready
@@ -25,7 +26,7 @@ function BracketMatch({ match, teams, previousStage }) {
       <div className="vb-ko-meta">
         <span>
           {match.stage === PLAYOFF_STAGE
-            ? `${match.playoffRanks.join(" vs ")} → ${String.fromCharCode(65 + match.group)}${match.qualifyingSlot}`
+            ? `${match.playoffRanks.join(" vs ")} → ${groupLabel(match.group)}${match.qualifyingSlot}`
             : `Match ${match.index + 1}`}
         </span>
         <span className={`vb-ko-status ${match.status}`}>{status}</span>
@@ -33,7 +34,7 @@ function BracketMatch({ match, teams, previousStage }) {
       {[match.a, match.b].map((id, side) => {
         const player = teams.get(id);
         const winner = !!id && match.winner === id;
-        const placeholder = match[`${side === 0 ? "a" : "b"}Source`]
+        const placeholder = match.bye && !id && !match[`${side === 0 ? "a" : "b"}Source`] ? "Bye" : match[`${side === 0 ? "a" : "b"}Source`]
           ? pendingOpponent(match, side === 0 ? "a" : "b")
           : previousStage
             ? `Winner of ${previousStage} ${match.index * 2 + side + 1}`
@@ -44,10 +45,10 @@ function BracketMatch({ match, teams, previousStage }) {
             key={side}
           >
             <strong>{player?.name || placeholder}</strong>
-            {match.status === "completed" && (
+            {match.status === "completed" && player && (
               <span
                 className="vb-ko-scores"
-                aria-label={`${player?.name} game scores`}
+                aria-label={`${player.name} ${match.bye ? "advances by bye" : "game scores"}`}
               >
                 {match.games.map((game, i) => (
                   <b
@@ -137,8 +138,8 @@ export default function VenueBracket({
   }, [rounds, teams]);
   const completed = rounds
     .flatMap((round) => round.matches)
-    .filter((m) => m.status === "completed").length;
-  const total = rounds.reduce((sum, round) => sum + round.matches.length, 0);
+    .filter((m) => m.status === "completed" && !m.bye).length;
+  const total = rounds.reduce((sum, round) => sum + round.matches.filter(m => !m.bye).length, 0);
   const showPlayoffs = playoffs.some((m) => m.status !== "completed");
   return (
     <div className={`vb-postseason ${showPlayoffs ? "vb-with-playoffs" : ""}`}>
@@ -167,9 +168,9 @@ export default function VenueBracket({
               {[...new Set(playoffs.map((m) => m.group))].map((group) => (
                 <section
                   key={group}
-                  aria-label={`Group ${String.fromCharCode(65 + group)} qualification playoffs`}
+                  aria-label={`Group ${groupLabel(group)} qualification playoffs`}
                 >
-                  <h5>Group {String.fromCharCode(65 + group)}</h5>
+                  <h5>Group {groupLabel(group)}</h5>
                   {playoffs
                     .filter((m) => m.group === group)
                     .map((m) => (

@@ -1,8 +1,9 @@
+import { groupLabel } from "../shared/format.js";
 export { standings } from "../shared/standings.js";
 import { playerLabel } from "../shared/players.js";
 export { playerLabel } from "../shared/players.js";
 export const groupName = (g) =>
-  g === null || g === undefined ? "" : `Group ${String.fromCharCode(65 + g)}`;
+  g === null || g === undefined ? "" : `Group ${groupLabel(g)}`;
 export const time = (value) => {
   if (!value) return "To be scheduled";
   if (/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {

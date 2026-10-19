@@ -10,6 +10,8 @@ import { removeLegacyCalls } from "../shared/matches.js";
 import { playerLabel } from "../shared/players.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// Temporary testing feature. Disable both its UI and API before a real event.
+const testToolsEnabled = process.env.DISABLE_TEST_TOOLS !== "1";
 const dataDir = process.env.DATA_DIR || path.join(root, "data");
 mkdirSync(dataDir, { recursive: true });
 const db = new DatabaseSync(path.join(dataDir, "shuttlehub.sqlite"));
@@ -70,6 +72,7 @@ const broadcast = () =>
     res.write(`data: ${JSON.stringify({ revision: state.revision })}\n\n`),
   );
 app.get("/api/state", (req, res) => res.json(state));
+app.get("/api/features", (req, res) => res.json({ testTools: testToolsEnabled }));
 app.get("/api/network", (req, res) => {
   const port = server.address().port;
   const addresses = Object.values(networkInterfaces())
@@ -95,6 +98,8 @@ app.get("/api/events", (req, res) => {
 });
 app.post("/api/action", (req, res) => {
   try {
+    if (req.body.action === "randomComplete" && !testToolsEnabled)
+      return res.status(403).json({ error: "Random match completion is disabled." });
     if (req.body.revision !== state.revision)
       return res.status(409).json({
         error:

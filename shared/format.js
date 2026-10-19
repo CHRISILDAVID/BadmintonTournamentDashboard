@@ -52,6 +52,15 @@ export function knockoutStage(entrants) {
   );
 }
 
+export const drawSize = (entrants) => 2 ** Math.ceil(Math.log2(Math.max(2, entrants)));
+
+export function groupLabel(group) {
+  let label = "";
+  for (let n = group + 1; n > 0; n = Math.floor((n - 1) / 26))
+    label = String.fromCharCode(65 + (n - 1) % 26) + label;
+  return label;
+}
+
 export function playoffPreset(mode, groups = 2) {
   return {
     qualification: mode,
@@ -67,6 +76,7 @@ export function playoffPreset(mode, groups = 2) {
 }
 
 export function pendingOpponent(match, side) {
+  if (match.bye && !match[side] && !match[`${side}Source`]) return "Bye";
   return match[`${side}Source`]?.label || "Awaiting qualifier";
 }
 

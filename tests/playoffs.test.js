@@ -224,7 +224,7 @@ test("playoff formats validate exact entrants and configuration before locking f
   }
   const config = { name: "Invalid", ...playoffPreset("intermediate") };
   for (const bad of [
-    { groups: 3 },
+    { groups: 0 },
     { qualify: 2 },
     { size: 1 },
     { qualification: "unknown" },

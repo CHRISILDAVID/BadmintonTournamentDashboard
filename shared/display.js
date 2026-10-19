@@ -1,5 +1,5 @@
 import { standings } from "./standings.js";
-import { PLAYOFF_STAGE, qualificationStatus } from "./format.js";
+import { PLAYOFF_STAGE, qualificationStatus, groupLabel } from "./format.js";
 
 export function displayTournamentOptions(state) {
   const priority = (t) => {
@@ -35,12 +35,12 @@ export function tournamentDisplayData(state, tournamentId) {
   const matches = state.matches.filter((m) => m.tournamentId === tournamentId);
   const hasLeague = matches.some((m) => m.stage === "League");
   const completed = matches
-    .filter((m) => m.status === "completed")
+    .filter((m) => m.status === "completed" && !m.bye)
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
   const groups = hasLeague
     ? Array.from({ length: tournament.groups }, (_, group) => ({
         key: `group-${group}`,
-        label: `Group ${String.fromCharCode(65 + group)}`,
+        label: `Group ${groupLabel(group)}`,
         rows: standings(state, tournamentId, group).map((row, rank) => ({
           ...row,
           qualificationStatus: qualificationStatus(
@@ -93,7 +93,7 @@ export function tournamentDisplayData(state, tournamentId) {
       playoffs.some((m) => m.status !== "completed"),
     hasLeague,
     completed: completed.length,
-    total: matches.length,
+    total: matches.filter(m => !m.bye).length,
     champion: final ? state.teams.find((t) => t.id === final.winner) : null,
     onCourt: matches
       .filter((m) => m.status === "live")
@@ -102,6 +102,7 @@ export function tournamentDisplayData(state, tournamentId) {
 }
 
 export function resultScore(match) {
+  if (match.bye) return "Bye";
   // Always put the displayed winner first, even if it was opponent B.
   return match.games
     .map(([a, b]) => (match.winner === match.b ? [b, a] : [a, b]).join("–"))

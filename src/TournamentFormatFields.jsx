@@ -6,6 +6,7 @@ import {
   playoffPreset,
   scoringRules,
   knockoutStage,
+  drawSize,
 } from "../shared/format.js";
 import "./tournament-format.css";
 
@@ -115,15 +116,9 @@ export default function TournamentFormatFields({ form, setForm }) {
       </label>
       <label className="field">
         <span>Number of groups</span>
-        <select
-          aria-label="Number of groups"
-          value={form.groups}
-          onChange={(e) => change("groups", +e.target.value)}
-        >
-          {[1, 2, 4, 8].map((n) => (
-            <option key={n}>{n}</option>
-          ))}
-        </select>
+        <input type="number" min="1" max="256" step="1" required
+          aria-label="Number of groups" value={form.groups}
+          onChange={(e) => change("groups", e.target.value === "" ? "" : +e.target.value)} />
       </label>
       {custom ? (
         <div className="format-preview">
@@ -144,7 +139,8 @@ export default function TournamentFormatFields({ form, setForm }) {
             </span>
             <span>
               {form.groups * 4} knockout places · Starts at{" "}
-              {knockoutStage(form.groups * 4)}
+              {knockoutStage(drawSize(form.groups * 4))}{" · "}
+              {drawSize(form.groups * 4) - form.groups * 4} automatic byes.
               {form.groups > 1
                 ? " · Opening matches pair different groups"
                 : " · 1st vs 4th, 2nd vs 3rd"}
@@ -165,19 +161,14 @@ export default function TournamentFormatFields({ form, setForm }) {
           <div className="form-row">
             <label className="field">
               <span>Qualifiers per group</span>
-              <select
+              <input type="number" min="1" max="256" step="1" required
                 value={form.qualify}
-                onChange={(e) => change("qualify", +e.target.value)}
-              >
-                {[1, 2, 4, 8, 16].map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
-              </select>
+                onChange={(e) => change("qualify", e.target.value === "" ? "" : +e.target.value)} />
             </label>
           </div>
           <p className="help-text">
-            {form.groups * form.qualify} knockout places. Groups × qualifiers
-            must equal 2, 4, 8 or 16.
+            {form.groups * form.qualify} knockout places; starts at {knockoutStage(drawSize(form.groups * form.qualify))} with {drawSize(form.groups * form.qualify) - form.groups * form.qualify} automatic byes.
+            {" "}Add at least {form.groups * Math.max(2, form.qualify)} teams. Groups are balanced automatically; qualifiers are seeded by league place, then group order. At least two knockout places are required.
           </p>
         </>
       )}

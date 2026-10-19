@@ -184,7 +184,7 @@ Updated previews: [larger league and playoff text](output/playwright/readability
 
 ## Custom group counts and display layout
 
-Both playoff formats now offer **1, 2, 4, or 8 groups** in Format & scoring. Existing presets start at two groups. Intermediate keeps five teams per group; Beginner keeps six. Four teams qualify from each group, producing a 4/8/16/32-team main draw.
+Both playoff formats accept **any whole group count from 1 to 256** in Format & scoring. Existing presets start at two groups. Intermediate keeps five teams per group; Beginner keeps six. Four teams qualify from each group, with automatic byes filling the next power-of-two main draw when needed.
 
 - Switch between both qualification formats and all four group counts. Verify the required entries, total match count and starting round against the README table. Save and reopen the tournament; the chosen count must persist. Changing qualification format must preserve the selected group count.
 - Generate fixtures with exactly the required entries; one too few or too many must fail without partial fixtures. Every group must contain its fixed number of teams and every league pair must meet once.
@@ -196,3 +196,16 @@ Both playoff formats now offer **1, 2, 4, or 8 groups** in Format & scoring. Exi
 Verified: **53 automated tests pass**, including eight full progression tests covering both formats at every group count. Production build passes with the existing ExcelJS bundle-size warning. Isolated browser checks covered form options/previews/scoring/persistence, all eight playoff groups, qualifier totals, 31-card bracket fitting, desktop/mobile layouts, and the previous highlight styling (subsequently reverted at user request). All QA used a separate database.
 
 Previews from before the theme rollback: [group setup](output/playwright/custom-groups-setup.png), [league highlights](output/playwright/monitor-league-1920.png), [mixed tournament phases](output/playwright/monitor-mixed-1920.png), [32-team draw](output/playwright/monitor-32-draw-1920.png).
+
+
+## Player corrections, result corrections, and arbitrary groups
+
+- In **Matches**, use **Testing: complete unfinished matches**. Cancel once and verify nothing changes, then confirm. Only the selected tournament should complete; **All tournaments** should complete every existing unfinished fixture. Check valid stage scores, freed courts, unchanged completed results, and automatically filled knockout rounds. Create the next stage normally and use the button again to reach a champion. Restart with `DISABLE_TEST_TOOLS=1`; the button must disappear and a direct `randomComplete` API request must return 403. Automated coverage is in `tests/random.test.js`.
+
+- Generate fixtures, then use **Teams & players > Edit players** before a match, while on court, and after recording results. Names and entry labels should update everywhere; seeds are disabled and Remove team is hidden. Completed finals lock names. Duplicate names and edits introducing simultaneous player appearances must fail without saving partial changes.
+- Open a completed game using **Edit result**. Scores must be prefilled, including zeroes. Save stays disabled until the correction checkbox is checked. Correct points without changing the winner: later knockout results should remain. Change a knockout winner: the affected later games return to upcoming, scores disappear, their courts are freed, and a stale champion disappears. Finish the updated final and correct its winner; the champion should update.
+- Correct a league score after drawing the knockouts: standings and qualification slots must reflect all corrected league results. In playoff formats, also verify the playoff opponents and the named winner slots. Unaffected results and fixture IDs should stay saved. Refresh both organizer and venue to verify persistence.
+- Enter 3, 5, 6, or 37 groups directly. With 200 teams / 37 groups / 2 qualifiers, expect 15 groups of six and 22 of five, 445 league games, 74 qualifiers, a Round of 128 bracket, 54 automatic byes, and 73 played knockout games. Groups after Z must read AA through AK. Ready games can start; byes advance automatically and never request scores.
+- Try 200 teams / 40 Intermediate groups: expect 400 league games, 40 qualification playoffs, 160 qualifiers, 96 byes, and 159 played knockout games. Beginner still requires exactly six teams per group. Invalid, fractional, or empty group counts and insufficient registrations must be rejected.
+
+Automated regression coverage: `tests/corrections.test.js`, including complete 200-team tournaments, corrections through the final, persistence round trips, atomic name validation, and cross-category court conflicts.

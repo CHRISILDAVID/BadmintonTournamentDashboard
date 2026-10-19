@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { playerLabel } from "../shared/players.js";
 import { removeLegacyCalls } from "../shared/matches.js";
 import { groupEditLockReason } from "../shared/groups.js";
+import { randomGames } from "./random-scores.js";
 import {
   PLAYOFF_STAGE,
   qualificationFormats,
@@ -11,6 +12,8 @@ import {
   isPlayoffFormat,
   scoringRules,
   knockoutStage,
+  drawSize,
+  groupLabel,
 } from "../shared/format.js";
 export const id = () => randomUUID();
 export const emptyState = () => ({
@@ -86,25 +89,153 @@ export function validateGames(games, t) {
   if (!wins.includes(needed)) fail(`A player/team must win ${needed} game(s).`);
   return wins[0] > wins[1] ? 0 : 1;
 }
-function propagate(state, m) {
-  if (m.stage === "League" || m.stage === "Final") return;
-  if (m.stage === PLAYOFF_STAGE) {
-    for (const next of state.matches.filter(
-      (x) => x.tournamentId === m.tournamentId,
-    )) {
-      for (const side of ["a", "b"])
-        if (next[`${side}Source`]?.matchId === m.id) next[side] = m.winner;
-    }
-    return;
-  }
-  const next = state.matches.find(
-    (x) =>
-      x.tournamentId === m.tournamentId &&
-      x.stage !== "League" &&
-      x.round === m.round + 1 &&
-      x.index === Math.floor(m.index / 2),
+function createDraw(s, t) {
+  const ranked = Array.from({ length: t.groups }, (_, g) =>
+    standings(s, t.id, g),
   );
-  if (next) next[m.index % 2 === 0 ? "a" : "b"] = m.winner;
+  const slots = ranked.map((rows) =>
+    rows.slice(0, t.qualify).map((row) => ({ id: row.id, group: row.group })),
+  );
+  if (isPlayoffFormat(t)) {
+    const format = qualificationFormat(t);
+    if (ranked.some((rows) => rows.length !== format.teamsPerGroup))
+      fail("Group sizes do not match this playoff format.");
+    for (let g = 0; g < t.groups; g++) {
+      for (const [high, low, slot] of format.pairs) {
+        const playoff = {
+          ...match(
+            t.id,
+            ranked[g][high - 1].id,
+            ranked[g][low - 1].id,
+            PLAYOFF_STAGE,
+            g,
+            0,
+            g * format.pairs.length +
+              format.pairs.findIndex((pair) => pair[2] === slot),
+          ),
+          qualifyingSlot: slot,
+          playoffRanks: [high, low],
+        };
+        s.matches.push(playoff);
+        slots[g][slot - 1] = {
+          id: null,
+          group: g,
+          source: {
+            matchId: playoff.id,
+            label: `Winner of Group ${groupLabel(g)} playoff for ${groupLabel(g)}${slot}`,
+          },
+        };
+      }
+    }
+  }
+  const entrants = [];
+  for (let rank = 0; rank < t.qualify; rank++)
+    for (let g = 0; g < t.groups; g++) entrants.push(slots[g][rank]);
+  // Standard bracket seeding keeps highest-ranked entrants in opposite halves.
+  let order = [1, 2];
+  while (order.length < drawSize(entrants.length)) {
+    const sum = order.length * 2 + 1;
+    order = order.flatMap((seed) => [seed, sum - seed]);
+  }
+  const seeded = order.map((seed) => entrants[seed - 1] || { id: null, bye: true });
+  // Re-pair lower seeds only when the standard order would create a same-group opener.
+  const pairs = Array.from({ length: seeded.length / 2 }, (_, i) => i)
+    .filter(i => !seeded[i * 2].bye && !seeded[i * 2 + 1].bye);
+  if (t.groups > 1 && pairs.some(i => seeded[i * 2].group === seeded[i * 2 + 1].group)) {
+    const opponents = pairs.map(i => seeded[i * 2 + 1]);
+    const assigned = new Map();
+    function assign(i, seen) {
+      for (let j = 0; j < opponents.length; j++) {
+        if (seen.has(j) || seeded[pairs[i] * 2].group === opponents[j].group) continue;
+        seen.add(j);
+        if (!assigned.has(j) || assign(assigned.get(j), seen)) {
+          assigned.set(j, i);
+          return true;
+        }
+      }
+      return false;
+    }
+    if (pairs.every((_, i) => assign(i, new Set())))
+      for (const [j, i] of assigned) seeded[pairs[i] * 2 + 1] = opponents[j];
+  }
+  let count = seeded.length / 2,
+    round = 1;
+  while (count >= 1) {
+    const stage = knockoutStage(count * 2);
+    for (let i = 0; i < count; i++) {
+      const fixture = match(
+        t.id,
+        round === 1 ? seeded[i * 2].id : null,
+        round === 1 ? seeded[i * 2 + 1].id : null,
+        stage,
+        null,
+        round,
+        i,
+      );
+      if (round === 1 && (seeded[i * 2].bye || seeded[i * 2 + 1].bye)) fixture.bye = true;
+      if (round === 1)
+        for (const [j, side] of ["a", "b"].entries()) {
+          if (seeded[i * 2 + j].source)
+            fixture[`${side}Source`] = seeded[i * 2 + j].source;
+        }
+      s.matches.push(fixture);
+    }
+    count /= 2;
+    round++;
+  }
+}
+
+function resetResult(m) {
+  m.status = "upcoming";
+  m.games = [];
+  m.winner = null;
+  m.court = null;
+  delete m.startedAt;
+  delete m.completedAt;
+  delete m.correctedAt;
+}
+
+// Recompute in feeder order; retain results only while both opponents stay the same.
+function reconcileDraw(s, t, rebuild = false) {
+  const fixtures = s.matches.filter(m => m.tournamentId === t.id && m.stage !== "League");
+  if (!fixtures.length) return;
+  const key = m => `${m.stage}:${m.round}:${m.index}`;
+  let blueprints;
+  if (rebuild) {
+    const draft = { ...s, matches: s.matches.filter(m => m.tournamentId === t.id && m.stage === "League") };
+    createDraw(draft, t);
+    draft.matches = draft.matches.filter(m => m.stage !== "League");
+    const oldByKey = new Map(fixtures.map(m => [key(m), m]));
+    const ids = new Map(draft.matches.map(m => [m.id, oldByKey.get(key(m)).id]));
+    for (const m of draft.matches)
+      for (const side of ["a", "b"])
+        if (m[`${side}Source`]) m[`${side}Source`].matchId = ids.get(m[`${side}Source`].matchId);
+    blueprints = new Map(draft.matches.map(m => [key(m), m]));
+  }
+  const byId = new Map(fixtures.map(m => [m.id, m]));
+  const mainByPosition = new Map(fixtures.filter(m => m.stage !== PLAYOFF_STAGE).map(m => [`${m.round}:${m.index}`, m]));
+  fixtures.sort((a, b) => (a.stage === PLAYOFF_STAGE ? 0 : a.round) - (b.stage === PLAYOFF_STAGE ? 0 : b.round));
+  for (const m of fixtures) {
+    const opponents = [m.a, m.b];
+    for (const [i, side] of ["a", "b"].entries()) {
+      const blueprint = blueprints?.get(key(m));
+      if (blueprint && (m.stage === PLAYOFF_STAGE || m.round === 1)) {
+        opponents[i] = blueprint[side];
+        if (blueprint[`${side}Source`]) m[`${side}Source`] = blueprint[`${side}Source`];
+        else delete m[`${side}Source`];
+      }
+      if (m[`${side}Source`]) opponents[i] = byId.get(m[`${side}Source`].matchId)?.winner || null;
+      else if (m.stage !== PLAYOFF_STAGE && m.round > 1)
+        opponents[i] = mainByPosition.get(`${m.round - 1}:${m.index * 2 + i}`)?.winner || null;
+    }
+    if (m.a !== opponents[0] || m.b !== opponents[1]) resetResult(m);
+    [m.a, m.b] = opponents;
+    if (m.bye && (m.a || m.b)) {
+      m.status = "completed";
+      m.winner = m.a || m.b;
+      m.completedAt ||= new Date().toISOString();
+    }
+  }
 }
 function validateScoring(input, label) {
   if (!input || typeof input !== "object")
@@ -156,8 +287,8 @@ export function applyAction(previous, action, payload = {}) {
     const config = {
       name,
       size: integer(payload.size, 1, 12, "Players per team"),
-      groups: integer(payload.groups, 1, 8, "Groups"),
-      qualify: integer(payload.qualify, 1, 16, "Qualifiers per group"),
+      groups: integer(payload.groups, 1, 256, "Groups"),
+      qualify: integer(payload.qualify, 1, 256, "Qualifiers per group"),
       bestOf: leagueRules?.bestOf ?? integer(payload.bestOf, 1, 5, "Best of"),
       points,
       cap:
@@ -183,12 +314,10 @@ export function applyAction(previous, action, payload = {}) {
       fail(
         "These playoff formats require doubles and four knockout slots per group.",
       );
-    if (![1, 2, 4, 8].includes(config.groups))
-      fail("Choose 1, 2, 4 or 8 groups.");
     if (![1, 3, 5].includes(config.bestOf)) fail("Best of must be 1, 3 or 5.");
     const total = config.groups * config.qualify;
-    if (!(isPlayoffFormat(config) ? [4, 8, 16, 32] : [2, 4, 8, 16]).includes(total))
-      fail("Groups × qualifiers must equal 2, 4, 8 or 16 knockout places.");
+    if (total < 2 || total > 4096)
+      fail("Groups times qualifiers must provide between 2 and 4096 knockout places.");
     if (t) {
       delete t.scoring;
       Object.assign(t, config);
@@ -216,10 +345,11 @@ export function applyAction(previous, action, payload = {}) {
       payload.teams.length > 256
     )
       fail("Add between 1 and 256 teams per import.");
-    if (s.matches.some((m) => m.tournamentId === t.id))
-      fail(
-        "Teams are locked after fixtures are generated. Reset unplayed fixtures to edit them.",
-      );
+    const locked = s.matches.some(m => m.tournamentId === t.id);
+    if (s.matches.some(m => m.tournamentId === t.id && m.stage === "Final" && m.winner))
+      fail("Player names are locked after the tournament ends.");
+    if (locked && payload.teams.some(row => !row.id))
+      fail("Registration is locked after fixtures are generated; existing player names can still be edited.");
     for (const row of payload.teams) {
       const players = (Array.isArray(row.players) ? row.players : [])
         .map((p) => clean(p, 80))
@@ -231,6 +361,8 @@ export function applyAction(previous, action, payload = {}) {
         ? s.teams.find((x) => x.id === row.id && x.tournamentId === t.id)
         : null;
       if (row.id && !existing) fail("Team not found.");
+      if (locked && row.seed != null && +row.seed !== existing.seed)
+        fail("Seeds are locked after fixtures are generated.");
       const normalized = players.map((p) => p.toLowerCase());
       if (
         new Set(normalized).size !== normalized.length ||
@@ -243,7 +375,7 @@ export function applyAction(previous, action, payload = {}) {
       )
         fail(`A player in ${name} is already entered in this category.`);
       const seed = integer(
-        row.seed ||
+        (locked ? existing.seed : row.seed) ||
           Math.max(
             0,
             ...s.teams
@@ -264,6 +396,14 @@ export function applyAction(previous, action, payload = {}) {
       if (existing) Object.assign(existing, team);
       else s.teams.push({ id: id(), tournamentId: t.id, group: null, ...team });
     }
+    const livePlayers = new Set();
+    for (const fixture of s.matches.filter(m => m.status === "live"))
+      for (const teamId of [fixture.a, fixture.b])
+        for (const player of s.teams.find(team => team.id === teamId).players) {
+          const normalized = player.toLowerCase();
+          if (livePlayers.has(normalized)) fail("This name would put the same player on court more than once. Finish or undo the conflicting match first.");
+          livePlayers.add(normalized);
+        }
   } else if (action === "deleteTeam") {
     if (!t || s.matches.some((m) => m.tournamentId === t.id))
       fail("Teams can only be removed before fixtures are generated.");
@@ -353,76 +493,31 @@ export function applyAction(previous, action, payload = {}) {
       league.some((m) => m.stage !== "League" || m.status !== "completed")
     )
       fail("Complete every league match before creating the knockout bracket.");
-    const ranked = Array.from({ length: t.groups }, (_, g) =>
-      standings(s, t.id, g),
-    );
-    const slots = ranked.map((rows) =>
-      rows.slice(0, t.qualify).map((row) => ({ id: row.id })),
-    );
-    if (isPlayoffFormat(t)) {
-      const format = qualificationFormat(t);
-      if (ranked.some((rows) => rows.length !== format.teamsPerGroup))
-        fail("Group sizes do not match this playoff format.");
-      for (let g = 0; g < t.groups; g++) {
-        for (const [high, low, slot] of format.pairs) {
-          const playoff = {
-            ...match(
-              t.id,
-              ranked[g][high - 1].id,
-              ranked[g][low - 1].id,
-              PLAYOFF_STAGE,
-              g,
-              0,
-              g * format.pairs.length +
-                format.pairs.findIndex((pair) => pair[2] === slot),
-            ),
-            qualifyingSlot: slot,
-            playoffRanks: [high, low],
-          };
-          s.matches.push(playoff);
-          slots[g][slot - 1] = {
-            id: null,
-            source: {
-              matchId: playoff.id,
-              label: `Winner of Group ${String.fromCharCode(65 + g)} playoff for ${String.fromCharCode(65 + g)}${slot}`,
-            },
-          };
-        }
+    createDraw(s, t);
+    reconcileDraw(s, t);
+  } else if (action === "randomComplete") {
+    // Temporary testing operation: one atomic save, including dependent rounds.
+    if (payload.tournamentId && !t) fail("Category not found.");
+    const fixtures = s.matches.filter(m => !t || m.tournamentId === t.id);
+    if (!fixtures.some(m => m.status !== "completed"))
+      fail("There are no unfinished matches in this selection.");
+    const configs = new Map(s.tournaments.map(t => [t.id, t]));
+    while (fixtures.some(m => m.status !== "completed")) {
+      const ready = fixtures.filter(m => m.status !== "completed" && m.a && m.b && !m.bye);
+      if (!ready.length)
+        fail("Some matches are missing opponents or feeder fixtures. No random results were saved.");
+      const changed = new Set();
+      for (const fixture of ready) {
+        const games = randomGames(scoringRules(configs.get(fixture.tournamentId), fixture.stage));
+        const winner = validateGames(games, scoringRules(configs.get(fixture.tournamentId), fixture.stage));
+        fixture.games = games;
+        fixture.winner = winner === 0 ? fixture.a : fixture.b;
+        fixture.status = "completed";
+        fixture.completedAt = new Date().toISOString();
+        fixture.court = null;
+        changed.add(fixture.tournamentId);
       }
-    }
-    const entrants = [];
-    for (let rank = 0; rank < t.qualify; rank++)
-      for (let g = 0; g < t.groups; g++) entrants.push(slots[g][rank]);
-    // Standard bracket seeding keeps highest-ranked entrants in opposite halves.
-    let order = [1, 2];
-    while (order.length < entrants.length) {
-      const sum = order.length * 2 + 1;
-      order = order.flatMap((seed) => [seed, sum - seed]);
-    }
-    const seeded = order.map((seed) => entrants[seed - 1]);
-    let count = entrants.length / 2,
-      round = 1;
-    while (count >= 1) {
-      const stage = knockoutStage(count * 2);
-      for (let i = 0; i < count; i++) {
-        const fixture = match(
-          t.id,
-          round === 1 ? seeded[i * 2].id : null,
-          round === 1 ? seeded[i * 2 + 1].id : null,
-          stage,
-          null,
-          round,
-          i,
-        );
-        if (round === 1)
-          for (const [j, side] of ["a", "b"].entries()) {
-            if (seeded[i * 2 + j].source)
-              fixture[`${side}Source`] = seeded[i * 2 + j].source;
-          }
-        s.matches.push(fixture);
-      }
-      count /= 2;
-      round++;
+      for (const tournamentId of changed) reconcileDraw(s, configs.get(tournamentId));
     }
   } else if (action === "returnMatch") {
     if (!m) fail("Match not found.");
@@ -431,7 +526,7 @@ export function applyAction(previous, action, payload = {}) {
     m.status = "upcoming";
     m.court = null;
     delete m.startedAt;
-  } else if (["start", "finish", "schedule"].includes(action)) {
+  } else if (["start", "finish", "correctResult", "schedule"].includes(action)) {
     if (!m) fail("Match not found.");
     const config = s.tournaments.find((t) => t.id === m.tournamentId);
     if (action === "schedule") {
@@ -465,17 +560,20 @@ export function applyAction(previous, action, payload = {}) {
       m.court = court;
       m.startedAt = new Date().toISOString();
     } else {
-      if (m.status !== "live")
-        fail("Start the match before recording its result.");
+      const correcting = action === "correctResult";
+      if (m.bye) fail("A bye has no game scores to edit.");
+      if (correcting ? m.status !== "completed" : m.status !== "live")
+        fail(correcting ? "Only completed results can be corrected." : "Start the match before recording its result.");
       const winner = validateGames(
         payload.games,
         scoringRules(config, m.stage),
       );
-      m.games = payload.games;
+      m.games = structuredClone(payload.games);
       m.winner = winner === 0 ? m.a : m.b;
       m.status = "completed";
-      m.completedAt = new Date().toISOString();
-      propagate(s, m);
+      if (correcting) m.correctedAt = new Date().toISOString();
+      else m.completedAt = new Date().toISOString();
+      reconcileDraw(s, config, correcting && m.stage === "League");
     }
   } else fail("Unknown operation.");
   s.revision++;

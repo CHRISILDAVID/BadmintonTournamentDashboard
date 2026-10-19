@@ -533,6 +533,7 @@ function App() {
                 deleteTournament: "Delete tournament",
                 returnMatch: "Return this match to waiting?",
                 clearDemo: "Start your own event",
+                randomComplete: "Complete unfinished matches with random scores?",
               }[modal.type]
             }
             wide={["tournament", "import", "groups"].includes(modal.type)}
@@ -627,7 +628,7 @@ function MatchCard({ m, compact = false }) {
               ON COURT
             </>
           ) : m.status === "completed" ? (
-            "FINAL SCORE"
+            m.bye ? "BYE" : "FINAL SCORE"
           ) : (
             m.stage
           )}
@@ -692,7 +693,7 @@ function MatchCard({ m, compact = false }) {
             {m.status === "live"
               ? "Record result"
               : m.status === "completed"
-                ? "View result"
+                ? (m.bye ? "View bye" : "Edit result")
                 : "Start game"}
             <ArrowUpRight size={15} />
           </button>
@@ -766,7 +767,7 @@ function MatchTable({ matches, history = false }) {
                     <strong>
                       {m.games.map((g) => g.join("–")).join(" / ")}
                     </strong>
-                    <small>{team(m.winner)?.name} won</small>
+                    <small>{team(m.winner)?.name} {m.bye ? "advances by bye" : "won"}</small>
                   </>
                 ) : (
                   <>
@@ -781,7 +782,7 @@ function MatchTable({ matches, history = false }) {
                   {m.status === "upcoming"
                     ? "Upcoming"
                     : m.status === "completed"
-                      ? "Completed"
+                      ? (m.bye ? "Bye" : "Completed")
                       : "On court"}
                 </Pill>
               </td>
@@ -790,10 +791,10 @@ function MatchTable({ matches, history = false }) {
                   <button
                     className="btn"
                     disabled={m.status === "upcoming" && (!m.a || !m.b)}
-                    aria-label={`${m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : "View result"}: ${team(m.a)?.name || "match"} vs ${team(m.b)?.name || "qualifier"}`}
+                    aria-label={`${m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : (m.bye ? "View bye" : "Edit result")}: ${team(m.a)?.name || "match"} vs ${team(m.b)?.name || "qualifier"}`}
                     onClick={() => open({ type: "match", matchId: m.id })}
                   >
-                    {m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : "View result"}
+                    {m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : (m.bye ? "View bye" : "Edit result")}
                   </button>
                 </td>
               )}
@@ -824,7 +825,8 @@ function Overview() {
     setPage,
   } = useContext(AppContext);
   const allLive = state.matches.filter((m) => m.status === "live");
-  const allDone = state.matches.filter((m) => m.status === "completed");
+  const playedFixtures = state.matches.filter(m => !m.bye);
+  const allDone = playedFixtures.filter((m) => m.status === "completed");
   return (
     <>
       <div className="venue-strip">
@@ -880,12 +882,12 @@ function Overview() {
           <div className="progress">
             <span
               style={{
-                width: `${state.matches.length ? (allDone.length / state.matches.length) * 100 : 0}%`,
+                width: `${playedFixtures.length ? (allDone.length / playedFixtures.length) * 100 : 0}%`,
               }}
             />
           </div>
           <small>
-            {allDone.length} / {state.matches.length} fixtures
+            {allDone.length} / {playedFixtures.length} matches
           </small>
         </div>
       </div>
@@ -1150,7 +1152,7 @@ function Tournaments() {
                   />
                 </div>
                 <small>
-                  {done} of {matches.length} matches completed · League: {scoringLabel(scoringRules(t))}
+                  {matches.filter(m => m.status === "completed" && !m.bye).length} of {matches.filter(m => !m.bye).length} matches completed · League: {scoringLabel(scoringRules(t))}
                   {t.scoring && <><br/>Main knockout: {scoringLabel(scoringRules(t, "Final"))}</>}
                   {isPlayoffFormat(t) && <><br/>Playoffs: {scoringLabel(scoringRules(t, PLAYOFF_STAGE))}</>}
                 </small>
@@ -1363,16 +1365,16 @@ function Teams() {
                         >
                           <Pencil size={14} />Change group
                         </button>
-                      ) : <button
-                        className="icon-btn"
+                      ) : null}
+                      <button
+                        className="text-btn"
                         aria-label={`Edit ${t.name}`}
-                        disabled={state.matches.some(
-                          (m) => m.tournamentId === t.tournamentId,
-                        )}
+                        disabled={!!tournamentProgress(state, t.tournamentId).champion}
+                        title={tournamentProgress(state, t.tournamentId).champion ? "Player names are locked after the tournament ends" : "Edit player names"}
                         onClick={() => open({ type: "team", team: t })}
                       >
-                        <Pencil size={16} />
-                      </button>}
+                        <Pencil size={16} /> Edit players
+                      </button>
                     </td>
                   )}
                 </tr>
@@ -1441,6 +1443,16 @@ function Matches({ history = false }) {
   const [status, setStatus] = useState("all");
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState("all");
+  const [testTools, setTestTools] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/features", { signal: controller.signal })
+      .then(r => r.ok ? r.json() : {})
+      .then(features => setTestTools(!!features.testTools))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  const unfinishedCount = selected.filter(m => m.status !== "completed" && !m.bye).length;
   const postseasonCount = selected.filter(m => m.stage !== "League").length;
   useEffect(() => { setStatus("all"); setQuery(""); setStage(filter !== "all" && postseasonCount ? "postseason" : "all"); }, [filter, postseasonCount]);
   const waiting = selected.filter(m => m.status === "upcoming" && (!m.a || !m.b));
@@ -1489,6 +1501,13 @@ function Matches({ history = false }) {
           <ArrowUpRight size={15} />
         </button>
       </div>
+      {!history && admin && testTools && <div className="toolbar">
+        <button className="btn danger" disabled={busy || !unfinishedCount}
+          onClick={() => open({ type: "randomComplete", tournament: filter === "all" ? undefined : tournament(filter) })}>
+          Testing: complete unfinished matches
+        </button>
+        <span className="help-text">{unfinishedCount} unfinished games in {filter === "all" ? "all tournaments" : tournament(filter)?.name}, across every stage. Uses random scores.</span>
+      </div>}
       <MatchTable matches={matches} history={history} />
     </section>
   );
@@ -1996,7 +2015,8 @@ function TeamForm({ importing = false }) {
     if (modal?.conflictRevision) formRevision.current = modal.conflictRevision;
   }, [modal?.conflictRevision]);
   const unlocked = state.tournaments.filter(
-    (t) => !state.matches.some((m) => m.tournamentId === t.id),
+    (t) => !state.matches.some((m) => m.tournamentId === t.id) ||
+      (modal.team?.tournamentId === t.id && !tournamentProgress(state, t.id).champion),
   );
   const initial = modal.team;
   const [tid, setTid] = useState(
@@ -2005,6 +2025,7 @@ function TeamForm({ importing = false }) {
       "",
   );
   const t = tournament(tid);
+  const registrationLocked = state.matches.some(m => m.tournamentId === tid);
   const [players, setPlayers] = useState(initial?.players || []),
     [seed, setSeed] = useState(initial?.seed || ""),
     [rows, setRows] = useState(null),
@@ -2153,12 +2174,13 @@ function TeamForm({ importing = false }) {
           ))}
           <Field
             label="Seed"
-            hint="Leave blank to assign the next seed. Use consistent player names across categories to prevent court conflicts."
+            hint={registrationLocked ? "Seeds are locked after fixtures are generated. Player names remain editable until the tournament ends." : "Leave blank to assign the next seed. Use consistent player names across categories to prevent court conflicts."}
           >
             <input
               type="number"
               min="1"
               max="10000"
+              disabled={registrationLocked}
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
               placeholder="Automatic"
@@ -2167,7 +2189,7 @@ function TeamForm({ importing = false }) {
         </>
       )}
       <div className="modal-actions">
-        {initial ? (
+        {initial && !registrationLocked ? (
           <button
             className="btn danger"
             type="button"
@@ -2239,7 +2261,17 @@ function MatchEditor() {
     ),
     [scheduled, setScheduled] = useState(m.scheduled || ""),
     [games, setGames] = useState(m.games.length ? m.games.map(game => game.map(String)) : [["", ""]]);
+  const [confirmCorrection, setConfirmCorrection] = useState(false);
+  const resultRevision = useRef(state.revision);
+  useEffect(() => {
+    if (modal?.conflictRevision) {
+      resultRevision.current = modal.conflictRevision;
+      setConfirmCorrection(false);
+      if (m.status === "completed") setGames(m.games.map(game => game.map(String)));
+    }
+  }, [modal?.conflictRevision]);
   function updateGameScore(index, side, value) {
+    setConfirmCorrection(false);
     setError("");
     setGames(current => current.map((game,i) => i === index ? game.map((score,j) => j === side ? value : score) : game));
   }
@@ -2317,14 +2349,17 @@ function MatchEditor() {
             </button>
           </div>
         </>
-      ) : m.status === "live" ? (
+      ) : !m.bye && (m.status === "live" || m.status === "completed") ? (
         <>
-          <div className="return-match"><p>Players not ready and play has not begun?</p><button className="text-btn" disabled={busy} onClick={() => open({type:"returnMatch", matchId:m.id})}>Undo start and free court</button></div>
-          <h3>Record the final result</h3>
+          {m.status === "live" && <div className="return-match"><p>Players not ready and play has not begun?</p><button className="text-btn" disabled={busy} onClick={() => open({type:"returnMatch", matchId:m.id})}>Undo start and free court</button></div>}
+          <h3>{m.status === "completed" ? "Edit final result" : "Record the final result"}</h3>
           <p className="help-text">
-            Enter each completed game in opponent order above. This finishes the
-            match and updates standings.
+            Enter each completed game in opponent order above. Saving updates the result and standings.
           </p>
+          {m.status === "completed" && <label className="help-text">
+            <input type="checkbox" checked={confirmCorrection} onChange={e => setConfirmCorrection(e.target.checked)} />
+            I confirm this correction. Standings and the draw will update. Later games whose opponents change will return to upcoming, clearing their scores and freeing any occupied courts. Unaffected results stay saved.
+          </label>}
           <div className="game-inputs">
             {games.map((g, i) => (
               <div className="game-score-row" key={i}>
@@ -2351,19 +2386,20 @@ function MatchEditor() {
             </button>
             <button
               className="btn primary"
-              disabled={busy}
+              disabled={busy || (m.status === "completed" && !confirmCorrection)}
               onClick={async () => {
                 let completedGames;
                 try { completedGames = finalScores(games); }
                 catch (error) { setError(error.message); return; }
                 if (
                   await act(
-                    "finish",
+                    m.status === "completed" ? "correctResult" : "finish",
                     { matchId: m.id, games: completedGames },
-                    "Result recorded",
+                    m.status === "completed" ? "Result corrected; standings and draw updated" : "Result recorded",
+                    resultRevision.current,
                   )
                 ) {
-                  const leagueComplete = m.stage === "League" && state.matches
+                  const leagueComplete = m.status !== "completed" && m.stage === "League" && state.matches
                     .filter(x => x.tournamentId === t.id && x.stage === "League" && x.id !== m.id)
                     .every(x => x.status === "completed");
                   if (leagueComplete) {
@@ -2374,7 +2410,7 @@ function MatchEditor() {
                 }
               }}
             >
-              Confirm final result
+              {m.status === "completed" ? "Save corrected result" : "Confirm final result"}
               <Check size={16} />
             </button>
           </div>
@@ -2383,7 +2419,7 @@ function MatchEditor() {
         <>
           <div className="final-result">
             <Trophy />
-            <h2>{team(m.winner)?.name} wins</h2>
+            <h2>{team(m.winner)?.name} {m.bye ? "advances by bye" : "wins"}</h2>
             <p>{m.games.map((g) => g.join(" – ")).join(" / ")}</p>
             <small>Completed {time(m.completedAt)}</small>
           </div>
@@ -2427,6 +2463,7 @@ function ConfirmForm() {
   const type = modal.type;
   const returning = state.matches.find(m => m.id === modal.matchId);
   const descriptions = {
+    randomComplete: `TESTING ONLY: Complete every unfinished fixture in ${t ? t.name : "all tournaments"} with random scores? This includes on-court games and later rounds waiting for winners, across all stages and search/status filters. Existing completed results stay saved. Courts are freed and standings and brackets update. New stages are not created automatically.`,
     returnMatch: `Return ${team(returning?.a)?.name || "this match"} vs ${team(returning?.b)?.name || "opponent"} to waiting? Use this only if play has not begun. The court will be freed and this game will return to the upcoming list.`,
     generate: `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft by seed. Team registration will close for this category.`,
     knockouts: isPlayoffFormat(t) ? `Create qualification playoffs and the knockout bracket for ${t.name}? Top ${directPlaces(t)} per group advance directly; playoff winners earn the remaining slots. Playoffs: ${scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Main knockout: ${scoringLabel(scoringRules(t, "Final"))}. Review final league standings before confirming. League ranks will not change after playoffs.` : `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
@@ -2460,7 +2497,7 @@ function ConfirmForm() {
               await act(
                 type,
                 { tournamentId: t?.id, teamId: modal.team?.id, matchId:modal.matchId },
-                type === "returnMatch" ? "Court freed; game returned to upcoming" : type === "deleteTournament" ? "Tournament deleted" : "Tournament updated",
+                type === "randomComplete" ? "Unfinished matches completed with random test scores" : type === "returnMatch" ? "Court freed; game returned to upcoming" : type === "deleteTournament" ? "Tournament deleted" : "Tournament updated",
               )
             ) {
               setModal(null);
@@ -2475,7 +2512,7 @@ function ConfirmForm() {
             }
           }}
         >
-          {type === "deleteTournament" ? "Delete tournament" : type === "knockouts" ? isPlayoffFormat(t) ? "Create playoffs + bracket" : "Create knockouts" : "Confirm"}
+          {type === "randomComplete" ? "Complete with random scores" : type === "deleteTournament" ? "Delete tournament" : type === "knockouts" ? isPlayoffFormat(t) ? "Create playoffs + bracket" : "Create knockouts" : "Confirm"}
           <Check size={16} />
         </button>
       </div>
