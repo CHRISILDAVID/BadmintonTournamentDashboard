@@ -21,6 +21,7 @@ import Matches from "./pages/Matches.jsx";
 import Standings from "./pages/Standings.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import TournamentForm from "./forms/TournamentForm.jsx";
+import ScoringForm from "./forms/ScoringForm.jsx";
 import TeamForm from "./forms/TeamForm.jsx";
 import MatchForm from "./forms/MatchForm.jsx";
 import ConfirmForm from "./forms/ConfirmForm.jsx";
@@ -276,9 +277,10 @@ function App() {
                 returnMatch: "Return this match to waiting?",
                 clearDemo: "Start your own event",
                 randomComplete: "Complete unfinished matches with random scores?",
+                scoring: "Correct tournament scoring",
               }[modal.type]
             }
-            wide={["tournament", "import", "groups"].includes(modal.type)}
+            wide={["tournament", "scoring", "import", "groups"].includes(modal.type)}
             close={() => {
               setModal(null);
               setError("");
@@ -286,6 +288,8 @@ function App() {
           >
             {modal.type === "tournament" ? (
               <TournamentForm />
+            ) : modal.type === "scoring" ? (
+              <ScoringForm />
             ) : modal.type === "team" || modal.type === "import" ? (
               <TeamForm importing={modal.type === "import"} />
             ) : modal.type === "match" ? (

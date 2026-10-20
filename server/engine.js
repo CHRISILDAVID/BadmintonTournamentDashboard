@@ -193,6 +193,7 @@ function resetResult(m) {
   delete m.startedAt;
   delete m.completedAt;
   delete m.correctedAt;
+  delete m.scoring;
 }
 
 // Recompute in feeder order; retain results only while both opponents stay the same.
@@ -322,6 +323,21 @@ export function applyAction(previous, action, payload = {}) {
       delete t.scoring;
       Object.assign(t, config);
     } else s.tournaments.push({ id: id(), ...config });
+  } else if (action === "scoring") {
+    if (!t) fail("Tournament not found.");
+    const next = {
+      league: validateScoring(payload.scoring?.league, "League"),
+      knockout: validateScoring(payload.scoring?.knockout, "Knockout"),
+    };
+    if (isPlayoffFormat(t)) next.playoff = validateScoring(payload.scoring?.playoff, "Playoff");
+    // Completed results keep the rules under which they were played, including corrections.
+    for (const fixture of s.matches.filter(m => m.tournamentId === t.id && m.status === "completed")) {
+      const previousRules = scoringRules(t, fixture.stage, fixture);
+      const nextRules = scoringRules({ ...t, scoring: next }, fixture.stage);
+      if (["points", "cap", "bestOf", "goldenPoint"].some(key => previousRules[key] !== nextRules[key])) fixture.scoring = structuredClone(previousRules);
+    }
+    t.scoring = next;
+    Object.assign(t, { points: next.league.points, cap: next.league.cap, bestOf: next.league.bestOf });
   } else if (action === "deleteTournament") {
     if (!t) fail("Tournament not found.");
     if (
@@ -566,7 +582,7 @@ export function applyAction(previous, action, payload = {}) {
         fail(correcting ? "Only completed results can be corrected." : "Start the match before recording its result.");
       const winner = validateGames(
         payload.games,
-        scoringRules(config, m.stage),
+        scoringRules(config, m.stage, m),
       );
       m.games = structuredClone(payload.games);
       m.winner = winner === 0 ? m.a : m.b;

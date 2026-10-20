@@ -24,7 +24,7 @@ function MatchEditor() {
   const { state, modal, busy, team, tournament, open, act, setPage, setModal, setError } = useDesk();
   const m = state.matches.find((m) => m.id === modal.matchId),
     t = tournament(m.tournamentId);
-  const rules = scoringRules(t, m.stage);
+  const rules = scoringRules(t, m.stage, m);
   const [court, setCourt] = useState(
       Array.from({ length: state.event.courts }, (_, i) => i + 1).find(
         (c) => !state.matches.some((x) => x.status === "live" && x.court === c),

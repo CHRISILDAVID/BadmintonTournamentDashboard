@@ -16,7 +16,7 @@
 .venue-widget-content { flex:1; min-height:0; overflow:hidden; }
 .venue-widget-scroll { height:100%; overflow:auto; padding:10px; }
 .venue-widget-note { font-size:11px; color:#61786b; margin:0; padding:0 2px 8px; line-height:1.5; }
-.venue-knockout-content > .venue-widget-note { padding:8px 12px; }
+.venue-knockout-content > .venue-widget-note { flex-shrink:0; padding:8px 12px; }
 .venue-grid-panel > .react-resizable-handle, .venue-widget > .react-resizable-handle { width:26px; height:26px; z-index:5; background-image:none; background-color:#e2f1e8; border-radius:10px 0 8px 0; }
 .venue-grid-panel > .react-resizable-handle::after, .venue-widget > .react-resizable-handle::after { border-color:#087d59; width:9px; height:9px; right:6px; bottom:6px; }
 .react-grid-item.react-grid-placeholder { background:#087d59; border-radius:10px; opacity:.12; }

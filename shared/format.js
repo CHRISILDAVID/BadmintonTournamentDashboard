@@ -24,7 +24,7 @@ export const qualificationFormat = (t) =>
 export const isPlayoffFormat = (t) => !!qualificationFormat(t)?.pairs;
 export const directPlaces = (t) => qualificationFormat(t)?.direct ?? t.qualify;
 
-export function scoringRules(t, stage = "League") {
+export function scoringRules(t, stage = "League", match) {
   const key =
     stage === "League"
       ? "league"
@@ -32,7 +32,7 @@ export function scoringRules(t, stage = "League") {
         ? "playoff"
         : "knockout";
   return (
-    t.scoring?.[key] || {
+    match?.scoring || t.scoring?.[key] || {
       points: t.points,
       cap: t.cap,
       bestOf: t.bestOf,

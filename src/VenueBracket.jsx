@@ -80,30 +80,31 @@ export function VenuePlayoffs({ tournament, playoffs, teams }) {
 }
 
 export default function VenueBracket({ tournament, rounds, teams }) {
-  const canvas = useRef(null), viewport = useRef(null), space = useRef(null);
+  const canvas = useRef(null), space = useRef(null);
   useLayoutEffect(() => {
-    const element = canvas.current, frame = viewport.current;
+    const element = canvas.current, frame = space.current;
     const cards = [...element.querySelectorAll(".vb-ko-card")];
     const measure = () => {
       const width = rounds.length * 310 + (rounds.length - 1) * 26;
       element.style.width = `${width}px`;
       const row = Math.max(118, ...cards.map(card => card.offsetHeight + 20));
       element.style.setProperty("--vb-bracket-row", `${row}px`);
-      // Keep names readable. Large draws scroll instead of shrinking to tiny text.
-      const scale = Math.max(0.85, Math.min(1.25, frame.clientWidth / width, frame.clientHeight / element.offsetHeight));
-      element.style.transform = `scale(${scale})`;
-      space.current.style.width = `${Math.ceil(width * scale)}px`;
-      space.current.style.height = `${Math.ceil(element.offsetHeight * scale)}px`;
+      // Fit the complete draw to the widget, including when either dimension shrinks.
+      const available = frame.getBoundingClientRect();
+      const height = parseFloat(getComputedStyle(element).height);
+      const scale = Math.min(available.width / width, available.height / height);
+      element.style.transform = `translate(-50%, -50%) scale(${scale})`;
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(frame); cards.forEach(card => observer.observe(card));
+    observer.observe(frame); observer.observe(element);
+    cards.forEach(card => observer.observe(card));
     return () => observer.disconnect();
   }, [rounds, teams]);
   const matches = rounds.flatMap(round => round.matches).filter(m => !m.bye);
   return <div className="venue-knockout-content">
-    <p className="venue-widget-note">{matches.filter(m => m.status === "completed").length} / {matches.length} played · Scroll to explore the draw</p>
-    <div className="vb-bracket-viewport vb-scroll" ref={viewport} tabIndex={0} data-auto-scroll="" data-scroll-axis="both" aria-label={`${tournament.name} knockout bracket, scroll for all rounds`}>
+    <p className="venue-widget-note">{matches.filter(m => m.status === "completed").length} / {matches.length} played</p>
+    <div className="vb-bracket-viewport" aria-label={`${tournament.name} knockout bracket`}>
       <div ref={space} className="venue-bracket-space"><div ref={canvas} className="vb-bracket-canvas" style={{ "--bracket-rounds": rounds.length, "--bracket-slots": rounds[0].matches.length }}>
         {rounds.map((round, column) => <section key={round.round} className={`vb-bracket-round ${column === 0 ? "vb-first-round" : ""} ${column === rounds.length - 1 ? "vb-last-round" : ""}`} aria-label={`${tournament.name} ${round.stage} round`}>
           <h4>{round.stage}</h4><div className="vb-bracket-matches">{round.matches.map(match => <div key={match.id} className={`vb-bracket-cell ${match.index % 2 === 0 ? "vb-branch-upper" : "vb-branch-lower"} ${match.winner ? "vb-branch-decided" : ""}`} style={{ gridRow: `${match.index * 2 ** column + 1} / span ${2 ** column}` }}>

@@ -9,7 +9,10 @@ import {
   scoringRules,
   knockoutStage,
   drawSize,
+  PLAYOFF_STAGE,
+  scoringLabel,
 } from "../shared/format.js";
+import { Button } from "./components/ui/button.jsx";
 import "./tournament-format.css";
 
 function RuleFields({ title, value, change }) {
@@ -84,15 +87,22 @@ function RuleFields({ title, value, change }) {
   );
 }
 
+export function StageScoringFields({ form, setForm }) {
+  const stages = [["league", "League", "League"], ...(isPlayoffFormat(form) ? [["playoff", "Qualification playoff", PLAYOFF_STAGE]] : []), ["knockout", "Main knockout", "Final"]];
+  const scoring = Object.fromEntries(stages.map(([key, , stage]) => [key, scoringRules(form, stage)]));
+  return <>
+    <div className="format-preview"><div><strong>Scoring by stage</strong><span>Each stage has its own rules. Changing League points does not change playoffs or main knockouts.</span></div></div>
+    <Button type="button" variant="outline" onClick={() => setForm(current => ({ ...current, scoring: Object.fromEntries(stages.map(([key]) => [key, { ...scoringRules(current) }])) }))}>Use league rules for every stage</Button>
+    {stages.map(([key, title]) => <RuleFields key={key} title={title} value={scoring[key]} change={value => setForm(current => ({ ...current, scoring: { ...scoring, ...current.scoring, [key]: value } }))}/>)}
+    <div className="format-preview" aria-label="Scoring summary"><div><strong>Review scoring</strong>{stages.map(([key, title]) => <span key={key}>{title}: {scoringLabel(scoring[key])}</span>)}</div></div>
+  </>;
+}
+
 export default function TournamentFormatFields({ form, setForm }) {
   const custom = isPlayoffFormat(form);
   const details = qualificationFormat(form);
   const change = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
-  const scoring = form.scoring || {
-    league: scoringRules(form),
-    knockout: scoringRules(form, "Final"),
-  };
   return (
     <>
       <label className="field">
@@ -174,26 +184,10 @@ export default function TournamentFormatFields({ form, setForm }) {
           </p>
         </>
       )}
-      {[
-        ["league", "League"],
-        ...(custom ? [["playoff", "Qualification playoff"]] : []),
-        ["knockout", "Main knockout"],
-      ].map(([key, title]) => (
-        <RuleFields
-          key={key}
-          title={title}
-          value={scoring[key]}
-          change={(value) =>
-            setForm((current) => ({
-              ...current,
-              scoring: { ...(current.scoring || scoring), [key]: value },
-            }))
-          }
-        />
-      ))}
+      <StageScoringFields form={form} setForm={setForm}/>
       <p className="help-text">
         Standings use wins, game difference, point difference, then seed. Format
-        and scoring lock when fixtures are generated.
+        locks when fixtures are generated. Scoring can be corrected later for unfinished matches.
       </p>
     </>
   );

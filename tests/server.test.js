@@ -70,6 +70,15 @@ test(
         assert.equal(page.status, 200);
         assert.equal(page.headers.get("cache-control"), "no-store");
       }
+      const excelReader = await fetch(base + "/vendor/exceljs.min.js");
+      assert.equal(excelReader.status, 200);
+      assert.match(excelReader.headers.get("content-type"), /javascript/);
+      assert.match(await excelReader.text(), /ExcelJS/);
+      for (const asset of ["/assets/missing-reader.js", "/vendor/missing-reader.js"]) {
+        const missing = await fetch(base + asset);
+        assert.equal(missing.status, 404);
+        assert.doesNotMatch(missing.headers.get("content-type"), /html/);
+      }
       assert.equal((await fetch(base + "/api/session")).status, 404);
       assert.equal(
         (await post("/api/login", { password: "unused" })).status,

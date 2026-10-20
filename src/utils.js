@@ -1,4 +1,5 @@
 import { groupLabel } from "../shared/format.js";
+import { loadExcelReader } from "./lib/excel-reader.js";
 export { standings } from "../shared/standings.js";
 import { playerLabel } from "../shared/players.js";
 export { playerLabel } from "../shared/players.js";
@@ -50,7 +51,7 @@ export async function importTeams(file) {
   if (/\.csv$/i.test(file.name))
     rows = parseCSV((await file.text()).replace(/^\uFEFF/, ""));
   else if (/\.xlsx$/i.test(file.name)) {
-    const { default: ExcelJS } = await import("exceljs");
+    const ExcelJS = await loadExcelReader();
     const book = new ExcelJS.Workbook();
     await book.xlsx.load(await file.arrayBuffer());
     rows = [];

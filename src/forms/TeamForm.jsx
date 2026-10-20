@@ -96,6 +96,7 @@ function TeamForm({ importing = false }) {
               accept=".csv,.xlsx"
               disabled={fileBusy}
               onChange={async (e) => {
+                const input = e.currentTarget;
                 const file = e.target.files[0];
                 if (!file) return;
                 setFileBusy(true);
@@ -107,6 +108,7 @@ function TeamForm({ importing = false }) {
                   setFileName(file.name);
                 } catch (err) {
                   setError(err.message);
+                  input.value = "";
                 } finally {
                   setFileBusy(false);
                 }

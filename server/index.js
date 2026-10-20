@@ -155,6 +155,7 @@ if (process.argv.includes("--dev")) {
       if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-store");
     },
   }));
+  app.use(["/assets", "/vendor"], (_req, res) => res.status(404).type("text").send("Asset not found."));
   app.get("/{*path}", (req, res) =>
     res.set("Cache-Control", "no-store").sendFile(path.join(root, "dist/index.html")),
   );
