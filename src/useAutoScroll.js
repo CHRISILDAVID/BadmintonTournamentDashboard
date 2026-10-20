@@ -2,10 +2,10 @@ import { useEffect } from "react";
 
 // Venue screens cycle independently through every overflowing list. A touch,
 // key press, or manual scroll gives the reader time before cycling resumes.
-export default function useAutoScroll(rootRef) {
+export default function useAutoScroll(rootRef, enabled = true) {
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root || !enabled) return;
     const positions = new Map();
     let areas = [];
     let frame;
@@ -107,5 +107,5 @@ export default function useAutoScroll(rootRef) {
       for (const event of interactions) root.removeEventListener(event, pause);
       document.removeEventListener("visibilitychange", resume);
     };
-  }, [rootRef]);
+  }, [rootRef, enabled]);
 }

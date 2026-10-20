@@ -209,3 +209,53 @@ Previews from before the theme rollback: [group setup](output/playwright/custom-
 - Try 200 teams / 40 Intermediate groups: expect 400 league games, 40 qualification playoffs, 160 qualifiers, 96 byes, and 159 played knockout games. Beginner still requires exactly six teams per group. Invalid, fractional, or empty group counts and insufficient registrations must be rejected.
 
 Automated regression coverage: `tests/corrections.test.js`, including complete 200-team tournaments, corrections through the final, persistence round trips, atomic name validation, and cross-category court conflicts.
+
+## Frontend migration and venue layouts (20 October 2026)
+
+Validated with **85 passing tests** (`npm test`) and a successful production build (`npm run build`). The build retains the existing size warning for the lazy-loaded ExcelJS import chunk; the venue grid is also lazy-loaded. Startup commands and the backend/API contract are unchanged.
+
+New automated coverage in `tests/frontend-stores.test.js` verifies:
+
+- Monotonic snapshot/action revisions, stale-form conflicts, and refresh ordering.
+- One shared SSE subscription, reference-counted cleanup, reconnect races, browser offline/online events, and removal of network listeners.
+- Legacy selection migration, versioned persistence, independent selection/breakpoint layouts, draft Save/Cancel/Reset, and failed storage saves retaining the draft.
+- Corrupt storage, invalid sizes/coordinates, deleted/new panel IDs, overlap recovery, and empty-event recovery without render loops.
+
+Browser checks used a separate database at `output/migration-qa-data` on port 3110; the real `data/` directory was not used. Chromium checks included:
+
+- Tournament creation with three groups; CSV import preview/save; manual registration/removal; player-name correction during a tournament; group swaps; fixture generation/reset; optional scheduling; start/undo-start; final scores and completed-result corrections.
+- Practice-pack loading, temporary random completion, knockout creation/byes, completed brackets, settings, and category deletion. Two organizer pages confirmed a stale save reports a conflict while retaining typed player names.
+- Venue pointer dragging/resizing, keyboard reordering and sequential numeric entry, selection locking, Save/Cancel/Reset, refresh persistence, returning to a previous selection, fullscreen, and selected-category deletion while editing.
+- Storage quota failure displays an error and retains the draft. Automatic list scrolling pauses during editing. Completing playoffs removes their list and league standings while keeping the measured bracket.
+- Organizer pages at 390px, 820px, and 1440px widths; venue panels at 390 × 844, 820 × 1180, 1920 × 1080, and 3840 × 2160. Four selected categories retain two columns; panel rectangles and editor controls were checked for overlap/overflow. Long names and a 200-team / 37-group draw were included.
+- The production app loads through the host's LAN address with external requests blocked. Browser offline/online transitions update the connection indicator and recover with one SSE subscription. Engine/API tests also cover server restart persistence and concurrent revisions.
+
+Screenshots and browser scripts are local, ignored artifacts under `output/playwright/`, including `final-venue-phone.png`, `final-venue-tablet.png`, `final-venue-1080.png`, `final-venue-4k.png`, `final-venue-four.png`, `large-league-*.png`, `large-bracket-*.png`, and `organizer-*.png`.
+
+These were browser viewport and host-LAN checks, not a physical TV/multi-device venue rehearsal. The widget revision below replaces the earlier full-bracket shrinking behavior.
+
+## Individual venue widgets and organizer routes (20 October 2026)
+
+Validated with **92 passing tests**, a successful production build, and no Chromium console errors. The existing lazy ExcelJS chunk-size warning remains. QA reused the isolated `output/migration-qa-data` database; production tournament data was not changed.
+
+New coverage in `tests/venue-widgets-navigation.test.js` checks:
+
+- Automatic widget visibility through tournament phases and explicit Show/Hide overrides after the final.
+- Version 1 panel-layout migration into version 2 preferences; widget Save/Cancel/Reset, refresh restoration, hidden-widget size retention, and storage failures.
+- Invalid widget coordinates/sizes, collision recovery, responsive bounds, and keyboard reordering/resizing.
+- URL encoding/parsing, deep links, search replacement without extra history entries, browser history restoration, and navigation-listener cleanup.
+
+Production-browser checks:
+
+- Pencil and fullscreen share the existing toolbar; the match search has one outer border and no inner border.
+- Widget pointer dragging/resizing and keyboard resizing; inner edits do not move or resize the tournament panel.
+- Hide, restore, Save, Cancel, Reset, refresh, selection locking, and returning to a previously selected tournament.
+- Standings, results, and completed playoffs remain visible alongside knockouts when set to Always show.
+- One automatic scrolling surface per widget; no nested or whole-board automatic scrolling. Pause/play and edit-mode suspension verified.
+- Phone 390 × 844, tablet 820 × 1180, 1080p, and 4K, in viewing and editing modes. Checked two and four categories, long player names, all 127 bracket cards in the 200-team/37-group draw, widget minimum widths, overlap, and horizontal overflow. Breakpoint changes remount the grid to avoid carrying incompatible column sizes between breakpoints.
+- Direct organizer URLs, all navigation links, refresh and Back/Forward with tournament/search/status filters, match-history navigation with a live-match filter, and unknown-page recovery.
+- Mobile organizer navigation and search, plus long-name wrapping in venue standings.
+
+The current display keeps large-bracket text readable and allows scrolling through the draw. Its outer screen and panel containers scroll manually; only widget contents cycle automatically. Automatic phase visibility remains the default and can be overridden per widget. This supersedes earlier notes about always hiding standings after playoffs, fitting the entire bracket without scrolling, and striped scrollbars.
+
+Local scripts and screenshots are under ignored `output/playwright/`: `widgets-check.js`, `widgets-responsive.js`, `widgets-scroll.js`, `routes-check.js`, `history-check.js`, `widgets-1080.png`, `widgets-4k.png`, `widgets-edit-phone.png`, `widgets-overrides.png`, and `navigation-matches-desktop.png`.

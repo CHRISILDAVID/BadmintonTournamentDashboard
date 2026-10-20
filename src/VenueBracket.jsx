@@ -68,168 +68,49 @@ function BracketMatch({ match, teams, previousStage }) {
   );
 }
 
-export default function VenueBracket({
-  tournament,
-  rounds,
-  teams,
-  playoffs = [],
-}) {
-  const canvas = useRef(null);
-  const viewport = useRef(null);
-  // Measure unscaled cards so resizing never feeds the previous scale back in.
+export function VenuePlayoffs({ tournament, playoffs, teams }) {
+  return <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${tournament.name} qualification playoffs`}>
+    <p className="venue-widget-note">{playoffs.filter(m => m.status === "completed").length} / {playoffs.length} played · {scoringLabel(scoringRules(tournament, PLAYOFF_STAGE))}</p>
+    <div className="vb-playoff-grid">{[...new Set(playoffs.map(m => m.group))].map(group => <section key={group}>
+      <h4>Group {groupLabel(group)}</h4>
+      {playoffs.filter(m => m.group === group).map(m => <BracketMatch key={m.id} match={m} teams={teams}/>)}
+    </section>)}</div>
+    {!playoffs.length && <p className="vb-empty">No qualification playoffs have been created for this tournament.</p>}
+  </div>;
+}
+
+export default function VenueBracket({ tournament, rounds, teams }) {
+  const canvas = useRef(null), viewport = useRef(null), space = useRef(null);
   useLayoutEffect(() => {
-    const element = canvas.current;
-    const frame = viewport.current;
+    const element = canvas.current, frame = viewport.current;
     const cards = [...element.querySelectorAll(".vb-ko-card")];
     const measure = () => {
-      const compact = rounds[0].matches.length >= 8;
-      const baseWidth = rounds.length * 310 + (rounds.length - 1) * 26;
-      element.style.width = `${baseWidth}px`;
-      let row, width, scale;
-      // Height-limited draws can use wider cards instead of leaving empty sides.
-      // Re-measure wrapped names after widening; keep a uniform text scale.
-      for (let pass = 0; pass < 4; pass++) {
-        row = Math.max(
-          compact ? 80 : 118,
-          ...cards.map((card) => card.offsetHeight + (compact ? 8 : 16)),
-        );
-        element.style.setProperty("--vb-bracket-row", `${row}px`);
-        width = element.offsetWidth;
-        scale = Math.min(
-          1.5,
-          frame.clientWidth / width,
-          frame.clientHeight / element.offsetHeight,
-        );
-        const heightScale = Math.min(
-          1.5,
-          frame.clientHeight / element.offsetHeight,
-        );
-        if (pass < 3 && heightScale > 0) {
-          element.style.width = `${Math.max(baseWidth, frame.clientWidth / heightScale)}px`;
-        }
-      }
-      // Spread the rounds over the available height when width limits the scale.
-      if (scale > 0) {
-        const headings = [
-          ...element.querySelectorAll(".vb-bracket-round > h4"),
-        ];
-        const headingHeight = Math.max(
-          ...headings.map((heading) => heading.offsetHeight),
-        );
-        const expandedRow = Math.floor(
-          (frame.clientHeight / scale - headingHeight) /
-            rounds[0].matches.length,
-        );
-        element.style.setProperty(
-          "--vb-bracket-row",
-          `${Math.max(row, expandedRow)}px`,
-        );
-      }
+      const width = rounds.length * 310 + (rounds.length - 1) * 26;
+      element.style.width = `${width}px`;
+      const row = Math.max(118, ...cards.map(card => card.offsetHeight + 20));
+      element.style.setProperty("--vb-bracket-row", `${row}px`);
+      // Keep names readable. Large draws scroll instead of shrinking to tiny text.
+      const scale = Math.max(0.85, Math.min(1.25, frame.clientWidth / width, frame.clientHeight / element.offsetHeight));
       element.style.transform = `scale(${scale})`;
-      element.style.left = `${Math.max(0, (frame.clientWidth - width * scale) / 2)}px`;
-      element.style.top = `${Math.max(0, (frame.clientHeight - element.offsetHeight * scale) / 2)}px`;
+      space.current.style.width = `${Math.ceil(width * scale)}px`;
+      space.current.style.height = `${Math.ceil(element.offsetHeight * scale)}px`;
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(frame);
-    observer.observe(element);
-    cards.forEach((card) => observer.observe(card));
+    observer.observe(frame); cards.forEach(card => observer.observe(card));
     return () => observer.disconnect();
   }, [rounds, teams]);
-  const completed = rounds
-    .flatMap((round) => round.matches)
-    .filter((m) => m.status === "completed" && !m.bye).length;
-  const total = rounds.reduce((sum, round) => sum + round.matches.filter(m => !m.bye).length, 0);
-  const showPlayoffs = playoffs.some((m) => m.status !== "completed");
-  return (
-    <div className={`vb-postseason ${showPlayoffs ? "vb-with-playoffs" : ""}`}>
-      {showPlayoffs && (
-        <section
-          className="vb-playoff-section"
-          aria-label={`${tournament.name} qualification playoffs`}
-        >
-          <div className="vb-section-heading">
-            <h3>Qualification Playoffs</h3>
-            <span>
-              {playoffs.filter((m) => m.status === "completed").length} /{" "}
-              {playoffs.length} played
-            </span>
-          </div>
-          <div className="vb-playoff-rules">
-            {scoringLabel(scoringRules(tournament, PLAYOFF_STAGE))}
-          </div>
-          <div
-            className="vb-playoff-list vb-scroll"
-            data-auto-scroll=""
-            tabIndex={0}
-            aria-label={`${tournament.name} qualification playoff matches, automatically scrolling`}
-          >
-            <div className="vb-playoff-grid">
-              {[...new Set(playoffs.map((m) => m.group))].map((group) => (
-                <section
-                  key={group}
-                  aria-label={`Group ${groupLabel(group)} qualification playoffs`}
-                >
-                  <h5>Group {groupLabel(group)}</h5>
-                  {playoffs
-                    .filter((m) => m.group === group)
-                    .map((m) => (
-                      <BracketMatch key={m.id} match={m} teams={teams} />
-                    ))}
-                </section>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-      <section
-        className="vb-bracket-section"
-        aria-label={`${tournament.name} knockout bracket`}
-      >
-        <div className="vb-section-heading">
-          <h3>Knockouts</h3>
-          <span>
-            {completed} / {total} played
-          </span>
-        </div>
-        <div className="vb-bracket-viewport" ref={viewport}>
-          <div
-            ref={canvas}
-            className={`vb-bracket-canvas ${rounds[0].matches.length >= 8 ? "vb-large-draw" : ""}`}
-            style={{
-              "--bracket-rounds": rounds.length,
-              "--bracket-slots": rounds[0].matches.length,
-            }}
-          >
-            {rounds.map((round, column) => (
-              <section
-                key={round.round}
-                className={`vb-bracket-round ${column === 0 ? "vb-first-round" : ""} ${column === rounds.length - 1 ? "vb-last-round" : ""}`}
-                aria-label={`${tournament.name} ${round.stage} round`}
-              >
-                <h4>{round.stage}</h4>
-                <div className="vb-bracket-matches">
-                  {round.matches.map((match) => (
-                    <div
-                      key={match.id}
-                      className={`vb-bracket-cell ${match.index % 2 === 0 ? "vb-branch-upper" : "vb-branch-lower"} ${match.winner ? "vb-branch-decided" : ""}`}
-                      style={{
-                        gridRow: `${match.index * 2 ** column + 1} / span ${2 ** column}`,
-                      }}
-                    >
-                      <BracketMatch
-                        match={match}
-                        teams={teams}
-                        previousStage={rounds[column - 1]?.stage}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </div>
-      </section>
+  const matches = rounds.flatMap(round => round.matches).filter(m => !m.bye);
+  return <div className="venue-knockout-content">
+    <p className="venue-widget-note">{matches.filter(m => m.status === "completed").length} / {matches.length} played · Scroll to explore the draw</p>
+    <div className="vb-bracket-viewport vb-scroll" ref={viewport} tabIndex={0} data-auto-scroll="" data-scroll-axis="both" aria-label={`${tournament.name} knockout bracket, scroll for all rounds`}>
+      <div ref={space} className="venue-bracket-space"><div ref={canvas} className="vb-bracket-canvas" style={{ "--bracket-rounds": rounds.length, "--bracket-slots": rounds[0].matches.length }}>
+        {rounds.map((round, column) => <section key={round.round} className={`vb-bracket-round ${column === 0 ? "vb-first-round" : ""} ${column === rounds.length - 1 ? "vb-last-round" : ""}`} aria-label={`${tournament.name} ${round.stage} round`}>
+          <h4>{round.stage}</h4><div className="vb-bracket-matches">{round.matches.map(match => <div key={match.id} className={`vb-bracket-cell ${match.index % 2 === 0 ? "vb-branch-upper" : "vb-branch-lower"} ${match.winner ? "vb-branch-decided" : ""}`} style={{ gridRow: `${match.index * 2 ** column + 1} / span ${2 ** column}` }}>
+            <BracketMatch match={match} teams={teams} previousStage={rounds[column - 1]?.stage}/>
+          </div>)}</div>
+        </section>)}
+      </div></div>
     </div>
-  );
+  </div>;
 }

@@ -1,3 +1,5 @@
+import { Button } from "./components/ui/button.jsx";
+import { Input } from "./components/ui/input.jsx";
 import React from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { scoreText, stepScore } from "./scores.js";
@@ -7,7 +9,7 @@ export default function ScoreInput({ label, value, cap, onChange, disabled }) {
   const step = (amount) => onChange(stepScore(value, amount, cap));
   return (
     <div className="score-input">
-      <input
+      <Input
         aria-label={label}
         role="spinbutton"
         aria-valuemin={0}
@@ -32,22 +34,22 @@ export default function ScoreInput({ label, value, cap, onChange, disabled }) {
         }}
       />
       <div className="score-step-buttons">
-        <button
+        <Button variant="ghost"
           type="button"
           aria-label={`Increase ${label}`}
           disabled={disabled || Number(value) >= cap}
           onClick={() => step(1)}
         >
           <ChevronUp size={20} />
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost"
           type="button"
           aria-label={`Decrease ${label}`}
           disabled={disabled || value === "0"}
           onClick={() => step(-1)}
         >
           <ChevronDown size={20} />
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -36,7 +36,30 @@ Match updates reconnect automatically; a disconnected display explicitly shows t
 - **Final results:** there is no point-by-point live scoring. Mark a match as on court when it starts. When it finishes, record the completed game scores and confirm the result. The result updates standings and frees the court. Score fields start blank, use the numeric phone keyboard, and have visible up/down buttons. Enter zero explicitly; a blank score cannot be saved as zero. **Edit result** is available for completed league, playoff, and knockout games, including after the final. Existing scores are prefilled. Confirm the correction checkbox, then save. Standings, qualifiers, and the champion update automatically. Any later game whose opponents change returns to upcoming, with its old scores cleared and court freed; unaffected results and fixture IDs remain intact. A reopened final makes the tournament ongoing again. Byes cannot be scored or edited.
 - **Standings:** ranked by match wins, game difference, point difference, then original seed. Seed is the explicit final tie-break (not head-to-head). Review this rule before play.
 - **Knockouts:** recording the last league result opens a qualification review with **Create playoffs + bracket** or **Create knockouts**. You can cancel and use the same next-stage action directly in Overview, Matches, or Standings, including when another device finishes the league. Creation opens that category in Matches with the playoff/knockout stage selected. Use **Standings & bracket** to inspect the draw and **Manage games** to return. The stage filter keeps league history accessible. Direct qualification takes the top configured number per group. Playoff formats generate group qualification matches and the main knockout draw together; winners automatically fill their named knockout slots. Ready matches can still be started in any order; matches awaiting opponents cannot start. League statistics remain based only on league matches.
-- **Venue display:** choose **Show 1, 2, 3... tournaments**, then select a distinct category in each selector. Each tournament has its own group leaderboards, upcoming game list, and complete result history split by group during league play. Once its knockout fixtures are created, that category switches to the connected draw, replacing its separate upcoming games and results sections. League standings remain visible only while qualification playoffs are unfinished. After the last playoff, both its playoff list and league standings disappear, leaving the knockout bracket to fill the panel. Categories with direct qualification show the bracket alone as soon as their draw is created. Brackets show advancing winners, pending opponents, active courts, final scores, and the champion. Other categories can continue showing league play alongside it. Display text is enlarged for venue viewing: player names, scores, headings and supporting labels are larger in every responsive layout. Active court numbers are badges. The original soft green theme and score styling are retained. Tables wrap into readable columns as more groups are added. For a 24-inch monitor, fullscreen with one or two categories gives players the most readable view; large draws still shrink to keep every match visible. Results, overflowing standings, and upcoming games scroll automatically in a repeating loop, with pauses at the start and end. Manual touch, keyboard, or scrolling pauses cycling for eight seconds, then it resumes. Qualification Playoffs has its own automatically scrolling list of every group playoff. That section disappears only when all playoffs in the category are completed. The separate Knockouts section scales the entire connected bracket to fit, with no scrolling or panning. Desktop panels put these sections side by side; phones stack them. Once playoffs finish, the bracket expands into all the space freed by the standings and playoff list. Cards and connectors spread through the available height; the complete draw stays visible. While playoffs remain unfinished, extra league groups cycle within their area above the bracket. Rounded court-green scrollbars with striped grips style every display scroll area. Results retain all matches with no three-match cap. Upcoming games have no call numbers or implied priority. Selection is remembered in that display browser. Small screens use compact stats; more categories use a grid with scrolling when needed. The player view uses a compact logo/title header, connection status, screen selectors, and fullscreen. It has no clock, announcement footer, table legends, organizer navigation, or editing controls. Times use each device's local timezone; keep devices in the same tournament timezone (e.g. Asia/Kolkata).
+- **Venue display:** select the categories to show on `/display`. Each tournament has independent League standings, Up next (including live courts), Latest results, Playoffs, and Knockouts widgets. Automatic visibility follows the tournament phase; the layout editor can override it at any time. Results include league and postseason games. The display remains read-only for tournament data.
+
+## Customize a venue screen
+
+Use the **pencil icon beside fullscreen** to edit. Drag a tournament's top grip to move its whole panel, or drag a widget's grip to move just that section. Resize either from its bottom-right corner. Each widget's minus button hides it; **Widgets** opens the visibility controls:
+
+- **Automatic:** follows the normal league/playoff/knockout transitions.
+- **Always show:** stays visible at every stage, so standings and completed playoffs can remain alongside knockouts. A section without fixtures shows an explanatory empty state.
+- **Hide:** stays hidden until you restore it. Hiding a widget never deletes tournament data.
+
+Keyboard users can focus a widget grip and use arrow keys to move it (up/down reorder), or **Shift + arrow keys** to resize it. Whole panels retain Move earlier/later and Width/Height controls. Minimum dimensions keep widgets readable; small screens stack them and allow manual vertical scrolling.
+
+- **Save layout** commits panel arrangements, widget sizes/positions, and visibility together in this browser.
+- **Cancel** (X) restores the committed arrangement.
+- **Reset layout** (circular arrow) restores automatic visibility and default arrangements in the draft. Save makes the reset permanent.
+- Tournament selectors are disabled during editing. Deleting a selected tournament from the desk repairs the selection and exits editing.
+
+Layouts are saved per selection of tournament IDs. Panel layouts adapt to desktop, tablet, and phone widths; each tournament's widgets adapt to that panel's available width. Returning to a selection restores its layout. Tournament renames preserve identity. The latest 30 selection layouts are retained. Version 2 preferences import existing whole-panel layouts and legacy selections. Blocked/full storage shows an error and retains the draft; corrupt positions recover to safe defaults. Different browsers, devices, ports, or hostnames have separate preferences.
+
+Each widget has one scrolling surface, with thin scrollbars. The full screen and tournament panel containers only scroll manually. Automatic scrolling pauses during editing and for eight seconds after touch, wheel, or keyboard interaction. Use the **pause/play icon** beside the pencil to stop/resume automatic scrolling for the current view. Large brackets retain readable text and scroll vertically/horizontally instead of shrinking the entire draw into tiny cards. Brackets remeasure when resized. Fullscreen and live connection indicators remain available.
+
+## Organizer navigation
+
+Organizer pages have real URLs: `/`, `/tournaments`, `/teams`, `/matches`, `/matches/history`, `/standings`, and `/settings`. Navigation links support opening in another tab. Browser Back/Forward and refresh restore the page and URL filters. Tournament selection uses `?tournament=...`; team/match search uses `q`, with `status` and `stage` for matches. Typing replaces the current history entry so Back does not step through every keystroke. Background score updates retain searches and filters. Category-specific actions navigate to the relevant page in one history step. Unknown paths show a recovery link to the overview.
 
 ## Qualification playoff presets
 
@@ -115,5 +138,31 @@ npm run build
 Disable with $env:DISABLE_TEST_TOOLS="1" before starting the server.
 
 `npm run dev` uses the same server and data directory with Vite middleware. `PORT` changes the listener port; `DATA_DIR` selects a separate database directory (use this for QA). `server/engine.js` holds validated tournament operations; `shared/standings.js` is shared by client and server. Tests cover fixtures, scores, progression, court/player conflicts, atomic registration, CSV, and actual XLSX import.
+
+### Frontend organization
+
+The frontend uses **React + JSX, React Grid Layout, Zustand, Tailwind CSS 4, and shadcn/ui**. JavaScript remains the project language (`components.json` sets `tsx: false`). Express, SQLite, REST endpoints, and server-sent events are unchanged by this migration. All assets and dependencies are served locally after building; no hosted UI service, font service, or database SDK is required.
+
+| Location | Responsibility |
+| --- | --- |
+| `src/App.jsx` | Organizer shell, navigation, modal routing; lazy-loaded venue screen |
+| `src/pages/` | Overview, tournaments, teams, matches, standings, settings |
+| `src/forms/` | Tournament setup, registration/import, match editing, confirmations; unsaved inputs stay local |
+| `src/components/ui/` | Locally owned shadcn buttons, inputs, labels, selects, tables, dialogs, badges, Sonner notifications |
+| `src/components/` | Shared match cards/tables, stage actions, modal helpers, venue grid/editor |
+| `src/stores/tournament.js` | Snapshots, monotonic revisions, actions, loading state, one shared SSE lifecycle per app tab |
+| `src/stores/organizer.js` | Navigation, category/search/stage/status filters, dialogs, notifications |
+| `src/stores/venue.js` | Versioned browser persistence for selection and committed layouts; transient editor drafts |
+| `src/lib/venue-layout.js`, `src/lib/venue-widgets.js` | Panel/widget defaults, visibility, responsive bounds recovery, keyboard ordering |
+| `src/lib/navigation.js`, `src/components/PageLink.jsx` | URL parsing, filter serialization, browser navigation |
+| `src/VenueBoard.jsx`, `src/VenueBracket.jsx` | Read-only tournament panels and measured bracket rendering |
+
+`src/hooks/useDesk.jsx` adapts the focused stores for organizer pages. Forms keep their original revision while editing; a conflicting save refreshes the snapshot and asks the organizer to review/retry without replacing typed values. The connection store cleans up listeners and ignores responses from a closed subscription. Only venue preferences are persisted client-side.
+
+### Theme and component customization
+
+Change the green/navy palette, system font, radii, and semantic colors in **`src/theme.css`**. Tailwind runs through `@tailwindcss/vite` in `vite.config.js`; `@/` aliases `src/`. Use Tailwind utilities in JSX and edit the owned components under `src/components/ui/` to change shared control behavior. `components.json` configures the shadcn CLI for future JavaScript components. Dialogs use Radix focus trapping and keyboard dismissal, while score numerals use tabular figures.
+
+`src/styles/organizer.css` consolidates the former overlapping organizer styles into a component layer so Tailwind utilities can override them. Scoped venue/bracket, grid, group-editor, and score-input CSS retains the specialized geometry and scrolling. The logo remains `assets/logo.jpg`. No runtime internet connection is needed for these styles or components.
 
 The UI uses the actual `assets/logo.jpg` throughout and as its browser icon. Court numbers, scoreboards, and the match queue lead the layout, with navy and green taken from the ShuttleHub branding. Existing saved data is migrated automatically: event dates and unused password records are removed, previous scheduled dates retain their time of day, and all teams, fixtures, final scores, and results are preserved. Existing entry labels are rebuilt from their player names without changing team IDs or fixtures. Unused point-by-point scores from older versions are removed; final game scores are retained. Internal result timestamps remain for ordering the match history; calendar dates are not shown in the interface.

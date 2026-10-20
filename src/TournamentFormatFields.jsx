@@ -1,3 +1,5 @@
+import { Input } from "./components/ui/input.jsx";
+import { NativeSelect } from "./components/ui/native-select.jsx";
 import React from "react";
 import {
   qualificationFormats,
@@ -23,7 +25,7 @@ function RuleFields({ title, value, change }) {
       <div className="form-row three">
         <label className="field">
           <span>Best of</span>
-          <select
+          <NativeSelect
             aria-label={`${title} best of`}
             value={value.bestOf}
             onChange={(e) => update("bestOf", +e.target.value)}
@@ -33,11 +35,11 @@ function RuleFields({ title, value, change }) {
                 {n} game{n > 1 ? "s" : ""}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <label className="field">
           <span>Points per game</span>
-          <input
+          <Input
             aria-label={`${title} points`}
             type="number"
             min="5"
@@ -49,20 +51,20 @@ function RuleFields({ title, value, change }) {
         </label>
         <label className="field">
           <span>Finish rule</span>
-          <select
+          <NativeSelect
             aria-label={`${title} finish rule`}
             value={value.goldenPoint ? "golden" : "deuce"}
             onChange={(e) => update("goldenPoint", e.target.value === "golden")}
           >
             <option value="golden">Golden point</option>
             <option value="deuce">Deuce + cap</option>
-          </select>
+          </NativeSelect>
         </label>
       </div>
       {!value.goldenPoint && (
         <label className="field">
           <span>Score cap</span>
-          <input
+          <Input
             aria-label={`${title} score cap`}
             type="number"
             min={value.points + 1}
@@ -95,7 +97,7 @@ export default function TournamentFormatFields({ form, setForm }) {
     <>
       <label className="field">
         <span>Qualification format</span>
-        <select
+        <NativeSelect
           aria-label="Qualification format"
           value={form.qualification || "direct"}
           onChange={(e) => {
@@ -112,11 +114,11 @@ export default function TournamentFormatFields({ form, setForm }) {
               {value.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
       <label className="field">
         <span>Number of groups</span>
-        <input type="number" min="1" max="256" step="1" required
+        <Input type="number" min="1" max="256" step="1" required
           aria-label="Number of groups" value={form.groups}
           onChange={(e) => change("groups", e.target.value === "" ? "" : +e.target.value)} />
       </label>
@@ -161,7 +163,7 @@ export default function TournamentFormatFields({ form, setForm }) {
           <div className="form-row">
             <label className="field">
               <span>Qualifiers per group</span>
-              <input type="number" min="1" max="256" step="1" required
+              <Input type="number" min="1" max="256" step="1" required
                 value={form.qualify}
                 onChange={(e) => change("qualify", e.target.value === "" ? "" : +e.target.value)} />
             </label>

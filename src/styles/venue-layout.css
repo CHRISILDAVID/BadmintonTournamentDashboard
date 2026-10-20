@@ -1,0 +1,41 @@
+.venue-layout-area { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; }
+.venue-grid-viewport { width:100%; min-height:0; flex:1; overflow-y:auto; overflow-x:hidden; padding:2px 2px 8px; }
+.venue-grid-panel { display:flex; flex-direction:column; min-width:0; min-height:0; }
+.venue-grid-panel > .vb-tournament { flex:1; min-height:0; width:100%; }
+.venue-grid-panel.is-editing { border-radius:12px; outline:2px dashed #27946f; outline-offset:-2px; }
+.venue-panel-editor { flex:0 0 auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:10px 10px 0 0; background:#dfefe6; }
+.venue-drag-handle { display:flex; align-items:center; gap:6px; min-width:0; max-width:100%; font-size:12px; font-weight:600; cursor:grab; touch-action:none; }
+.venue-widget-tools { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px 0; flex-shrink:0; }
+.venue-widget-tools > span { font-size:11px; color:#61786b; }
+.venue-widget-canvas { flex:1; min-height:0; overflow:auto; padding:12px; scrollbar-width:thin; scrollbar-color:#b1c8bc transparent; }
+.venue-widget { container-type:inline-size; display:flex; flex-direction:column; background:white; border:1px solid #d9e4df; border-radius:10px; box-shadow:0 2px 5px #0a392705; overflow:hidden; }
+.venue-widget.is-editing { border:1px dashed #27946f; }
+.venue-widget-heading { flex-shrink:0; display:flex; align-items:center; gap:6px; min-height:42px; padding:8px 12px; border-bottom:1px solid #e7ede9; background:#fff; }
+.venue-widget-heading h3 { flex:1; min-width:0; margin:0; font-size:clamp(14px,1.15vw,28px); line-height:1.3; font-weight:700; letter-spacing:-.02em; }
+.venue-widget-grip { cursor:grab; touch-action:none; }
+.venue-widget-content { flex:1; min-height:0; overflow:hidden; }
+.venue-widget-scroll { height:100%; overflow:auto; padding:10px; }
+.venue-widget-note { font-size:11px; color:#61786b; margin:0; padding:0 2px 8px; line-height:1.5; }
+.venue-knockout-content > .venue-widget-note { padding:8px 12px; }
+.venue-grid-panel > .react-resizable-handle, .venue-widget > .react-resizable-handle { width:26px; height:26px; z-index:5; background-image:none; background-color:#e2f1e8; border-radius:10px 0 8px 0; }
+.venue-grid-panel > .react-resizable-handle::after, .venue-widget > .react-resizable-handle::after { border-color:#087d59; width:9px; height:9px; right:6px; bottom:6px; }
+.react-grid-item.react-grid-placeholder { background:#087d59; border-radius:10px; opacity:.12; }
+.venue-board .react-grid-item.cssTransforms, .venue-board .react-grid-layout { transition:none; }
+@container (max-width:440px) {
+  .vb-table .vb-stat-played, .vb-table .vb-stat-wins, .vb-table .vb-stat-game { display:none; }
+  .vb-table .vb-stat-record { display:table-cell; }
+  .vb-table tbody th { font-size:16px; }
+  .vb-ko-opponent strong { font-size:18px; }
+}
+@media (max-width:767px) {
+  .venue-board { padding:10px; gap:10px; }
+  .vb-toolbar { flex-wrap:nowrap; gap:4px; }
+  .vb-selectors { flex:1; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin; gap:8px; padding-bottom:2px; }
+  .vb-selectors label { flex-shrink:0; }
+  .vb-selectors select { max-width:170px; }
+  .vb-connection { font-size:10px; }
+  .vb-tournament-select > span { display:none; }
+  .vb-tournament-heading { padding:12px; }
+  .vb-champion { max-width:42%; font-size:12px; }
+  .venue-widget-tools > span { max-width:55%; }
+}

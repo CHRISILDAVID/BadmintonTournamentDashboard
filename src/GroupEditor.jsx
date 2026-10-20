@@ -1,5 +1,8 @@
+import { Button } from "./components/ui/button.jsx";
+import { NativeSelect } from "./components/ui/native-select.jsx";
 import React, { useState } from "react";
 import { groupEditLockReason } from "../shared/groups.js";
+import { groupName } from "./utils.js";
 import "./group-editor.css";
 
 export default function GroupEditor({ state, tournamentId, initialTeamId = "", busy, act, close }) {
@@ -22,7 +25,6 @@ export default function GroupEditor({ state, tournamentId, initialTeamId = "", b
     first.group !== second.group &&
     !onCourt.has(first.id) &&
     !onCourt.has(second.id);
-  const groupName = (group) => `Group ${String.fromCharCode(65 + group)}`;
   return (
     <form
       className="group-editor"
@@ -83,7 +85,7 @@ export default function GroupEditor({ state, tournamentId, initialTeamId = "", b
       <fieldset disabled={busy || !!reason}>
         <label>
           First team
-          <select
+          <NativeSelect
             aria-label="First team"
             value={firstId}
             required
@@ -99,11 +101,11 @@ export default function GroupEditor({ state, tournamentId, initialTeamId = "", b
                 {onCourt.has(t.id) ? " (on court)" : ""}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <label>
           Swap with
-          <select
+          <NativeSelect
             aria-label="Swap with"
             value={secondId}
             required
@@ -119,7 +121,7 @@ export default function GroupEditor({ state, tournamentId, initialTeamId = "", b
                   {onCourt.has(t.id) ? " (on court)" : ""}
                 </option>
               ))}
-          </select>
+          </NativeSelect>
         </label>
       </fieldset>
       {canSwap && (
@@ -133,16 +135,16 @@ export default function GroupEditor({ state, tournamentId, initialTeamId = "", b
         on-court team, return its match to waiting first.
       </p>
       <div className="modal-actions">
-        <button type="button" className="btn" onClick={close}>
+        <Button variant="outline" type="button" className="btn" onClick={close}>
           Done
-        </button>
-        <button
+        </Button>
+        <Button variant="default"
           type="submit"
           className="btn primary"
           disabled={busy || !canSwap}
         >
           Swap teams
-        </button>
+        </Button>
       </div>
     </form>
   );

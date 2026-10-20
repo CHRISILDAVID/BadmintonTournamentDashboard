@@ -1,5 +1,10 @@
+import { useStore } from "zustand";
+import { venueStore } from "./stores/venue.js";
+import VenueGrid from "./components/VenueGrid.jsx";
+import { Button } from "./components/ui/button.jsx";
+import { NativeSelect } from "./components/ui/native-select.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Maximize, Trophy, X } from "lucide-react";
+import { Maximize, Trophy, X, Pause, Play } from "lucide-react";
 import {
   displayTournamentOptions,
   resolveDisplaySelection,
@@ -8,20 +13,12 @@ import {
 } from "../shared/display.js";
 import { groupName } from "./utils.js";
 import useAutoScroll from "./useAutoScroll.js";
-import VenueBracket from "./VenueBracket.jsx";
+import VenueBracket, { VenuePlayoffs } from "./VenueBracket.jsx";
+import VenueWidgets from "./components/VenueWidgets.jsx";
 import { directPlaces, isPlayoffFormat } from "../shared/format.js";
 import logo from "../assets/logo.jpg";
 import "./venue-board.css";
-
-const STORAGE_KEY = "shuttlehub.venue.selection.v1";
-function savedSelection() {
-  try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return value && typeof value === "object" ? value : {};
-  } catch {
-    return {};
-  }
-}
+import "./styles/venue-layout.css";
 
 function StandingsGroup({ group, tournament, hasLeague }) {
   return (
@@ -35,8 +32,6 @@ function StandingsGroup({ group, tournament, hasLeague }) {
       </div>
       <div
         className="vb-table-scroll vb-scroll"
-        data-auto-scroll=""
-        tabIndex={0}
         aria-label={`${group.label} standings, scroll for all players`}
       >
         <table className="vb-table">
@@ -133,8 +128,6 @@ function ResultGroup({ group, teams }) {
       </div>
       <div
         className="vb-result-list vb-scroll"
-        data-auto-scroll=""
-        tabIndex={0}
         aria-label={`${group.label} results, scroll for all matches`}
       >
         {group.results.length ? (
@@ -159,195 +152,42 @@ function ResultGroup({ group, teams }) {
   );
 }
 
-function TournamentPanel({
-  data,
-  upcoming,
-  teams,
-}) {
-  const {
-    tournament: t,
-    groups,
-    onCourt,
-    resultGroups,
-    knockoutRounds,
-    playoffs,
-    hasKnockouts,
-    showLeagueStandings,
-    champion,
-  } = data;
-  const results = resultGroups;
-  return (
-    <article
-      className={`vb-tournament ${hasKnockouts ? "vb-knockout" : ""} ${!showLeagueStandings ? "vb-bracket-only" : ""}`}
-      aria-label={`${t.name} tournament board`}
-    >
-      <header className="vb-tournament-heading">
-        <div>
-          <span className="vb-kicker">
-            {t.size === 1
-              ? "SINGLES"
-              : t.size === 2
-                ? "DOUBLES"
-                : `${t.size}v${t.size}`}{" "}
-            · {data.completed} / {data.total} MATCHES
-          </span>
-          <h2>{t.name}</h2>
-        </div>
-        {champion ? (
-          <span className="vb-champion">
-            <Trophy size={15} />
-            {champion.name}
-          </span>
-        ) : (
-          <div className="vb-category-meta">
-            <span className="vb-stage">
-              {hasKnockouts
-                ? playoffs.some((m) => m.status !== "completed")
-                  ? "PLAYOFFS"
-                  : "KNOCKOUTS"
-                : data.hasLeague
-                  ? "LEAGUE"
-                  : "REGISTRATION"}
-            </span>
-            {onCourt.length > 0 && (
-              <div
-                className="vb-court-badges"
-                aria-label={`${t.name} active courts`}
-              >
-                {onCourt.slice(0, 2).map((m) => (
-                  <span
-                    key={m.id}
-                    title={`${teams.get(m.a)?.name} vs ${teams.get(m.b)?.name}`}
-                  >
-                    Court {m.court}
-                  </span>
-                ))}
-                {onCourt.length > 2 && <span>+{onCourt.length - 2}</span>}
-              </div>
-            )}
-          </div>
-        )}
-      </header>
-
-      {showLeagueStandings && (
-        <section
-          className="vb-leaderboards"
-          aria-label={`${t.name} leaderboards`}
-        >
-          <div className="vb-section-heading">
-            <h3>{hasKnockouts ? "League standings" : "Standings"}</h3>
-            <span className="vb-qualification">
-              <i />
-              {isPlayoffFormat(t) && data.hasLeague
-                ? playoffs.length
-                  ? `${t.groups * directPlaces(t) + playoffs.filter((m) => m.winner).length} / ${t.groups * t.qualify} qualified`
-                  : `Top ${directPlaces(t)} direct · others playoff`
-                : hasKnockouts
-                  ? `${t.groups * t.qualify} qualified`
-                  : data.hasLeague
-                    ? `Top ${t.qualify} per group advance`
-                    : "Groups assigned with fixtures"}
-            </span>
-          </div>
-          <div
-            className="vb-standings-grid vb-scroll"
-            data-auto-scroll=""
-            tabIndex={0}
-            aria-label={`${t.name} league groups, automatically scrolling`}
-            style={{ "--groups": Math.min(groups.length, 4) }}
-          >
-            {groups.map((group) => (
-              <StandingsGroup
-                key={group.key}
-                group={group}
-                tournament={t}
-                hasLeague={data.hasLeague}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {hasKnockouts ? (
-        <VenueBracket
-          tournament={t}
-          rounds={knockoutRounds}
-          playoffs={playoffs}
-          teams={teams}
-        />
-      ) : (
-        <div className="vb-tournament-bottom">
-          <section className="vb-calls" aria-label={`${t.name} upcoming games`}>
-            <div className="vb-section-heading">
-              <h3>Up next</h3>
-              <span>
-                {upcoming.length} waiting
-                {onCourt.length ? ` · ${onCourt.length} on court` : ""}
-              </span>
-            </div>
-            <div
-              className="vb-call-list vb-scroll"
-              data-auto-scroll=""
-              tabIndex={0}
-              aria-label={`${t.name} upcoming games`}
-            >
-              {upcoming.map((m) => (
-                <div className="vb-call-row" key={m.id}>
-                  <div>
-                    <small>
-                      {groupName(m.group) || m.stage} ·{" "}
-                      Ready to start
-                    </small>
-                    <strong>
-                      {teams.get(m.a)?.name}
-                      <em> vs </em>
-                      {teams.get(m.b)?.name}
-                    </strong>
-                  </div>
-                </div>
-              ))}
-              {!upcoming.length && (
-                <p className="vb-empty">
-                  {champion
-                    ? "All matches complete."
-                    : "No upcoming games ready to start."}
-                </p>
-              )}
-            </div>
-          </section>
-          <section
-            className="vb-results"
-            aria-label={`${t.name} latest results`}
-          >
-            <div className="vb-section-heading">
-              <h3>Latest results</h3>
-              <span>All {data.completed} · auto-scroll</span>
-            </div>
-            {results.length ? (
-              <div
-                className="vb-results-grid"
-                style={{ "--result-groups": Math.min(results.length, 4) }}
-              >
-                {results.map((group) => (
-                  <ResultGroup key={group.key} group={group} teams={teams} />
-                ))}
-              </div>
-            ) : (
-              <p className="vb-empty">
-                Group results appear after fixtures are created.
-              </p>
-            )}
-          </section>
-        </div>
-      )}
-    </article>
-  );
+function TournamentPanel({ data, upcoming, teams }) {
+  const { tournament: t, groups, onCourt, knockoutRounds, playoffs, hasKnockouts, champion } = data;
+  const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: "Playoffs & knockouts", results: data.knockoutResults }] : [])];
+  const scroll = (label, children) => <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${t.name} ${label}`}>{children}</div>;
+  const renderWidget = widget => {
+    if (widget === "standings") return scroll("standings, scroll for all groups", <>
+      <p className="venue-widget-note">{data.hasLeague ? (isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct · remaining places through playoffs` : `Top ${t.qualify} per group advance`) : "Entries · draw pending"}</p>
+      <div className="venue-standing-groups">{groups.map(group => <StandingsGroup key={group.key} group={group} tournament={t} hasLeague={data.hasLeague}/>)}</div>
+    </>);
+    if (widget === "upcoming") return scroll("upcoming games", <>
+      <p className="venue-widget-note">{upcoming.length} ready · {onCourt.length} on court</p>
+      {[...onCourt, ...upcoming].map(m => <div className={`vb-call-row ${m.status === "live" ? "is-live" : ""}`} key={m.id}>
+        <small>{groupName(m.group) || m.stage} · {m.status === "live" ? `On court ${m.court}` : "Ready to start"}</small>
+        <strong>{teams.get(m.a)?.name}<em> vs </em>{teams.get(m.b)?.name}</strong>
+      </div>)}
+      {!upcoming.length && !onCourt.length && <p className="vb-empty">{champion ? "All matches complete." : "No upcoming games ready to start."}</p>}
+    </>);
+    if (widget === "results") return scroll("latest results", results.length ? <div className="venue-result-groups">{results.map(group => <ResultGroup key={group.key} group={group} teams={teams}/>)}</div> : <p className="vb-empty">Results appear when matches are completed.</p>);
+    if (widget === "playoffs") return <VenuePlayoffs tournament={t} playoffs={playoffs} teams={teams}/>;
+    return knockoutRounds.length ? <VenueBracket tournament={t} rounds={knockoutRounds} teams={teams}/> : <p className="vb-empty">The knockout bracket appears when the draw is created.</p>;
+  };
+  return <article className="vb-tournament" aria-label={`${t.name} tournament board`}>
+    <header className="vb-tournament-heading">
+      <div><span className="vb-kicker">{t.size === 1 ? "SINGLES" : t.size === 2 ? "DOUBLES" : `${t.size}v${t.size}`} · {data.completed} / {data.total} MATCHES</span><h2>{t.name}</h2></div>
+      {champion ? <span className="vb-champion"><Trophy size={16}/>{champion.name}</span> : <span className="vb-stage">{hasKnockouts ? playoffs.some(m => m.status !== "completed") ? "PLAYOFFS" : "KNOCKOUTS" : data.hasLeague ? "LEAGUE" : "REGISTRATION"}</span>}
+    </header>
+    <VenueWidgets data={data} renderWidget={renderWidget}/>
+  </article>;
 }
 
 export default function VenueBoard({ state, upcoming, connected }) {
   const boardRef = useRef(null);
-  useAutoScroll(boardRef);
-  const [preferences, setPreferences] = useState(savedSelection);
+  const { selection: preferences, setSelection: setPreferences, editing } = useStore(venueStore);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [layoutControls, setLayoutControls] = useState(null);
+  useAutoScroll(boardRef, !editing && autoScroll);
   const [error, setError] = useState("");
   const options = useMemo(() => displayTournamentOptions(state), [state]);
   const selection = useMemo(
@@ -368,11 +208,6 @@ export default function VenueBoard({ state, upcoming, connected }) {
       JSON.stringify(selection.ids) !== JSON.stringify(preferences.ids)
     )
       setPreferences(selection);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(selection));
-    } catch {
-      /* Screen still works without local storage. */
-    }
   }, [selection, preferences]);
   const chooseTournament = (index, id) => {
     const ids = [...selection.ids];
@@ -382,7 +217,6 @@ export default function VenueBoard({ state, upcoming, connected }) {
     if (other >= 0 && other !== index) ids[other] = previous;
     setPreferences({ count: selection.count, ids });
   };
-  const columns = selection.count <= 3 ? Math.max(1, selection.count) : 2;
   return (
     <div
       ref={boardRef}
@@ -408,10 +242,10 @@ export default function VenueBoard({ state, upcoming, connected }) {
         <div className="vb-selectors">
           <label className="vb-count">
             Show{" "}
-            <select
+            <NativeSelect
               aria-label="Number of tournaments"
               value={selection.count}
-              disabled={!options.length}
+              disabled={!options.length || editing}
               onChange={(e) =>
                 setPreferences({ count: +e.target.value, ids: selection.ids })
               }
@@ -422,16 +256,17 @@ export default function VenueBoard({ state, upcoming, connected }) {
                   {i + 1} tournament{i ? "s" : ""}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           {selection.ids.map((id, i) => (
             <label className="vb-tournament-select" key={i}>
               <span>
                 {selection.count > 1 ? `Tournament ${i + 1}` : "Tournament"}
               </span>
-              <select
+              <NativeSelect
                 aria-label={`Tournament ${i + 1}`}
                 value={id}
+                disabled={editing}
                 onChange={(e) => chooseTournament(i, e.target.value)}
               >
                 {options.map((t) => (
@@ -443,11 +278,14 @@ export default function VenueBoard({ state, upcoming, connected }) {
                     {t.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           ))}
         </div>
-        <button
+        <div className="vb-screen-actions">
+        <Button variant="ghost" size="icon" aria-label={autoScroll ? "Pause automatic scrolling" : "Resume automatic scrolling"} title={autoScroll ? "Pause automatic scrolling" : "Resume automatic scrolling"} disabled={editing} onClick={() => setAutoScroll(value => !value)}>{autoScroll ? <Pause/> : <Play/>}</Button>
+        <span className="venue-layout-actions" ref={setLayoutControls}/>
+        <Button variant="ghost" size="icon"
           className="vb-fullscreen"
           aria-label="Toggle fullscreen"
           title="Fullscreen"
@@ -463,44 +301,17 @@ export default function VenueBoard({ state, upcoming, connected }) {
           }}
         >
           <Maximize size={19} />
-        </button>
+        </Button>
+        </div>
       </div>
-      <main
-        data-auto-scroll=""
-        data-scroll-speed="10"
-        className={`vb-board-grid ${selection.count > 3 ? "vb-many" : ""}`}
-        style={{
-          "--board-columns": columns,
-          "--board-rows": Math.ceil(selection.count / columns),
-        }}
-      >
-        {panels.length ? (
-          panels.map((data) => (
-            <TournamentPanel
-              key={data.tournament.id}
-              data={data}
-              teams={teams}
-              upcoming={upcoming.filter((m) => m.tournamentId === data.tournament.id)}
-            />
-          ))
-        ) : (
-          <div className="vb-no-tournaments">
-            <Trophy size={36} />
-            <h2>Ready for your first tournament</h2>
-            <p>
-              Standings, results, and upcoming games will appear here once a
-              tournament is created.
-            </p>
-          </div>
-        )}
-      </main>
+      <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}/>} />
 
       {error && (
         <div className="toast error" role="alert">
           {error}
-          <button aria-label="Dismiss error" onClick={() => setError("")}>
+          <Button variant="ghost" aria-label="Dismiss error" onClick={() => setError("")}>
             <X size={16} />
-          </button>
+          </Button>
         </div>
       )}
     </div>

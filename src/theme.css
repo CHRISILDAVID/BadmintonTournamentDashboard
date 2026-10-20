@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #edf4f0;
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: #f0f4f2;
+  --color-muted-foreground: #60766c;
+  --color-accent: #e3f3eb;
+  --color-accent-foreground: #124c3c;
+  --color-destructive: #b33e3e;
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: #229c78;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+:root {
+  --background: #f3f6f4;
+  --foreground: #102f3e;
+  --card: #ffffff;
+  --primary: #087c5c;
+  --border: #dbe5df;
+  --radius: 0.75rem;
+  --green: var(--primary);
+  --navy: #102f3e;
+  --deep: #102f3e;
+  --muted: #60766c;
+  --line: var(--border);
+  --sport: "Segoe UI", Arial, sans-serif;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-synthesis: none;
+  font-size: 14px;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply m-0 bg-background text-foreground antialiased; }
+  button, a { touch-action: manipulation; }
+  button:not(:disabled), select { cursor: pointer; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-ring; }
+  h1, h2, h3, h4 { @apply font-semibold tracking-tight; }
+  h1 { @apply text-3xl; }
+  h2 { @apply text-xl; }
+  h3 { @apply text-base; }
+  button:disabled { @apply cursor-not-allowed opacity-50; }
+  input, select, textarea { max-width: 100%; }
+  small { font-size: .8em; }
+}
+
+@layer components {
+  .field { @apply grid gap-2 items-start text-sm font-medium; }
+  .field > [data-slot="native-select-wrapper"] { @apply w-full; }
+  .field input:not([type="checkbox"]), .field textarea, .field select { @apply w-full; }
+  .field small { @apply font-normal leading-relaxed text-muted-foreground; }
+  .desk-dialog form { @apply min-w-0; }
+  .app-shell [data-slot="table-container"] { @apply min-w-0; }
+  .app-shell td, .app-shell th, .venue-board { font-variant-numeric: tabular-nums; }
+}
