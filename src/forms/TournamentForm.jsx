@@ -3,7 +3,7 @@ import { ArrowRight, ChevronRight, ChevronLeft } from "lucide-react";
 
 import TournamentFormatFields from "../TournamentFormatFields.jsx";
 
-import { playoffPreset, scoringRules } from "../../shared/format.js";
+import { scoringRules } from "../../shared/format.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Field } from "../components/common.jsx";
@@ -21,7 +21,7 @@ function TournamentForm() {
   const existing = modal.tournament;
   const [form, setForm] = useState(() => {
     const initial = existing || defaults;
-    return { ...initial, scoring: initial.scoring || { league: scoringRules(initial), knockout: scoringRules(initial, "Final") } };
+    return { ...initial, qualification: "direct", scoring: initial.scoring || { league: scoringRules(initial), knockout: scoringRules(initial, "Final") } };
   }),
     [step, setStep] = useState(1);
   const change = (key, value) => setForm({ ...form, [key]: value });
@@ -62,7 +62,7 @@ function TournamentForm() {
             fixtures later.
           </p>
           <div className="preset-grid">
-            {presets.map(([name, size, mode]) => (
+            {presets.map(([name, size]) => (
               <Button variant="ghost"
                 key={name}
                 type="button"
@@ -72,7 +72,7 @@ function TournamentForm() {
                     ...form,
                     name: name === "Custom" ? "" : name,
                     size,
-                    ...(mode ? playoffPreset(mode) : {}),
+                    qualification: "direct",
                   })
                 }
               >

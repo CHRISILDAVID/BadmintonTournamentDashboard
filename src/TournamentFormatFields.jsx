@@ -2,10 +2,7 @@ import { Input } from "./components/ui/input.jsx";
 import { NativeSelect } from "./components/ui/native-select.jsx";
 import React from "react";
 import {
-  qualificationFormats,
-  qualificationFormat,
   isPlayoffFormat,
-  playoffPreset,
   scoringRules,
   knockoutStage,
   drawSize,
@@ -91,7 +88,7 @@ export function StageScoringFields({ form, setForm }) {
   const stages = [["league", "League", "League"], ...(isPlayoffFormat(form) ? [["playoff", "Qualification playoff", PLAYOFF_STAGE]] : []), ["knockout", "Main knockout", "Final"]];
   const scoring = Object.fromEntries(stages.map(([key, , stage]) => [key, scoringRules(form, stage)]));
   return <>
-    <div className="format-preview"><div><strong>Scoring by stage</strong><span>Each stage has its own rules. Changing League points does not change playoffs or main knockouts.</span></div></div>
+    <div className="format-preview"><div><strong>Scoring by stage</strong><span>Each stage has its own rules. Changing League points does not change {isPlayoffFormat(form) ? "playoffs or main knockouts" : "main knockouts"}.</span></div></div>
     <Button type="button" variant="outline" onClick={() => setForm(current => ({ ...current, scoring: Object.fromEntries(stages.map(([key]) => [key, { ...scoringRules(current) }])) }))}>Use league rules for every stage</Button>
     {stages.map(([key, title]) => <RuleFields key={key} title={title} value={scoring[key]} change={value => setForm(current => ({ ...current, scoring: { ...scoring, ...current.scoring, [key]: value } }))}/>)}
     <div className="format-preview" aria-label="Scoring summary"><div><strong>Review scoring</strong>{stages.map(([key, title]) => <span key={key}>{title}: {scoringLabel(scoring[key])}</span>)}</div></div>
@@ -99,8 +96,6 @@ export function StageScoringFields({ form, setForm }) {
 }
 
 export default function TournamentFormatFields({ form, setForm }) {
-  const custom = isPlayoffFormat(form);
-  const details = qualificationFormat(form);
   const change = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
   return (
@@ -109,21 +104,10 @@ export default function TournamentFormatFields({ form, setForm }) {
         <span>Qualification format</span>
         <NativeSelect
           aria-label="Qualification format"
-          value={form.qualification || "direct"}
-          onChange={(e) => {
-            const mode = e.target.value;
-            setForm((current) =>
-              mode === "direct"
-                ? { ...current, qualification: mode }
-                : { ...current, ...playoffPreset(mode, current.groups) },
-            );
-          }}
+          value="direct"
+          disabled
         >
-          {Object.entries(qualificationFormats).map(([key, value]) => (
-            <option key={key} value={key}>
-              {value.label}
-            </option>
-          ))}
+          <option value="direct">Direct qualification</option>
         </NativeSelect>
       </label>
       <label className="field">
@@ -132,58 +116,18 @@ export default function TournamentFormatFields({ form, setForm }) {
           aria-label="Number of groups" value={form.groups}
           onChange={(e) => change("groups", e.target.value === "" ? "" : +e.target.value)} />
       </label>
-      {custom ? (
-        <div className="format-preview">
-          <div>
-            <strong>
-              {form.groups} group{form.groups > 1 ? "s" : ""} of{" "}
-              {details.teamsPerGroup} doubles teams
-            </strong>
-            <span>
-              Top {details.direct} per group advance directly.{" "}
-              {details.pairs
-                .map(
-                  ([high, low, slot]) =>
-                    `${high} vs ${low} plays for slot ${slot}`,
-                )
-                .join("; ")}{" "}
-              in each group.
-            </span>
-            <span>
-              {form.groups * 4} knockout places · Starts at{" "}
-              {knockoutStage(drawSize(form.groups * 4))}{" · "}
-              {drawSize(form.groups * 4) - form.groups * 4} automatic byes.
-              {form.groups > 1
-                ? " · Opening matches pair different groups"
-                : " · 1st vs 4th, 2nd vs 3rd"}
-            </span>
-            <span>
-              Exactly {form.groups * details.teamsPerGroup} teams required.{" "}
-              {form.groups *
-                ((details.teamsPerGroup * (details.teamsPerGroup - 1)) / 2 +
-                  details.pairs.length +
-                  4) -
-                1}{" "}
-              matches including league, playoffs and main knockout.
-            </span>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="form-row">
-            <label className="field">
-              <span>Qualifiers per group</span>
-              <Input type="number" min="1" max="256" step="1" required
-                value={form.qualify}
-                onChange={(e) => change("qualify", e.target.value === "" ? "" : +e.target.value)} />
-            </label>
-          </div>
-          <p className="help-text">
-            {form.groups * form.qualify} knockout places; starts at {knockoutStage(drawSize(form.groups * form.qualify))} with {drawSize(form.groups * form.qualify) - form.groups * form.qualify} automatic byes.
-            {" "}Add at least {form.groups * Math.max(2, form.qualify)} teams. Groups are balanced automatically; qualifiers are seeded by league place, then group order. At least two knockout places are required.
-          </p>
-        </>
-      )}
+      <div className="form-row">
+        <label className="field">
+          <span>Qualifiers per group</span>
+          <Input type="number" min="1" max="256" step="1" required
+            value={form.qualify}
+            onChange={(e) => change("qualify", e.target.value === "" ? "" : +e.target.value)} />
+        </label>
+      </div>
+      <p className="help-text">
+        {form.groups * form.qualify} knockout places; starts at {knockoutStage(drawSize(form.groups * form.qualify))} with {drawSize(form.groups * form.qualify) - form.groups * form.qualify} automatic byes.
+        {" "}Add at least {form.groups * Math.max(2, form.qualify)} teams. Groups are balanced automatically; qualifiers are seeded by league place, then group order. At least two knockout places are required.
+      </p>
       <StageScoringFields form={form} setForm={setForm}/>
       <p className="help-text">
         Standings use wins, game difference, point difference, then seed. Format

@@ -109,3 +109,12 @@ export function resultScore(match) {
     .map(([a, b]) => (match.winner === match.b ? [b, a] : [a, b]).join("–"))
     .join(" / ");
 }
+
+// The shared score strip follows screen permissions, independently of the
+// tournament panels selected in this browser's layout.
+export function liveDisplayMatches(state, preset) {
+  const tournaments = new Set(state.tournaments.filter(t => !preset?.categories?.length || preset.categories.includes(t.id)).map(t => t.id));
+  return state.matches.filter(m => m.status === "live" && tournaments.has(m.tournamentId) &&
+    (!preset?.courts?.length || preset.courts.includes(m.court)) && (!preset?.finals || m.stage === "Final"))
+    .sort((a, b) => a.court - b.court);
+}

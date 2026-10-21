@@ -8,9 +8,10 @@ import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
+import { cloudEnabled } from "../cloud/storage.js";
 
 function MatchCard({ m, compact = false }) {
-  const { admin, team, tournament, open } = useDesk();
+  const { canManageMatches, team, tournament, open } = useDesk();
   const t = tournament(m.tournamentId),
     a = team(m.a),
     b = team(m.b);
@@ -85,7 +86,10 @@ function MatchCard({ m, compact = false }) {
                 ? time(m.scheduled)
                 : "Ready to start"}
         </span>
-        {admin && (
+        {canManageMatches && <div className="match-action-buttons">
+          {cloudEnabled() && m.status === "live" && <Button variant="ghost" className="text-btn"
+            aria-label={`Open scorer: ${a?.name} vs ${b?.name}`}
+            onClick={() => open({ type: "scorer", matchId: m.id })}>Open scorer<ArrowUpRight size={15}/></Button>}
           <Button variant="ghost"
             className="text-btn"
             disabled={m.status === "upcoming" && (!m.a || !m.b)}
@@ -98,7 +102,7 @@ function MatchCard({ m, compact = false }) {
                 : "Start game"}
             <ArrowUpRight size={15} />
           </Button>
-        )}
+        </div>}
       </div>
     </div>
   );

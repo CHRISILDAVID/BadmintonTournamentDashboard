@@ -1,4 +1,11 @@
 /* Organizer layouts and court/bracket details. Shared controls use components/ui and theme.css. */
+.point-scoring-toolbar { align-items:stretch; }
+.point-scoring-toolbar > span { align-self:center; }
+.point-scoring-toolbar .point-scoring-match { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; height:auto; min-height:48px; max-width:100%; white-space:normal; text-align:left; gap:3px; }
+.point-scoring-match strong { overflow-wrap:anywhere; }
+.point-scoring-match small { font-size:11px; color:#527061; }
+.match-action-buttons { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.match-foot { flex-wrap:wrap; gap:6px; }
 @layer components {
 .app-shell {
   display: flex;

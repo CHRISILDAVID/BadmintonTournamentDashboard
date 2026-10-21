@@ -6,7 +6,25 @@ import {
   resolveDisplaySelection,
   tournamentDisplayData,
   resultScore,
+  liveDisplayMatches,
 } from "../shared/display.js";
+
+test("shared live scores include every tournament and respect screen category, court and final filters", () => {
+  const state = { tournaments: [{ id: "a" }, { id: "b" }], matches: [
+    { id: "a2", tournamentId: "a", court: 2, status: "live", stage: "League" },
+    { id: "b1", tournamentId: "b", court: 1, status: "live", stage: "Final" },
+    { id: "done", tournamentId: "b", court: null, status: "completed", stage: "Final" },
+    { id: "missing", tournamentId: "deleted", court: 3, status: "live", stage: "Final" },
+  ] };
+  const ids = preset => liveDisplayMatches(state, preset).map(m => m.id);
+  assert.deepEqual(ids(), ["b1", "a2"]);
+  assert.deepEqual(ids({ categories: ["a"] }), ["a2"]);
+  assert.deepEqual(ids({ courts: [2] }), ["a2"]);
+  assert.deepEqual(ids({ finals: true }), ["b1"]);
+  assert.deepEqual(ids({ categories: ["a"], finals: true }), []);
+  assert.deepEqual(ids({ categories: [], courts: [] }), ["b1", "a2"]);
+  assert.equal(state.matches[0].id, "a2");
+});
 
 function setup() {
   let s = applyAction(emptyState(), "tournament", {

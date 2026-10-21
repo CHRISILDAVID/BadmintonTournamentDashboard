@@ -6,10 +6,9 @@ export const defaults = {
   points: 21,
   cap: 30,
   bestOf: 3,
+  qualification: "direct",
 };
 export const presets = [
-  ["2v2 Intermediate men", 2, "intermediate"],
-  ["2v2 Beginner men", 2, "beginner"],
   ["Men’s Doubles", 2],
   ["Men’s Singles", 1],
   ["Women’s Singles", 1],

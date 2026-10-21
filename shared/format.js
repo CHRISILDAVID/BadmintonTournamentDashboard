@@ -2,6 +2,7 @@ export const PLAYOFF_STAGE = "Qualification playoff";
 
 export const qualificationFormats = {
   direct: { label: "Direct qualification" },
+  // Retired from tournament setup; retained to read and score saved tournaments.
   intermediate: {
     label: "Intermediate: top 3 + fourth-place playoff",
     teamsPerGroup: 5,

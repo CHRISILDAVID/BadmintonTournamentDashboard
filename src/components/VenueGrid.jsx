@@ -5,6 +5,8 @@ import { useStore } from "zustand";
 import { Grip, ArrowUp, ArrowDown, Pencil, Check, RotateCcw, X } from "lucide-react";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
+import { NativeSelect } from "./ui/native-select.jsx";
+import { cleanLiveScoreLayout } from "../lib/venue-widgets.js";
 import { venueStore } from "../stores/venue.js";
 import { BREAKPOINTS, COLUMNS, ROW_HEIGHT, GAP, breakpointFor, defaultLayouts, resolveLayouts, normalizeLayout, reorderPanel, selectionKey } from "../lib/venue-layout.js";
 import "react-grid-layout/css/styles.css";
@@ -38,11 +40,14 @@ export default function VenueGrid({ panels, renderPanel, controls }) {
       setHeight(Math.max(400, window.innerHeight - top - 24));
     };
     measure(); window.addEventListener("resize", measure);
+    const observer = new ResizeObserver(measure);
+    if (containerRef.current) observer.observe(containerRef.current);
     document.addEventListener("fullscreenchange", measure);
-    return () => { window.removeEventListener("resize", measure); document.removeEventListener("fullscreenchange", measure); };
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); document.removeEventListener("fullscreenchange", measure); };
   }, [containerRef, panels.length]);
   const defaults = useMemo(() => defaultLayouts(ids, height), [ids, height]);
-  const saved = useMemo(() => ({ ...resolveLayouts(preferences.savedLayouts[key], defaults), widgets: preferences.savedLayouts[key]?.widgets || {} }), [preferences.savedLayouts, key, defaults]);
+  const saved = useMemo(() => ({ ...resolveLayouts(preferences.savedLayouts[key], defaults), widgets: preferences.savedLayouts[key]?.widgets || {}, liveScores: cleanLiveScoreLayout(preferences.savedLayouts[key]?.liveScores) }), [preferences.savedLayouts, key, defaults]);
+  const liveScores = cleanLiveScoreLayout(preferences.editing ? preferences.draft?.liveScores : saved.liveScores);
   const layouts = preferences.editing && preferences.editingKey === key ? resolveLayouts(preferences.draft, defaults) : saved;
   useEffect(() => {
     if (preferences.editing && preferences.editingKey !== key) preferences.cancel();
@@ -60,6 +65,14 @@ export default function VenueGrid({ panels, renderPanel, controls }) {
         </> : <Button variant="ghost" size="icon" title="Edit layout" aria-label="Edit layout" disabled={!panels.length} onClick={() => preferences.begin(key, saved)}><Pencil/></Button>}
     </>, controls)}
     <p id="widget-keyboard-help" className="sr-only">Use arrow keys on a widget grip to move it. Hold Shift with arrow keys to resize it. Use Widgets to restore a hidden widget.</p>
+    {preferences.editing && <div className="venue-live-settings">
+      <label>Live scores<NativeSelect aria-label="Live scores position" value={liveScores.position} onChange={event => preferences.setLiveScoreLayout({ position: event.target.value })}>
+        <option value="tournament">Inside tournaments</option><option value="top">Above tournaments · all matches</option>
+      </NativeSelect></label>
+      {liveScores.position === "top" && <label>Cards<NativeSelect aria-label="Shared live scores layout" value={liveScores.flow} onChange={event => preferences.setLiveScoreLayout({ flow: event.target.value })}>
+        <option value="horizontal">Horizontal scroll</option><option value="wrap">Wrap cards</option>
+      </NativeSelect></label>}
+    </div>}
     {preferences.storageError && <p className="rounded-lg bg-red-50 p-3 text-sm text-destructive" role="alert">{preferences.storageError}</p>}
     <div ref={containerRef} className="venue-grid-viewport vb-scroll">
       {mounted && <ResponsiveGridLayout key={`${key}:${breakpoint}`} width={width} breakpoint={breakpoint} breakpoints={BREAKPOINTS} cols={COLUMNS}

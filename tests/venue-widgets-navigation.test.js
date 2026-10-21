@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createVenueStore, VENUE_STORAGE_KEY } from "../src/stores/venue.js";
 import { defaultLayouts, selectionKey } from "../src/lib/venue-layout.js";
-import { visibleWidgets, widgetLayout, keyboardWidgetLayout, WIDGET_COLUMNS } from "../src/lib/venue-widgets.js";
+import { cleanLiveScoreLayout, visibleWidgets, widgetLayout, keyboardWidgetLayout, WIDGET_COLUMNS } from "../src/lib/venue-widgets.js";
 import { readRoute, routeHref } from "../src/lib/navigation.js";
 import { createOrganizerStore } from "../src/stores/organizer.js";
 
@@ -12,6 +12,24 @@ const memory = initial => {
 };
 const league = { showLeagueStandings: true, hasKnockouts: false, playoffs: [] };
 const knockout = { showLeagueStandings: false, hasKnockouts: true, playoffs: [{ status: "completed" }] };
+
+test("shared live score placement saves, cancels, resets and reloads with the display layout", () => {
+  const storage = memory(), store = createVenueStore(storage), key = selectionKey(["a"]), defaults = defaultLayouts(["a"]);
+  assert.deepEqual(cleanLiveScoreLayout(null), { position: "tournament", flow: "horizontal" });
+  assert.deepEqual(cleanLiveScoreLayout({ position: "broken", flow: "broken" }), cleanLiveScoreLayout(null));
+  store.getState().begin(key, defaults);
+  store.getState().setLiveScoreLayout({ position: "top" });
+  store.getState().save();
+  assert.deepEqual(createVenueStore(storage).getState().savedLayouts[key].liveScores, { position: "top", flow: "horizontal" });
+  store.getState().begin(key, store.getState().savedLayouts[key]);
+  store.getState().setLiveScoreLayout({ flow: "wrap" });
+  store.getState().cancel();
+  assert.equal(store.getState().savedLayouts[key].liveScores.flow, "horizontal");
+  store.getState().begin(key, store.getState().savedLayouts[key]);
+  store.getState().reset(defaults);
+  store.getState().save();
+  assert.equal(cleanLiveScoreLayout(createVenueStore(storage).getState().savedLayouts[key].liveScores).position, "tournament");
+});
 
 test("automatic widgets follow phases while explicit visibility survives the final", () => {
   assert.deepEqual(visibleWidgets(league), ["standings", "upcoming", "results"]);

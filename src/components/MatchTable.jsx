@@ -8,10 +8,11 @@ import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
+import { cloudEnabled } from "../cloud/storage.js";
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
-function MatchTable({ matches, history = false }) {
+function MatchTable({ matches, history = false, onScore }) {
   const { canManageMatches, team, tournament, open } = useDesk();
   return matches.length ? (
     <div className="table-scroll">
@@ -67,6 +68,10 @@ function MatchTable({ matches, history = false }) {
               </TableCell>
               {canManageMatches && (
                 <TableCell className="match-actions-cell">
+                  <div className="match-action-buttons">
+                  {cloudEnabled() && m.status === "live" && <Button variant="outline" className="btn"
+                    aria-label={`Open scorer: ${team(m.a)?.name} vs ${team(m.b)?.name}`}
+                    onClick={() => onScore ? onScore(m) : open({ type: "scorer", matchId: m.id })}>Open scorer</Button>}
                   <Button variant="outline"
                     className="btn"
                     disabled={m.status === "upcoming" && (!m.a || !m.b)}
@@ -75,6 +80,7 @@ function MatchTable({ matches, history = false }) {
                   >
                     {m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : (m.bye ? "View bye" : "Edit result")}
                   </Button>
+                  </div>
                 </TableCell>
               )}
             </TableRow>

@@ -45,6 +45,10 @@ Match updates reconnect automatically; a disconnected display explicitly shows t
 - **Knockouts:** recording the last league result opens a qualification review with **Create playoffs + bracket** or **Create knockouts**. You can cancel and use the same next-stage action directly in Overview, Matches, or Standings, including when another device finishes the league. Creation opens that category in Matches with the playoff/knockout stage selected. Use **Standings & bracket** to inspect the draw and **Manage games** to return. The stage filter keeps league history accessible. Direct qualification takes the top configured number per group. Playoff formats generate group qualification matches and the main knockout draw together; winners automatically fill their named knockout slots. Ready matches can still be started in any order; matches awaiting opponents cannot start. League statistics remain based only on league matches.
 - **Venue display:** select the categories to show on `/display`. Each tournament has independent League standings, Up next (including live courts), Latest results, Playoffs, and Knockouts widgets. Automatic visibility follows the tournament phase; the layout editor can override it at any time. Results include league and postseason games. The display remains read-only for tournament data.
 
+In the display's **Edit layout** mode, set **Live scores → Above tournaments · all matches** to move live scores into one shared strip. It includes on-court matches from every tournament allowed by the screen preset, even when only one tournament panel is selected. Choose **Horizontal scroll** for a single row with previous/next arrows and touch scrolling, or **Wrap cards** for multiple rows. Automatic scrolling follows the display's pause/resume control. Save, Cancel, and Reset apply to this setting with the rest of the layout; screen presets can copy the saved layout. Per-tournament Live scores widgets return when placement is set to **Inside tournaments**.
+
+On the cloud match screen, **Point scoring** shortcuts show both team names and the court. Live match cards and table rows also offer **Open scorer** beside **Record result**, for organizers and umpires.
+
 ## Customize a venue screen
 
 Use the **pencil icon beside fullscreen** to edit. Drag a tournament's top grip to move its whole panel, or drag a widget's grip to move just that section. Resize either from its bottom-right corner. Each widget's minus button hides it; **Widgets** opens the visibility controls:
@@ -68,34 +72,11 @@ Each widget has one scrolling surface, with thin scrollbars. The full screen and
 
 Organizer pages have real URLs: `/`, `/tournaments`, `/teams`, `/matches`, `/matches/history`, `/standings`, and `/settings`. Navigation links support opening in another tab. Browser Back/Forward and refresh restore the page and URL filters. Tournament selection uses `?tournament=...`; team/match search uses `q`, with `status` and `stage` for matches. Typing replaces the current history entry so Back does not step through every keystroke. Background score updates retain searches and filters. Category-specific actions navigate to the relevant page in one history step. Unknown paths show a recovery link to the overview.
 
-## Qualification playoff presets
+## Qualification and knockout board
 
-In **New tournament**, select **2v2 Intermediate men** or **2v2 Beginner men**. You can also choose their qualification format in the second setup step. These are reusable formats; category names can be changed. Enter **any whole group count from 1 to 256** in **Format & scoring**. Initial fixture generation requires exactly 5 doubles entries per Intermediate group or 6 per Beginner group. The setup preview shows the required entries, starting knockout round, and total match count before fixtures are generated. Late entries, new groups, and removals remain available during the league.
+New tournaments use **Direct qualification**. Set the group count and qualifiers per group in **Format & scoring**. Intermediate and Beginner presets have been retired from setup. Saved tournaments retain their original qualification rules, playoff fixtures, scoring, and results.
 
-League entry changes preserve the configured qualification rules. Intermediate still uses ranks 4 vs 5 for its fourth place; Beginner still uses 3 vs 6 and 4 vs 5. Extra entrants compete in the league for those same places; lower ranks are eliminated. A missing playoff opponent gives the available higher-ranked team direct qualification. Empty groups contribute no qualifiers, smaller groups contribute only available teams, and the main bracket adapts with byes. At least two qualifiers are needed to create it.
-
-| Format | League | Qualification playoffs in each group | Main knockout |
-| --- | --- | --- | --- |
-| Intermediate | Any group count, 5 teams each; top 3 advance directly | 4th vs 5th; winner earns slot 4 | Four qualifiers per group; see draw sizes below |
-| Beginner | Any group count, 6 teams each; top 2 advance directly | 3rd vs 6th earns slot 3; 4th vs 5th earns slot 4 | Four qualifiers per group; see draw sizes below |
-
-| Groups | Intermediate entries / total matches | Beginner entries / total matches | Knockout draw |
-| --- | --- | --- | --- |
-| 1 | 5 / 14 | 6 / 20 | 4 teams, semifinals |
-| 2 | 10 / 29 | 12 / 41 | 8 teams, quarterfinals |
-| 3 | 15 / 44 | 18 / 62 | 12 qualifiers, Round of 16 with 4 byes |
-| 4 | 20 / 59 | 24 / 83 | 16 teams, Round of 16 |
-| 8 | 40 / 119 | 48 / 167 | 32 teams, Round of 32 |
-
-The table shows examples; other group counts are supported. Match totals exclude automatic byes. For around 200 teams, direct qualification can use 37 balanced groups (five or six teams each), or Intermediate can use 40 groups of five. Use direct qualification when entries do not fit the fixed playoff group sizes. CSV/XLSX imports accept up to 256 teams per batch.
-
-One group opens with 1st vs 4th and 2nd vs 3rd. Multiple groups use seeded cross-group opening matches. Existing tournaments keep their saved group count. Change the format before generating fixtures. After generation, group swaps retain sizes; one-way moves allow unequal group sizes and update fixtures accordingly.
-
-Both presets use **15 points, golden point** for league and qualification playoffs: at 14–14 the next point wins. Main knockout games use **21 points, win by two, capped at 30**. Each stage defaults to one game; best of three or five can be selected independently before generating fixtures. Scoring settings are shown in the match desk and validated on the server.
-
-For the default two-group format, quarterfinals: **A1 vs B4**, **B2 vs A3**, **B1 vs A4**, **A2 vs B3**. The first two feed one semifinal; the last two feed the other. Playoff winners keep these slots, even when the lower league rank wins; they are not re-ranked. With two groups, Intermediate has 29 matches total; Beginner has 41.
-
-Standings distinguish direct places, pending playoffs, playoff qualifiers, and eliminated teams. The venue shows group playoff cards in a separate section alongside the main draw (stacked on phones), including their scoring rules and pending knockout sources. Completed playoff results remain available in organizer match history after their display section disappears. Existing tournaments retain their original formats and scoring; no practice data is added automatically.
+The venue Knockouts widget is a pannable, zoomable board. It starts with the entire draw fitted to the widget, including large draws. Drag to pan, scroll or pinch to zoom around a point, or use the minus/plus controls. **100%** centres the nearest match at actual size; **Fit** restores the whole draw. Focus the board and use arrow keys to pan, **+ / -** to zoom, and **0** or **Home** to fit. Each tournament has its own view; score updates keep the current view. While fitted, resizing the widget fits the draw again; after manual navigation, resizing preserves the point at the centre.
 
 ## Practice tournaments
 

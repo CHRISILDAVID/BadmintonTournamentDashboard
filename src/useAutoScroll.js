@@ -36,7 +36,7 @@ export default function useAutoScroll(rootRef, enabled = true) {
         const maxY = Math.max(0, node.scrollHeight - node.clientHeight);
         const maxX = Math.max(0, node.scrollWidth - node.clientWidth);
         const both = node.dataset.scrollAxis === "both";
-        const axis = both && maxY <= 1 && maxX > 1 ? "scrollLeft" : "scrollTop";
+        const axis = node.dataset.scrollAxis === "x" || (both && maxY <= 1 && maxX > 1) ? "scrollLeft" : "scrollTop";
         let state = positions.get(node);
         if (!state || state.axis !== axis) {
           state = {

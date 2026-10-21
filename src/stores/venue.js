@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { persist } from "zustand/middleware";
 import { cleanSelection } from "../lib/venue-layout.js";
-import { cleanWidgetPreferences, rememberWidgetLayout, WIDGETS } from "../lib/venue-widgets.js";
+import { cleanLiveScoreLayout, cleanWidgetPreferences, rememberWidgetLayout, WIDGETS } from "../lib/venue-widgets.js";
 
 const profile = globalThis.__shuttleSession;
 export const VENUE_STORAGE_KEY = profile ? `shuttlehub.venue.${profile.eventId}.${profile.profile}.${profile.preset || "default"}` : "shuttlehub.venue.layout.v1";
@@ -36,6 +36,10 @@ export function createVenueStore(storage = browserStorage()) {
       if (JSON.stringify(next) !== JSON.stringify(get().selection)) set({ selection: next });
     },
     begin(key, layouts) { set({ editing: true, editingKey: key, draft: structuredClone(layouts), storageError: "" }); },
+    setLiveScoreLayout(changes) {
+      if (!get().editing) return;
+      set({ draft: { ...get().draft, liveScores: cleanLiveScoreLayout({ ...cleanLiveScoreLayout(get().draft.liveScores), ...changes }) } });
+    },
     updateDraft(breakpoint, layout) {
       if (get().editing && JSON.stringify(get().draft[breakpoint]) !== JSON.stringify(layout))
         set({ draft: { ...get().draft, [breakpoint]: structuredClone(layout) } });

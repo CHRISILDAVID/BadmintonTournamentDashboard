@@ -61,16 +61,23 @@
 .vb-playoff-grid .vb-ko-card::before { display:none; }
 .venue-knockout-content { display:flex; flex-direction:column; height:100%; min-height:0; }
 .vb-bracket-viewport { display:flex; flex:1; min-height:0; overflow:hidden; padding:0 10px 10px; }
-.venue-bracket-space { position:relative; flex:1; min-width:0; overflow:hidden; }
+.venue-bracket-space { position:relative; flex:1; min-width:0; overflow:hidden; cursor:grab; touch-action:none; user-select:none; background-color:#f8fbfa; background-image:radial-gradient(#cbdcd4 1px, transparent 1px); background-size:20px 20px; border:1px solid #e1eae5; border-radius:8px; }
+.venue-bracket-space.is-panning { cursor:grabbing; }
+.venue-bracket-space:focus-visible { outline:2px solid #087d59; outline-offset:-2px; }
+.vb-bracket-toolbar { display:flex; flex-shrink:0; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; padding:6px 10px; }
+.vb-bracket-toolbar .venue-widget-note { padding:0; }
+.vb-bracket-controls { display:flex; align-items:center; gap:2px; }
+.vb-bracket-zoom { min-width:48px; text-align:center; font-size:11px; font-variant-numeric:tabular-nums; color:#527061; }
+.vb-bracket-help { flex-shrink:0; margin:0; padding:0 12px 6px; font-size:10px; line-height:1.4; color:#61786b; }
 
 /* Bracket geometry and connectors. */
 .vb-bracket-canvas {
   --vb-bracket-gap: 26px;
   --vb-bracket-row: 118px;
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform-origin: center;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
   display: grid;
   grid-template-columns: repeat(var(--bracket-rounds), minmax(0, 1fr));
   column-gap: var(--vb-bracket-gap);

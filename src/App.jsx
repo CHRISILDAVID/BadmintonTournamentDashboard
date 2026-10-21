@@ -27,6 +27,7 @@ import MatchForm from "./forms/MatchForm.jsx";
 import ConfirmForm from "./forms/ConfirmForm.jsx";
 import { cloudEnabled, currentSession } from "./cloud/storage.js";
 import Umpire from "./cloud/Umpire.jsx";
+import Scorer from "./cloud/Scorer.jsx";
 
 const NAV = [
   ["Overview", LayoutDashboard],
@@ -35,6 +36,11 @@ const NAV = [
   ["Matches", CalendarDays],
   ["Standings", GitBranch],
 ];
+function MatchScorer({ match, teams, category, onClose }) {
+  // Keep the prepared fixture available through result confirmation.
+  const [prepared] = React.useState(() => ({ match, teams, category }));
+  return <Scorer {...prepared} onClose={onClose}/>;
+}
 function App() {
   const { state, page, filter, modal, error, notice, connected, busy, admin, display, readyMatches, act, open, setPage, setFilter, setModal, setError, setNotice } = useDesk();
   useEffect(() => tournamentStore.getState().connect(), []);
@@ -59,6 +65,10 @@ function App() {
   }, [error, modal, setError]);
   if (!state) return <div className="loading"><Logo/><p>{error || "Connecting to tournament desk..."}</p>{error && <Button variant="ghost" onClick={() => location.reload()}>Reconnect</Button>}</div>;
   if (display) return <Suspense fallback={<div className="loading"><Logo/><p>Preparing venue screen...</p></div>}><VenueBoard state={state} upcoming={readyMatches} connected={connected}/></Suspense>;
+  if (cloudEnabled() && modal?.type === "scorer") {
+    const match = state.matches.find(m => m.id === modal.matchId);
+    if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} onClose={() => setModal(null)}/>;
+  }
   if (currentSession()?.role === "umpire") return <Umpire/>;
   const titles = {
     Overview: "Courtside",

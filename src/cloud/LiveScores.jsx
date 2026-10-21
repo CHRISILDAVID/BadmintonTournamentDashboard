@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { liveStore } from "./connection.js";
-export default function LiveScores({ matches, teams, category }) {
+export default function LiveScores({ matches, teams, category, tournaments }) {
   const { records, connected, preset } = useStore(liveStore);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
@@ -9,8 +9,8 @@ export default function LiveScores({ matches, teams, category }) {
   return <div className="live-score-list">{shown.map(m => {
     const r = records[m.id], s = r?.score;
     const delayed = !r?.contactAt || now - r.contactAt > 45000;
-    return <article className="live-score-card" key={m.id}>
-      <header><strong>Court {m.court}</strong><span>{category} · {m.id.slice(0, 8)}</span><small className={!connected || delayed || r?.invalidated ? "score-delayed" : ""}>
+    return <article className="live-score-card" key={m.id} aria-label={`Court ${m.court}: ${teams.get(m.a)?.name} vs ${teams.get(m.b)?.name}`}>
+      <header><strong>Court {m.court}</strong><span>{tournaments?.get(m.tournamentId)?.name || category}</span><small className={!connected || delayed || r?.invalidated ? "score-delayed" : ""}>
         {!connected ? "Display disconnected · Last confirmed score" : r?.invalidated ? "Awaiting organizer reconciliation" : delayed ? "Umpire updates delayed" : s?.paused ? "Paused" : "Playing"}
       </small></header>
       {[m.a, m.b].map((id, side) => <div className="live-score-team" key={id}><span>{teams.get(id)?.name}</span><b>{s ? s.complete ? s.games.at(-1)?.[side] : s.points[side] : "–"}</b><small>{s?.wins[side] || 0} games</small></div>)}

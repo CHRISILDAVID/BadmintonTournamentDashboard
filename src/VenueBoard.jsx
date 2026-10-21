@@ -10,11 +10,15 @@ import {
   resolveDisplaySelection,
   resultScore,
   tournamentDisplayData,
+  liveDisplayMatches,
 } from "../shared/display.js";
 import { groupName } from "./utils.js";
 import useAutoScroll from "./useAutoScroll.js";
 import VenueBracket, { VenuePlayoffs } from "./VenueBracket.jsx";
 import VenueWidgets from "./components/VenueWidgets.jsx";
+import SharedLiveScores from "./components/SharedLiveScores.jsx";
+import { cleanLiveScoreLayout } from "./lib/venue-widgets.js";
+import { selectionKey } from "./lib/venue-layout.js";
 import { directPlaces, isPlayoffFormat } from "../shared/format.js";
 import logo from "../assets/logo.jpg";
 import LiveScores from "./cloud/LiveScores.jsx";
@@ -154,7 +158,7 @@ function ResultGroup({ group, teams }) {
   );
 }
 
-function TournamentPanel({ data, upcoming, teams }) {
+function TournamentPanel({ data, upcoming, teams, sharedLiveScores }) {
   const { tournament: t, groups, onCourt, knockoutRounds, playoffs, hasKnockouts, champion } = data;
   const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: "Playoffs & knockouts", results: data.knockoutResults }] : [])];
   const scroll = (label, children) => <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${t.name} ${label}`}>{children}</div>;
@@ -181,7 +185,7 @@ function TournamentPanel({ data, upcoming, teams }) {
       <div><span className="vb-kicker">{t.size === 1 ? "SINGLES" : t.size === 2 ? "DOUBLES" : `${t.size}v${t.size}`} · {data.completed} / {data.total} MATCHES</span><h2>{t.name}</h2></div>
       {champion ? <span className="vb-champion"><Trophy size={16}/>{champion.name}</span> : <span className="vb-stage">{hasKnockouts ? playoffs.some(m => m.status !== "completed") ? "PLAYOFFS" : "KNOCKOUTS" : data.hasLeague ? "LEAGUE" : "REGISTRATION"}</span>}
     </header>
-    <VenueWidgets data={data} renderWidget={renderWidget}/>
+    <VenueWidgets data={data} renderWidget={renderWidget} sharedLiveScores={sharedLiveScores}/>
   </article>;
 }
 
@@ -195,7 +199,7 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
     }
   }, [preset?.updatedAt]);
   const boardRef = useRef(null);
-  const { selection: preferences, setSelection: setPreferences, editing } = useStore(venueStore);
+  const { selection: preferences, setSelection: setPreferences, editing, draft, savedLayouts } = useStore(venueStore);
   const [autoScroll, setAutoScroll] = useState(true);
   const [layoutControls, setLayoutControls] = useState(null);
   useAutoScroll(boardRef, !editing && autoScroll);
@@ -209,6 +213,9 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
     () => new Map(state.teams.map((t) => [t.id, t])),
     [state.teams],
   );
+  const tournaments = useMemo(() => new Map(state.tournaments.map(t => [t.id, t])), [state.tournaments]);
+  const liveMatches = useMemo(() => liveDisplayMatches(state, preset), [state, preset]);
+  const liveLayout = cleanLiveScoreLayout((editing ? draft : savedLayouts[selectionKey(selection.ids)])?.liveScores);
   const panels = useMemo(
     () => selection.ids.map((id) => tournamentDisplayData(state, id)),
     [state, selection],
@@ -315,7 +322,8 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
         </Button>
         </div>
       </div>
-      <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}/>} />
+      {liveLayout.position === "top" && <SharedLiveScores matches={liveMatches} teams={teams} tournaments={tournaments} flow={liveLayout.flow}/>}
+      <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} sharedLiveScores={liveLayout.position === "top"} upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}/>} />
 
       {error && (
         <div className="toast error" role="alert">

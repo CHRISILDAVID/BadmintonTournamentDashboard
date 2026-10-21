@@ -10,6 +10,9 @@ export const WIDGET_COLUMNS = { desktop: 12, tablet: 6, phone: 1 };
 export const WIDGET_ROW = 16;
 export const WIDGET_GAP = 12;
 export const widgetBreakpoint = width => width >= 900 ? "desktop" : width >= 560 ? "tablet" : "phone";
+export function cleanLiveScoreLayout(value) {
+  return { position: value?.position === "top" ? "top" : "tournament", flow: value?.flow === "wrap" ? "wrap" : "horizontal" };
+}
 export function visibleWidgets(data, preferences = {}) {
   const automatic = {
     live: !!data.onCourt?.length,

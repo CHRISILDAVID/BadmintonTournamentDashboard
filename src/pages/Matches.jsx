@@ -12,13 +12,12 @@ import SearchField from "../components/SearchField.jsx";
 import { NativeSelect } from "../components/ui/native-select.jsx";
 import PageLink from "../components/PageLink.jsx";
 import { cloudEnabled } from "../cloud/storage.js";
-import Scorer from "../cloud/Scorer.jsx";
 
 function Matches({ history = false, onScore }) {
   const { state, filter, busy, admin, selected, live, upcoming, completed, categorySelect, team, tournament, open,
     matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage: stage, setMatchStage: setStage } = useDesk();
   const [testTools, setTestTools] = useState(false);
-  const [scoring, setScoring] = useState(null);
+  const openScorer = match => onScore ? onScore(match) : open({ type: "scorer", matchId: match.id });
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/features", { signal: controller.signal })
@@ -37,12 +36,13 @@ function Matches({ history = false, onScore }) {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
-  if (scoring) return <Scorer match={scoring} teams={state.teams} category={tournament(scoring.tournamentId)} onClose={() => setScoring(null)}/>;
   return (
     <section className="panel">
       {!history && <StageActions />}
-      {cloudEnabled() && !history && live.length > 0 && <div className="toolbar">
-        <span>Point scoring</span>{live.map(m => <Button key={m.id} variant="outline" onClick={() => onScore ? onScore(m) : setScoring(m)}>Court {m.court} · Open scorer</Button>)}
+      {cloudEnabled() && !history && live.length > 0 && <div className="toolbar point-scoring-toolbar" aria-label="Point scoring">
+        <span>Point scoring</span>{live.map(m => <Button key={m.id} variant="outline" className="point-scoring-match" onClick={() => openScorer(m)}>
+          <strong>{team(m.a)?.name} vs {team(m.b)?.name}</strong><small>Court {m.court} · Open scorer</small>
+        </Button>)}
       </div>}
       <div className="toolbar">
         <SearchField placeholder="Find a match…" value={query} onChange={setQuery}/>
@@ -79,7 +79,7 @@ function Matches({ history = false, onScore }) {
         </Button>
         <span className="help-text">{unfinishedCount} unfinished games in {filter === "all" ? "all tournaments" : tournament(filter)?.name}, across every stage. Uses random scores.</span>
       </div>}
-      <MatchTable matches={matches} history={history} />
+      <MatchTable matches={matches} history={history} onScore={openScorer} />
     </section>
   );
 }

@@ -1,4 +1,17 @@
 .venue-layout-area { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; }
+.venue-live-settings { display:flex; flex-wrap:wrap; gap:8px 16px; padding:8px 12px; border:1px dashed #27946f; border-radius:8px; background:#eaf4ee; }
+.venue-live-settings label { display:flex; align-items:center; gap:8px; min-width:0; font-size:12px; }
+.venue-live-settings select { max-width:100%; font-size:12px; }
+.venue-shared-live { display:flex; flex-direction:column; flex:0 1 auto; min-height:140px; max-height:38dvh; overflow:hidden; border:1px solid #c6d9cd; border-radius:10px; background:white; }
+.venue-shared-live .venue-widget-heading h3 { font-size:18px; }
+.venue-shared-live h3 small { margin-left:10px; font-size:11px; font-weight:400; color:#61786b; }
+.venue-shared-live-scroll { min-height:0; overflow:auto; padding:10px; overscroll-behavior:contain; }
+.venue-shared-live.horizontal .live-score-list { display:flex; align-items:stretch; gap:12px; }
+.venue-shared-live.horizontal .live-score-card { flex:0 0 clamp(300px, 32vw, 420px); min-width:0; }
+.venue-shared-live.wrap .live-score-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); }
+.venue-shared-live .live-score-team { font-size:clamp(14px,1.1vw,20px); }
+.venue-shared-live .live-score-team > span { min-width:0; overflow-wrap:anywhere; }
+.venue-shared-live .live-score-card header span { font-size:12px; overflow-wrap:anywhere; }
 .venue-grid-viewport { width:100%; min-height:0; flex:1; overflow-y:auto; overflow-x:hidden; padding:2px 2px 8px; }
 .venue-grid-panel { display:flex; flex-direction:column; min-width:0; min-height:0; }
 .venue-grid-panel > .vb-tournament { flex:1; min-height:0; width:100%; }

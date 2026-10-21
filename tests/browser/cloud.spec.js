@@ -8,7 +8,10 @@ async function prepare(browser) {
   const page = await context.newPage();
   await page.goto(inv.url);
   await expect(page.getByRole("heading", { name: "Event matches" })).toBeVisible();
-  await page.getByRole("button", { name: /Open scorer/ }).click();
+  const a = state.teams.find(t => t.id === m.a).name, b = state.teams.find(t => t.id === m.b).name;
+  await expect(page.locator(".point-scoring-match")).toContainText(`${a} vs ${b}`);
+  await expect(page.getByRole("row").filter({ has: page.getByRole("button", { name: /^Open scorer:/ }) }).getByRole("button", { name: /^Record result:/ })).toBeVisible();
+  await page.getByRole("button", { name: /^Open scorer:/ }).click();
   await page.getByRole("button", { name: "Claim scoring control" }).click();
   await expect(page.getByRole("button", { name: /^Point for/ }).first()).toBeEnabled();
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
@@ -40,7 +43,7 @@ test("mobile offline points, undo, completion and reload retain queue; two scree
   await expect(page.getByRole("status")).toContainText("3 pending");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Event matches" })).toBeVisible();
-  await page.getByRole("button", { name: /Open scorer/ }).click();
+  await page.getByRole("button", { name: /^Open scorer:/ }).click();
   await expect(page.getByRole("status")).toContainText("3 pending");
   await expect(page.locator(".score-team").first().locator("strong")).toHaveText("2");
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Point for/ }).first().click();
@@ -48,7 +51,7 @@ test("mobile offline points, undo, completion and reload retain queue; two scree
   await expect(page.getByRole("status")).toContainText("Result pending sync");
   expect((await request("state", undefined, o.cookie)).data.matches.find(x => x.id === m.id).status).toBe("live");
   await context.setOffline(false);
-  await page.getByRole("button", { name: "Sync now" }).click();
+  // Reconnection flushes automatically; the button may already be disabled.
   await expect(page.getByRole("status")).toContainText("Result confirmed");
   const final = (await request("state", undefined, o.cookie)).data.matches.find(x => x.id === m.id);
   expect(final.games).toEqual([[5, 0]]);
@@ -73,7 +76,7 @@ test("lost acknowledgement retries once; storage failure never reports a recorde
   const live = (await request("live", undefined, o.cookie)).data.live.find(r => r.matchId === m.id);
   expect(live.score.points).toEqual([1, 0]);
   const second = await context.newPage(); await second.goto(`${origin}/matches`);
-  await second.getByRole("button", { name: /Open scorer/ }).click();
+  await second.getByRole("button", { name: /^Open scorer:/ }).click();
   await expect(second.getByRole("alert")).toContainText("another tab");
   await second.close();
   await page.evaluate(() => {
@@ -139,7 +142,7 @@ test("429 and provider failure preserve pending points; switching event never re
   const other = await owner(), otherState = await importFixture(other, fixture(1));
   const otherMatch = otherState.matches.find(m => m.status === "live"), inv = await invitation(other, "umpire");
   await page.goto(inv.url);
-  await page.getByRole("button", { name: /Open scorer/ }).click();
+  await page.getByRole("button", { name: /^Open scorer:/ }).click();
   await expect(page.getByRole("button", { name: "Claim scoring control" })).toBeVisible();
   await page.getByRole("button", { name: "Claim scoring control" }).click();
   await expect(page.locator(".score-team").first().locator("strong")).toHaveText("0");
@@ -169,7 +172,7 @@ test("umpire starts and schedules matches from the shared match desk", async ({ 
   await page.getByLabel("Match status", { exact: true }).selectOption("live");
   await expect(page.locator(".match-table tbody tr")).toHaveCount(1);
   await expect(page.locator(".match-table")).toContainText("Court 2");
-  await page.getByRole("button", { name: /Open scorer/ }).click();
+  await page.getByRole("button", { name: /^Open scorer:/ }).click();
   await page.getByRole("button", { name: "Claim scoring control" }).click();
   await page.getByRole("button", { name: /^Point for/ }).first().click();
   await expect(page.getByRole("status")).toContainText("0 pending");
@@ -199,13 +202,13 @@ test("side swap keeps points, game scores and the final winner attached to their
   await page.getByRole("button", { name: `Point for ${b}`, exact: true }).click();
   await expect(page.getByRole("status")).toContainText("1 pending");
   await page.reload();
-  await page.getByRole("button", { name: /Open scorer/ }).click();
+  await page.getByRole("button", { name: /^Open scorer:/ }).click();
   await expect(page.getByRole("button", { name: "Swap sides", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".score-team").first().locator("strong")).toHaveText("1");
   await expect(page.locator(".score-team").last().locator("strong")).toHaveText("2");
   expect((await request("live", undefined, o.cookie)).data.live[0].revision).toBe(before.revision);
   await context.setOffline(false);
-  await page.getByRole("button", { name: "Sync now" }).click();
+  // Reconnection flushes automatically; the button may already be disabled.
   await expect(page.getByRole("status")).toContainText("0 pending");
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: `Point for ${a}`, exact: true }).click();
   await expect(page.locator(".score-games")).toContainText("1–5");
@@ -229,7 +232,7 @@ test("all event fixtures appear without assignment; final acknowledgement recove
   const state = await importFixture(o, fixture(1)), m = state.matches.find(m => m.status === "live");
   await expect(page.locator(".match-table tbody tr")).toHaveCount(state.matches.length);
   await expect(page.getByRole("button", { name: /^Start game:/ })).toHaveCount(state.matches.filter(m => m.status === "upcoming").length);
-  await page.getByRole("button", { name: /Open scorer/ }).click();
+  await page.getByRole("button", { name: /^Open scorer:/ }).click();
   await page.getByRole("button", { name: "Claim scoring control" }).click();
   for (let i = 0; i < 5; i++) await page.getByRole("button", { name: /^Point for/ }).first().click();
   await expect(page.getByRole("status")).toContainText("0 pending");
