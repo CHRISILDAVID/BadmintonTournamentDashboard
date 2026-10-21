@@ -4,7 +4,7 @@ import { groupName } from "../utils.js";
 
 import { tournamentProgress } from "../../shared/matches.js";
 
-import { groupEditLockReason } from "../../shared/groups.js";
+import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "../../shared/groups.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Empty } from "../components/common.jsx";
@@ -42,6 +42,9 @@ function Teams() {
               <Upload size={16} />
               Import teams
             </Button>
+            {selectedTournament && hasLeagueDraw(state, filter) && !leagueEntryLockReason(state, filter) && <Button variant="outline" className="btn" onClick={() => open({ type: "import", newGroup: true })}>
+              <Plus size={16}/>New group
+            </Button>}
             <Button variant="default"
               className="btn primary"
               onClick={() => open({ type: "team" })}

@@ -228,7 +228,7 @@ test("scores enforce deuce, cap, match victory, and no extra games", () => {
     0,
   );
 });
-test("imports are atomic, duplicate seeds and players rejected, locked teams stay locked", () => {
+test("imports are atomic, duplicate seeds and players rejected, late entrants require a group", () => {
   let { s, tournamentId } = setup();
   const before = structuredClone(s);
   assert.throws(
@@ -268,7 +268,7 @@ test("imports are atomic, duplicate seeds and players rejected, locked teams sta
         tournamentId,
         teams: [{ name: "Late", players: ["New A", "New B"] }],
       }),
-    /locked/,
+    /Choose an existing group/,
   );
   s = applyAction(s, "resetFixtures", { tournamentId });
   assert.equal(s.matches.length, 0);

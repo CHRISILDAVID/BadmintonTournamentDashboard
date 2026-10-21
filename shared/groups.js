@@ -1,3 +1,15 @@
+export function hasLeagueDraw(state, tournamentId) {
+  return !!state.tournaments.find(t => t.id === tournamentId)?.leagueGenerated ||
+    state.matches.some(m => m.tournamentId === tournamentId) ||
+    state.teams.some(t => t.tournamentId === tournamentId && t.group != null);
+}
+
+export function leagueEntryLockReason(state, tournamentId) {
+  if (!state.tournaments.some(t => t.id === tournamentId)) return "Tournament not found.";
+  return state.matches.some(m => m.tournamentId === tournamentId && m.stage !== "League")
+    ? "Team entries are locked after the playoff or knockout draw is created." : "";
+}
+
 export function groupEditLockReason(state, tournamentId) {
   const tournament = state.tournaments.find((t) => t.id === tournamentId);
   if (!tournament) return "Tournament not found.";

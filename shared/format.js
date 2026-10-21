@@ -84,6 +84,10 @@ export function pendingOpponent(match, side) {
 export function qualificationStatus(state, t, row, rank) {
   if (!isPlayoffFormat(t)) return rank < t.qualify ? "direct" : "";
   if (rank < directPlaces(t)) return "direct";
+  const pair = qualificationFormat(t).pairs.find(([high, low]) => [high, low].includes(rank + 1));
+  if (!pair) return "";
+  const groupSize = state.teams.filter(team => team.tournamentId === t.id && team.group === row.group).length;
+  if (groupSize < pair[1]) return "direct";
   const playoff = state.matches.find(
     (m) =>
       m.tournamentId === t.id &&

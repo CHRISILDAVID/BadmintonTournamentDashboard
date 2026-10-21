@@ -3,7 +3,7 @@ export { standings } from "../shared/standings.js";
 import { randomUUID } from "node:crypto";
 import { playerLabel } from "../shared/players.js";
 import { removeLegacyCalls } from "../shared/matches.js";
-import { groupEditLockReason } from "../shared/groups.js";
+import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "../shared/groups.js";
 import { randomGames } from "./random-scores.js";
 import {
   PLAYOFF_STAGE,
@@ -56,6 +56,25 @@ const match = (tournamentId, a, b, stage, group, round, index) => ({
   winner: null,
   scheduled: "",
 });
+
+// Retain every existing fixture and append each missing pair exactly once.
+function appendLeagueFixtures(s, t, group) {
+  const teams = s.teams.filter(x => x.tournamentId === t.id && x.group === group).sort((a, b) => a.seed - b.seed);
+  const fixtures = s.matches.filter(m => m.tournamentId === t.id && m.stage === "League" && m.group === group);
+  const pairKey = (a, b) => [a, b].sort().join(":");
+  const pairs = new Set(fixtures.map(m => pairKey(m.a, m.b)));
+  const round = fixtures.reduce((n, m) => Math.max(n, m.round + 1), 0);
+  const ring = teams.map(team => team.id);
+  if (ring.length % 2) ring.push(null);
+  for (let r = 0; r < ring.length - 1; r++) {
+    for (let i = 0; i < ring.length / 2; i++) {
+      const a = ring[i], b = ring[ring.length - 1 - i];
+      if (a && b && !pairs.has(pairKey(a, b))) s.matches.push(match(t.id, a, b, "League", group, round + r, i));
+    }
+    ring.splice(1, 0, ring.pop());
+  }
+}
+
 export function validateGames(games, t) {
   if (!Array.isArray(games) || !games.length || games.length > t.bestOf)
     fail("Enter the completed games for this match.");
@@ -98,10 +117,10 @@ function createDraw(s, t) {
   );
   if (isPlayoffFormat(t)) {
     const format = qualificationFormat(t);
-    if (ranked.some((rows) => rows.length !== format.teamsPerGroup))
-      fail("Group sizes do not match this playoff format.");
     for (let g = 0; g < t.groups; g++) {
       for (const [high, low, slot] of format.pairs) {
+        // An absent lower-ranked opponent leaves the higher team qualified directly.
+        if (!ranked[g][low - 1]) continue;
         const playoff = {
           ...match(
             t.id,
@@ -130,7 +149,8 @@ function createDraw(s, t) {
   }
   const entrants = [];
   for (let rank = 0; rank < t.qualify; rank++)
-    for (let g = 0; g < t.groups; g++) entrants.push(slots[g][rank]);
+    for (let g = 0; g < t.groups; g++) if (slots[g][rank]) entrants.push(slots[g][rank]);
+  if (entrants.length < 2) fail("At least two qualifying teams are needed to create a knockout bracket.");
   // Standard bracket seeding keeps highest-ranked entrants in opposite halves.
   let order = [1, 2];
   while (order.length < drawSize(entrants.length)) {
@@ -273,7 +293,7 @@ export function applyAction(previous, action, payload = {}) {
       announcement: clean(payload.announcement, 250),
     };
   } else if (action === "tournament") {
-    if (t && s.matches.some((m) => m.tournamentId === t.id))
+    if (t && hasLeagueDraw(s, t.id))
       fail("Format is locked after fixtures are generated.");
     const name = clean(payload.name);
     if (!name) fail("Enter a category name.");
@@ -361,11 +381,24 @@ export function applyAction(previous, action, payload = {}) {
       payload.teams.length > 256
     )
       fail("Add between 1 and 256 teams per import.");
-    const locked = s.matches.some(m => m.tournamentId === t.id);
+    const locked = hasLeagueDraw(s, t.id);
     if (s.matches.some(m => m.tournamentId === t.id && m.stage === "Final" && m.winner))
       fail("Player names are locked after the tournament ends.");
-    if (locked && payload.teams.some(row => !row.id))
-      fail("Registration is locked after fixtures are generated; existing player names can still be edited.");
+    const additions = payload.teams.filter(row => !row.id);
+    let group = null;
+    if (locked && additions.length) {
+      const reason = leagueEntryLockReason(s, t.id);
+      if (reason) fail(reason);
+      if (payload.group === "new") {
+        if (additions.length < 2) fail("Add at least two teams to create a new group.");
+        if (t.groups >= 256 || (t.groups + 1) * t.qualify > 4096) fail("This tournament cannot have more groups.");
+        group = t.groups++;
+      } else {
+        if (payload.group === undefined || payload.group === null || payload.group === "") fail("Choose an existing group for the new teams.");
+        group = integer(payload.group, 0, t.groups - 1, "Group");
+      }
+      t.leagueGenerated = true;
+    }
     for (const row of payload.teams) {
       const players = (Array.isArray(row.players) ? row.players : [])
         .map((p) => clean(p, 80))
@@ -377,7 +410,7 @@ export function applyAction(previous, action, payload = {}) {
         ? s.teams.find((x) => x.id === row.id && x.tournamentId === t.id)
         : null;
       if (row.id && !existing) fail("Team not found.");
-      if (locked && row.seed != null && +row.seed !== existing.seed)
+      if (locked && existing && row.seed != null && +row.seed !== existing.seed)
         fail("Seeds are locked after fixtures are generated.");
       const normalized = players.map((p) => p.toLowerCase());
       if (
@@ -391,7 +424,7 @@ export function applyAction(previous, action, payload = {}) {
       )
         fail(`A player in ${name} is already entered in this category.`);
       const seed = integer(
-        (locked ? existing.seed : row.seed) ||
+        (locked && existing ? existing.seed : row.seed) ||
           Math.max(
             0,
             ...s.teams
@@ -410,8 +443,9 @@ export function applyAction(previous, action, payload = {}) {
         fail(`Seed ${seed} is already used. Give every team a unique seed.`);
       const team = { name, players, seed };
       if (existing) Object.assign(existing, team);
-      else s.teams.push({ id: id(), tournamentId: t.id, group: null, ...team });
+      else s.teams.push({ id: id(), tournamentId: t.id, group, ...team });
     }
+    if (locked && additions.length) appendLeagueFixtures(s, t, group);
     const livePlayers = new Set();
     for (const fixture of s.matches.filter(m => m.status === "live"))
       for (const teamId of [fixture.a, fixture.b])
@@ -421,8 +455,11 @@ export function applyAction(previous, action, payload = {}) {
           livePlayers.add(normalized);
         }
   } else if (action === "deleteTeam") {
-    if (!t || s.matches.some((m) => m.tournamentId === t.id))
-      fail("Teams can only be removed before fixtures are generated.");
+    const reason = leagueEntryLockReason(s, payload.tournamentId);
+    if (reason) fail(reason);
+    if (!s.teams.some(x => x.id === payload.teamId && x.tournamentId === t.id)) fail("Team not found.");
+    if (hasLeagueDraw(s, t.id)) t.leagueGenerated = true;
+    s.matches = s.matches.filter(m => m.tournamentId !== t.id || (m.a !== payload.teamId && m.b !== payload.teamId));
     s.teams = s.teams.filter(
       (x) => !(x.id === payload.teamId && x.tournamentId === t.id),
     );
@@ -453,12 +490,13 @@ export function applyAction(previous, action, payload = {}) {
     )
       fail("Only unplayed fixtures can be reset.");
     s.matches = s.matches.filter((m) => m.tournamentId !== t.id);
+    delete t.leagueGenerated;
     s.teams
       .filter((x) => x.tournamentId === t.id)
       .forEach((x) => (x.group = null));
   } else if (action === "generate") {
     if (!t) fail("Category not found.");
-    if (s.matches.some((m) => m.tournamentId === t.id))
+    if (hasLeagueDraw(s, t.id))
       fail("Fixtures already exist.");
     const teams = s.teams
       .filter((x) => x.tournamentId === t.id)
@@ -478,6 +516,7 @@ export function applyAction(previous, action, payload = {}) {
       const row = Math.floor(i / t.groups);
       x.group = row % 2 ? t.groups - 1 - (i % t.groups) : i % t.groups;
     });
+    t.leagueGenerated = true;
     for (let g = 0; g < t.groups; g++) {
       const ring = teams.filter((x) => x.group === g).map((x) => x.id);
       if (ring.length % 2) ring.push(null);
@@ -505,7 +544,7 @@ export function applyAction(previous, action, payload = {}) {
     if (!t) fail("Category not found.");
     const league = s.matches.filter((m) => m.tournamentId === t.id);
     if (
-      !league.length ||
+      !hasLeagueDraw(s, t.id) ||
       league.some((m) => m.stage !== "League" || m.status !== "completed")
     )
       fail("Complete every league match before creating the knockout bracket.");

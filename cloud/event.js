@@ -116,6 +116,7 @@ export class TournamentEvent extends DurableObject {
       teams: state.teams, tournaments: state.tournaments };
   }
   live(s) {
+    const matchIds = new Set(this.get("state").matches.map(m => m.id));
     const contacts = new Map();
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment();
@@ -123,7 +124,7 @@ export class TournamentEvent extends DurableObject {
       if (a.matchId && this.sessionById(a.session)) contacts.set(key, Math.max(contacts.get(key) || 0, a.contactAt || 0));
     }
     return this.sql.exec("SELECT data FROM scores").toArray().map(r => JSON.parse(r.data))
-      .filter(r => this.canSee(s, r.matchId, r)).map(r => publicScore({ ...r, contactAt: Math.max(r.contactAt || 0, contacts.get(`${r.matchId}:${r.controller}:${r.generation}`) || 0) }));
+      .filter(r => matchIds.has(r.matchId) && this.canSee(s, r.matchId, r)).map(r => publicScore({ ...r, contactAt: Math.max(r.contactAt || 0, contacts.get(`${r.matchId}:${r.controller}:${r.generation}`) || 0) }));
   }
   broadcast(type, payload, matchId) {
     for (const ws of this.ctx.getWebSockets()) {

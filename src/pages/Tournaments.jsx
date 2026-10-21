@@ -1,7 +1,8 @@
 import React from "react";
 import { Trophy, Plus, ChevronRight, SlidersHorizontal, Pencil, Trash2 } from "lucide-react";
 
-import { groupEditLockReason } from "../../shared/groups.js";
+import { groupEditLockReason, hasLeagueDraw } from "../../shared/groups.js";
+import { tournamentProgress } from "../../shared/matches.js";
 import { PLAYOFF_STAGE, isPlayoffFormat, scoringRules, scoringLabel } from "../../shared/format.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
@@ -50,6 +51,7 @@ function Tournaments() {
       ) : (
         <div className="tournament-grid">
           {state.tournaments.map((t, i) => {
+            const drawn = hasLeagueDraw(state, t.id);
             const teams = state.teams.filter((x) => x.tournamentId === t.id),
               matches = state.matches.filter((m) => m.tournamentId === t.id),
               done = matches.filter((m) => m.status === "completed").length,
@@ -63,7 +65,7 @@ function Tournaments() {
                   <Pill tone={champ ? "green" : ""}>
                     {champ
                       ? "Finished"
-                      : matches.length
+                      : drawn
                         ? (matches.some(m => m.status !== "upcoming") ? "In progress" : "Ready")
                         : "Registration"}
                   </Pill>
@@ -123,7 +125,7 @@ function Tournaments() {
                     Manage teams
                     <ChevronRight size={15} />
                   </Button>
-                  {admin && !matches.length && (
+                  {admin && !drawn && (
                     <Button variant="ghost"
                       className="icon-btn"
                       aria-label={`Edit ${t.name}`}
@@ -135,7 +137,7 @@ function Tournaments() {
                     </Button>
                   )}
                   {admin &&
-                    (!matches.length ? (
+                    (!drawn ? (
                       <Button variant="default"
                         className="btn primary"
                         onClick={() =>
@@ -147,7 +149,7 @@ function Tournaments() {
                     ) : !matches.some((m) => m.stage !== "League") ? (
                       <Button variant="default"
                         className="btn primary"
-                        disabled={done !== matches.length}
+                        disabled={!tournamentProgress(state, t.id).canCreateKnockouts}
                         onClick={() =>
                           open({ type: "knockouts", tournament: t })
                         }
@@ -166,7 +168,7 @@ function Tournaments() {
                     ))}
                 </div>
                 {admin &&
-                  matches.length > 0 &&
+                  drawn &&
                   done === 0 &&
                   !matches.some((m) => m.status === "live") && (
                     <Button variant="ghost"

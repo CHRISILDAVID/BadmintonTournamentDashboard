@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Check, Upload, Download, Trash2 } from "lucide-react";
-import { importTeams, download, playerLabel } from "../utils.js";
+import { importTeams, download, playerLabel, groupName } from "../utils.js";
+import { hasLeagueDraw, leagueEntryLockReason } from "../../shared/groups.js";
 
 import { tournamentProgress } from "../../shared/matches.js";
 
@@ -20,7 +21,7 @@ function TeamForm({ importing = false }) {
     if (modal?.conflictRevision) formRevision.current = modal.conflictRevision;
   }, [modal?.conflictRevision]);
   const unlocked = state.tournaments.filter(
-    (t) => !state.matches.some((m) => m.tournamentId === t.id) ||
+    (t) => !leagueEntryLockReason(state, t.id) ||
       (modal.team?.tournamentId === t.id && !tournamentProgress(state, t.id).champion),
   );
   const initial = modal.team;
@@ -30,7 +31,8 @@ function TeamForm({ importing = false }) {
       "",
   );
   const t = tournament(tid);
-  const registrationLocked = state.matches.some(m => m.tournamentId === tid);
+  const registrationLocked = hasLeagueDraw(state, tid);
+  const [group, setGroup] = useState(modal.newGroup ? "new" : "");
   const [players, setPlayers] = useState(initial?.players || []),
     [seed, setSeed] = useState(initial?.seed || ""),
     [rows, setRows] = useState(null),
@@ -39,8 +41,7 @@ function TeamForm({ importing = false }) {
   if (!unlocked.length)
     return (
       <Empty title="Create an editable tournament first">
-        Team registration closes when fixtures are generated. You can reset
-        fixtures if no matches have started.
+        Teams can be added or removed during the league, until the playoff or knockout draw is created.
       </Empty>
     );
   return (
@@ -59,7 +60,7 @@ function TeamForm({ importing = false }) {
         if (
           await act(
             "teams",
-            { tournamentId: tid, teams },
+            { tournamentId: tid, teams, ...(registrationLocked && !initial ? { group } : {}) },
             importing ? "Teams imported" : "Team saved",
             formRevision.current,
           )
@@ -75,6 +76,7 @@ function TeamForm({ importing = false }) {
             setTid(e.target.value);
             setPlayers([]);
             setRows(null);
+            setGroup(modal.newGroup ? "new" : "");
           }}
         >
           {unlocked.map((t) => (
@@ -84,6 +86,16 @@ function TeamForm({ importing = false }) {
           ))}
         </NativeSelect>
       </Field>
+      {registrationLocked && !initial && <>
+        <Field label="Add teams to group">
+          <NativeSelect aria-label="Add teams to group" value={group} required onChange={e => setGroup(e.target.value)}>
+            <option value="">Choose a group</option>
+            {Array.from({ length: t.groups }, (_, g) => <option key={g} value={g}>{groupName(g)}</option>)}
+            {importing && <option value="new">New group ({groupName(t.groups)})</option>}
+          </NativeSelect>
+        </Field>
+        <p className="help-text">{group === "new" ? "Import at least two teams to create this group and its round-robin fixtures." : "New teams will play each other and every existing team in this group. Existing fixtures and results are retained."} Qualification places per group stay as configured; ranks outside the configured playoff places are eliminated.</p>
+      </>}
       {importing ? (
         <>
           <div className="import-drop">
@@ -181,13 +193,13 @@ function TeamForm({ importing = false }) {
           ))}
           <Field
             label="Seed"
-            hint={registrationLocked ? "Seeds are locked after fixtures are generated. Player names remain editable until the tournament ends." : "Leave blank to assign the next seed. Use consistent player names across categories to prevent court conflicts."}
+            hint={registrationLocked && initial ? "Seeds are locked after fixtures are generated. Player names remain editable until the tournament ends." : "Leave blank to assign the next seed. Use consistent player names across categories to prevent court conflicts."}
           >
             <Input
               type="number"
               min="1"
               max="10000"
-              disabled={registrationLocked}
+              disabled={registrationLocked && !!initial}
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
               placeholder="Automatic"
@@ -196,7 +208,7 @@ function TeamForm({ importing = false }) {
         </>
       )}
       <div className="modal-actions">
-        {initial && !registrationLocked ? (
+        {initial && !leagueEntryLockReason(state, tid) ? (
           <Button variant="destructive"
             className="btn danger"
             type="button"

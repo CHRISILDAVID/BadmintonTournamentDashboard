@@ -15,6 +15,16 @@ The maintainer creates a primary organizer's private setup link/QR from `/mainta
 
 Testing/demo tools are disabled in the cloud deployment.
 
+## Changing team entries during the league
+
+In **Teams & players**, select the tournament first:
+
+1. **Add team** or **Import teams**: choose an existing group. New fixtures pair the added teams with each other and all retained teams in that group. Existing results and schedules are preserved.
+2. **New group**: import a CSV or Excel file containing at least two teams. The group and its round-robin fixtures are created together. Further teams can be added to it later.
+3. **Edit players → Remove team**: review and confirm deletion of all that team's fixtures, including completed results. Any court it occupies is freed and standings recalculate immediately. Other teams' matches remain intact.
+
+These entry changes are available until the playoff or knockout draw is created. Qualification places and playoff rank pairings stay as configured. Teams below the playoff cutoff are eliminated; a missing playoff opponent gives the available higher-ranked team direct qualification. Smaller groups contribute only their available qualifiers, and the knockout bracket adapts with byes.
+
 ## Umpires
 
 1. Scan your individual invitation. You land on **Event matches**, using the same match desk as the organizer: search, category/status/stage filters, scheduling, court selection, results, corrections, match history, and knockout creation. **Standings & brackets** opens the qualification review.

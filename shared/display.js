@@ -1,4 +1,5 @@
 import { standings } from "./standings.js";
+import { hasLeagueDraw } from "./groups.js";
 import { PLAYOFF_STAGE, qualificationStatus, groupLabel } from "./format.js";
 
 export function displayTournamentOptions(state) {
@@ -33,7 +34,7 @@ export function tournamentDisplayData(state, tournamentId) {
   const tournament = state.tournaments.find((t) => t.id === tournamentId);
   if (!tournament) return null;
   const matches = state.matches.filter((m) => m.tournamentId === tournamentId);
-  const hasLeague = matches.some((m) => m.stage === "League");
+  const hasLeague = hasLeagueDraw(state, tournamentId);
   const completed = matches
     .filter((m) => m.status === "completed" && !m.bye)
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
