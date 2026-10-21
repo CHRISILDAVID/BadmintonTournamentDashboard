@@ -96,7 +96,7 @@ test("umpire match desk supports the full match lifecycle but denies unrelated o
   }
   await act("knockouts", { tournamentId: m.tournamentId });
   assert.ok(state.matches.some(x => x.stage === "Final"));
-  for (const action of ["event", "tournament", "teams", "deleteTournament", "scoring", "generate", "randomComplete"]) {
+  for (const action of ["event", "tournament", "teams", "deleteTournament", "scoring", "generate", "randomComplete", "moveGroup", "swapGroups"]) {
     assert.equal((await request("action", { action, payload: {}, revision: state.revision }, u.cookie)).status, 403);
   }
   for (const path of ["invite", "revoke", "transfer", "preset", "import"]) {

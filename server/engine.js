@@ -463,6 +463,20 @@ export function applyAction(previous, action, payload = {}) {
     s.teams = s.teams.filter(
       (x) => !(x.id === payload.teamId && x.tournamentId === t.id),
     );
+  } else if (action === "moveGroup") {
+    const reason = groupEditLockReason(s, payload.tournamentId);
+    if (reason) fail(reason);
+    const team = s.teams.find(x => x.id === payload.teamId && x.tournamentId === t.id);
+    if (!team || team.group == null) fail("Choose a team from an assigned group in this tournament.");
+    if (payload.group === undefined || payload.group === null || payload.group === "") fail("Choose a destination group.");
+    const group = integer(payload.group, 0, t.groups - 1, "Destination group");
+    if (group === team.group) fail("Choose a different group.");
+    if (s.matches.some(m => m.tournamentId === t.id && m.status === "live" && [m.a, m.b].includes(team.id)))
+      fail("This team is on court. Return its match to waiting before moving groups.");
+    s.matches = s.matches.filter(m => m.tournamentId !== t.id || ![m.a, m.b].includes(team.id));
+    team.group = group;
+    t.leagueGenerated = true;
+    appendLeagueFixtures(s, t, group);
   } else if (action === "swapGroups") {
     const reason = groupEditLockReason(s, payload.tournamentId);
     if (reason) fail(reason);

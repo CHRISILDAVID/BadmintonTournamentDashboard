@@ -13,7 +13,7 @@ The maintainer creates a primary organizer's private setup link/QR from `/mainta
 5. Create additional organizer invitations for staff who need management access to this same event. Staff invitations expire after 15 minutes and can be used once.
 6. Export a backup periodically. The usage panel reports event-local observations, not the entire Cloudflare account's remaining allowance.
 
-Testing/demo tools are disabled in the cloud deployment.
+Cloud random-result tools are disabled by default. A maintainer can enable them for organizer testing; see the cloud setup guide. Sample-event and practice tools remain disabled in cloud mode.
 
 ## Changing team entries during the league
 
@@ -24,6 +24,8 @@ In **Teams & players**, select the tournament first:
 3. **Edit players → Remove team**: review and confirm deletion of all that team's fixtures, including completed results. Any court it occupies is freed and standings recalculate immediately. Other teams' matches remain intact.
 
 These entry changes are available until the playoff or knockout draw is created. Qualification places and playoff rank pairings stay as configured. Teams below the playoff cutoff are eliminated; a missing playoff opponent gives the available higher-ranked team direct qualification. Smaller groups contribute only their available qualifiers, and the knockout bracket adapts with byes.
+
+Before the first match result in a tournament, **Edit groups** supports both moves and swaps. Press a team in the group list to select it. In **Move team** mode, press **Move to Group ...** on the destination and then **Confirm move**; no replacement is needed, and the moved team's old fixtures and scheduled times are replaced with new pairings. In **Swap teams** mode, select two teams from different groups and press **Confirm swap**; fixture IDs and planned times stay in place. On-court teams must return to waiting first. Group editing locks after the first completed match.
 
 ## Umpires
 

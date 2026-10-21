@@ -31,34 +31,63 @@
   list-style: none;
 }
 .group-editor-rosters li {
-  padding: 9px 12px;
   border-top: 1px solid #e5ebe5;
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-.group-editor-rosters li.selected {
+.group-editor .group-team {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  text-align: left;
+  background: white;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.group-editor .group-team:hover:not(:disabled) {
+  background: #f2f6ef;
+}
+.group-editor .group-team[aria-pressed="true"] {
   background: #e2f1e5;
   color: #087451;
+  box-shadow: inset 4px 0 #087451;
+}
+.group-editor .group-team:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.group-editor .group-team:focus-visible {
+  outline: 3px solid #17815e;
+  outline-offset: -3px;
+}
+.group-editor-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.group-editor-rosters section.destination {
+  border-color: #17815e;
+  box-shadow: 0 0 0 2px #17815e;
+}
+.group-editor .group-destination {
+  margin: 10px 12px;
+  max-width: calc(100% - 24px);
+}
+.group-editor .group-destination[aria-pressed="true"] {
+  background: #e2f1e5;
+  border-color: #17815e;
+}
+.group-empty {
+  padding: 12px;
+  color: #677c70;
 }
 .group-editor-rosters small {
   display: block;
   color: #087451;
-}
-.group-editor fieldset {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-}
-.group-editor label {
-  display: grid;
-  gap: 6px;
-}
-.group-editor select {
-  width: 100%;
-  min-width: 0;
 }
 .group-editor-help,
 .group-edit-hint {

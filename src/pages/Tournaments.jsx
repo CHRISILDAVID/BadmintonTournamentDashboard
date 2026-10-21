@@ -111,7 +111,7 @@ function Tournaments() {
                   {admin && matches.length > 0 && <Button variant="outline" className="btn" onClick={() => open({ type: "scoring", tournament: t })}>Edit scoring</Button>}
                   {matches.length > 0 && t.groups > 1 && (
                     <Button variant="outline" className="btn" disabled={!!groupEditLockReason(state, t.id)}
-                      title={groupEditLockReason(state, t.id) || "Swap teams between groups"}
+                      title={groupEditLockReason(state, t.id) || "Move or swap teams between groups"}
                       onClick={() => open({ type: "groups", tournament: t })}>
                       Edit groups
                     </Button>

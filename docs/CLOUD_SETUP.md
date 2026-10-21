@@ -102,6 +102,26 @@ The empty-destination importer also accepts a cloud backup within the import lim
 
 Back up before updating. Run `npm.cmd run deploy:cloud` for code updates. Preserve existing Durable Object class names and migration history. Do not delete namespaces or replace `wrangler.jsonc` with a fresh scaffold. Browser service workers wait for old tabs to close before activating an updated shell; finish/sync active scoring first.
 
+## Random match results for cloud testing
+
+The organizer's **Matches** page can show **Testing: complete unfinished matches**. Enable it when deploying this code:
+
+```powershell
+npm.cmd run deploy:cloud -- --var ENABLE_TEST_TOOLS:true
+```
+
+Refresh the Matches page after deployment. Select a tournament to complete only its unfinished fixtures, or select **All tournaments** for the entire event. Confirm **Complete with random scores** in the dialog. This writes valid random results into the actual event, frees courts, and updates standings and existing knockout rounds. Completed results are preserved. Create the knockout draw separately after finishing the league, then use the button again to finish that draw.
+
+Only owners and organizers receive this button and API permission. Umpires and display sessions cannot use it. Sample-event and practice tools remain disabled. The flag applies to all events on this Worker.
+
+Disable it after testing by deploying with the default configuration:
+
+```powershell
+npm.cmd run deploy:cloud
+```
+
+`wrangler.jsonc` sets `ENABLE_TEST_TOOLS` to `"false"`; an ordinary deployment restores that default. For local testing, append `--var ENABLE_TEST_TOOLS:true` to the existing `wrangler dev --local` command. To verify the enabled flow, set `$env:CLOUD_TEST_TOOLS='true'` and run `node --test tests/cloud/test-tools.test.js` or `npx.cmd playwright test tests/browser/test-tools.spec.js` against that local Worker.
+
 ## Local cloud development and tests
 
 The cloud runtime is independent of `data/shuttlehub.sqlite`. To run isolated tests:

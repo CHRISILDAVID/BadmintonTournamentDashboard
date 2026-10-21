@@ -93,6 +93,9 @@ export class TournamentEvent extends DurableObject {
   canScore(s) {
     return ["owner", "organizer", "umpire"].includes(s.role);
   }
+  testToolsEnabled(s) {
+    return [true, "true"].includes(this.env.ENABLE_TEST_TOOLS) && ["owner", "organizer"].includes(s.role);
+  }
   canSee(s, matchId, record) {
     if (s.role !== "display") return this.canScore(s);
     const preset = this.preset(s.preset), context = (record || this.score(matchId))?.context;
@@ -194,7 +197,7 @@ export class TournamentEvent extends DurableObject {
         if (path === "/api/me") return json(this.me(s));
         if (path === "/api/state") return json(this.snapshot(s));
         if (path === "/api/live") return json({ live: this.live(s), preset: this.preset(s.preset) });
-        if (path === "/api/features") return json({ cloud: true, testTools: false });
+        if (path === "/api/features") return json({ cloud: true, testTools: this.testToolsEnabled(s) });
         manager(s);
         if (path === "/api/access") return json({
           profiles: this.sql.exec("SELECT * FROM profiles").toArray(),
@@ -246,7 +249,8 @@ export class TournamentEvent extends DurableObject {
           if (current.role === "umpire") {
             check(["schedule", "start", "returnMatch", "finish", "correctResult", "knockouts"].includes(body.action), "This action requires organizer access.", 403);
           } else manager(current);
-          check(!["demo", "practice", "clearDemo", "randomComplete"].includes(body.action), "Testing tools are disabled in cloud events.", 403);
+          check(!["demo", "practice", "clearDemo"].includes(body.action), "Sample event tools are disabled in cloud events.", 403);
+          if (body.action === "randomComplete") check(this.testToolsEnabled(current), "Enable cloud testing tools to generate random results.", 403);
           const before = this.get("state");
           check(body.revision === before.revision, "The event changed. Reload and retry.", 409);
           const next = applyAction(before, body.action, body.payload);

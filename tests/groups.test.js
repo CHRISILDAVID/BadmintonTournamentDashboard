@@ -40,7 +40,7 @@ function assertRoundRobin(s, tournamentId) {
       (m) => m.tournamentId === tournamentId && m.group === group,
     );
     const pairs = new Set(matches.map((m) => [m.a, m.b].sort().join("/")));
-    assert.equal(matches.length, (teams.length * (teams.length - 1)) / 2);
+    assert.equal(matches.length, (teams.length * Math.max(0, teams.length - 1)) / 2);
     assert.equal(pairs.size, matches.length);
     for (const a of teams)
       for (const b of teams) {
@@ -150,7 +150,7 @@ test("invalid swaps, missing fixtures and knockout draws are rejected atomically
   ])
     assert.throws(() => applyAction(s, "swapGroups", invalid));
   assert.throws(
-    () => applyAction({ ...s, matches: [] }, "swapGroups", p),
+    () => applyAction({ ...s, matches: [], tournaments: s.tournaments.map(t => ({ ...t, leagueGenerated: false })), teams: s.teams.map(t => ({ ...t, group: null })) }, "swapGroups", p),
     /Create fixtures/,
   );
   assert.throws(
@@ -166,4 +166,57 @@ test("invalid swaps, missing fixtures and knockout draws are rejected atomically
     /knockout draw/,
   );
   assert.deepEqual(s, before);
+});
+
+for (const [mode, count] of [["intermediate", 10], ["beginner", 12], ["direct", 9]]) {
+  test(`${mode}: one-way moves update group sizes and pairings while retaining every unrelated fixture`, () => {
+    let { s, tournamentId } = setup(mode, count);
+    const first = s.teams.find(t => t.group === 0), second = s.teams.find(t => t.group === 1);
+    const unrelated = s.matches.find(m => ![m.a, m.b].includes(first.id));
+    s = applyAction(s, "schedule", { matchId: unrelated.id, scheduled: "14:30" });
+    s = applyAction(s, "start", { matchId: unrelated.id, court: 1 });
+    const before = structuredClone(s), size = s.teams.filter(t => t.group === 0).length;
+    s = applyAction(s, "moveGroup", { tournamentId, teamId: first.id, group: 1 });
+    assert.equal(s.teams.find(t => t.id === first.id).group, 1);
+    assert.equal(s.teams.find(t => t.id === second.id).group, 1, "no team is replaced");
+    assert.equal(s.teams.filter(t => t.group === 0).length, size - 1);
+    for (const m of before.matches.filter(m => ![m.a, m.b].includes(first.id))) assert.deepEqual(s.matches.find(x => x.id === m.id), m);
+    assert.ok(!s.matches.some(m => m.group === 0 && [m.a, m.b].includes(first.id)));
+    assertRoundRobin(s, tournamentId);
+    assert.equal(s.revision, before.revision + 1);
+    assert.equal(before.teams.find(t => t.id === first.id).group, 0);
+  });
+}
+
+test("moves and swaps remain valid after a group becomes empty or has no fixtures", () => {
+  let { s, tournamentId } = setup("direct", 4);
+  const team = s.teams.find(t => t.group === 0);
+  s = applyAction(s, "moveGroup", { tournamentId, teamId: team.id, group: 1 });
+  const last = s.teams.find(t => t.group === 0);
+  s = applyAction(s, "moveGroup", { tournamentId, teamId: last.id, group: 1 });
+  assert.equal(s.teams.filter(t => t.group === 0).length, 0);
+  assertRoundRobin(s, tournamentId);
+  s = applyAction(s, "moveGroup", { tournamentId, teamId: team.id, group: 0 });
+  s = applyAction(s, "swapGroups", payload(s, tournamentId));
+  assertRoundRobin(s, tournamentId);
+  for (const t of s.teams.filter(t => t.group === 1).slice(1)) s = applyAction(s, "deleteTeam", { tournamentId, teamId: t.id });
+  assert.equal(s.matches.length, 0);
+  assert.equal(groupEditLockReason(s, tournamentId), "");
+  s = applyAction(s, "moveGroup", { tournamentId, teamId: s.teams.find(t => t.group === 1).id, group: 0 });
+  assertRoundRobin(s, tournamentId);
+  assert.equal(s.matches.length, 1);
+});
+
+test("invalid moves, moving an on-court team, and moving after a completed result are rejected atomically", () => {
+  let { s, tournamentId } = setup();
+  const team = s.teams.find(t => t.group === 0), original = structuredClone(s);
+  for (const extra of [{ group: 0 }, { group: "" }, {}, { group: 2 }, { group: -1 }, { group: 0.5 }, { teamId: "missing", group: 1 }, { tournamentId: "missing", group: 1 }]) {
+    assert.throws(() => applyAction(s, "moveGroup", { tournamentId, teamId: team.id, ...extra }));
+    assert.deepEqual(s, original);
+  }
+  const fixture = s.matches.find(m => [m.a, m.b].includes(team.id));
+  s = applyAction(s, "start", { matchId: fixture.id, court: 1 });
+  assert.throws(() => applyAction(s, "moveGroup", { tournamentId, teamId: team.id, group: 1 }), /on court/);
+  s = applyAction(s, "finish", { matchId: fixture.id, games: [[15, 14]] });
+  assert.throws(() => applyAction(s, "moveGroup", { tournamentId, teamId: team.id, group: 1 }), /first completed/);
 });

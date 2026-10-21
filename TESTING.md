@@ -151,7 +151,7 @@ Browser previews: [setup](output/playwright/playoff-setup-desktop.png), [mobile 
 
 ## Edit groups after fixtures
 
-Open **Tournaments > Edit groups**, or **Teams & players > select a tournament > Edit groups**. You can also select **Change group** beside any assigned team; this preselects that team and works with All tournaments selected. Pick a team from another group, review the destinations, and select **Swap teams**. Repeat as needed. Swapping preserves each group's existing capacity, including balanced groups of unequal sizes in standard formats. After an app update, refresh the browser to load the new controls; HTML pages use `Cache-Control: no-store`.
+Open **Tournaments > Edit groups**, or **Teams & players > select a tournament > Edit groups**. You can also select **Change group** beside any assigned team; this preselects that team and works with All tournaments selected. Select teams by pressing their names in the group lists; there are no team dropdowns. In **Move team** mode, select one team, press **Move to Group ...** on the destination, review the fixture changes, and select **Confirm move**. In **Swap teams** mode, select a team in each of two groups, review the destinations, and select **Confirm swap**. Repeat as needed. Swapping preserves each group's existing capacity, including balanced groups of unequal sizes in standard formats. After an app update, refresh the browser to load the new controls; HTML pages use `Cache-Control: no-store`.
 
 | Case | Action | Expected result |
 | --- | --- | --- |
@@ -161,7 +161,7 @@ Open **Tournaments > Edit groups**, or **Teams & players > select a tournament >
 | First completed match | Keep the editor open on one device and complete the tournament's first match on another. | Editor controls and both Edit groups entry points disable immediately. Server rejects further swaps. |
 | Independent categories | Complete a match in another tournament. | The untouched category's group editor remains available. |
 | Invalid swap | Try the same group, an unknown team, or a team from another category through the API. | Request rejected without partial changes. |
-| Phone | Open the editor at 390px, select two teams and swap. | All names, counts, selectors and actions remain accessible without horizontal page overflow. |
+| Phone | Open the editor at 390px, select two teams and swap. | All names, counts, clickable team cards and actions remain accessible without horizontal page overflow. |
 | Separate postseason sections | Show two categories with unfinished playoffs. | Each has standings, Qualification Playoffs and Knockouts. Playoff lists cycle independently; all main bracket cards fit without scrolling. |
 | Last playoff | Complete playoffs one by one from another device. | Standings and playoffs remain after partial completion; both disappear after that category's last playoff. Its bracket fills the panel; other categories retain their own unfinished playoffs and standings. |
 

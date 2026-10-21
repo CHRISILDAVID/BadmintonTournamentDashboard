@@ -31,7 +31,7 @@ function Teams() {
         <SearchField placeholder="Search teams or players…" value={query} onChange={setQuery}/>
         {categorySelect}
         {selectedTournament?.groups > 1 && (
-          <Button variant="outline" className="btn" disabled={!!groupLock} title={groupLock || "Swap teams between groups"}
+          <Button variant="outline" className="btn" disabled={!!groupLock} title={groupLock || "Move or swap teams between groups"}
             onClick={() => open({ type: "groups", tournament: selectedTournament })}>
             <Pencil size={16} />Edit groups
           </Button>
@@ -56,7 +56,7 @@ function Teams() {
         )}
       </div>
       {selectedTournament?.groups > 1 && <p className="group-edit-hint">
-        {groupLock || "Edit groups by swapping teams. Group sizes stay fixed; editing locks after the first completed match."}
+        {groupLock || "Select teams in Edit groups to move or swap them. Editing locks after the first completed match."}
       </p>}
       {teams.length ? (
         <div className="table-scroll">
@@ -88,7 +88,7 @@ function Teams() {
                           className="text-btn"
                           aria-label={`Change group for ${t.name} in ${tournament(t.tournamentId)?.name}`}
                           disabled={!!groupEditLockReason(state, t.tournamentId)}
-                          title={groupEditLockReason(state, t.tournamentId) || "Swap with a team in another group"}
+                          title={groupEditLockReason(state, t.tournamentId) || "Move this team or swap with a team in another group"}
                           onClick={() => open({ type: "groups", tournament: tournament(t.tournamentId), team: t })}
                         >
                           <Pencil size={14} />Change group
