@@ -14,7 +14,7 @@ import PageLink from "../components/PageLink.jsx";
 import { cloudEnabled } from "../cloud/storage.js";
 import Scorer from "../cloud/Scorer.jsx";
 
-function Matches({ history = false }) {
+function Matches({ history = false, onScore }) {
   const { state, filter, busy, admin, selected, live, upcoming, completed, categorySelect, team, tournament, open,
     matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage: stage, setMatchStage: setStage } = useDesk();
   const [testTools, setTestTools] = useState(false);
@@ -42,7 +42,7 @@ function Matches({ history = false }) {
     <section className="panel">
       {!history && <StageActions />}
       {cloudEnabled() && !history && live.length > 0 && <div className="toolbar">
-        <span>Point scoring</span>{live.map(m => <Button key={m.id} variant="outline" onClick={() => setScoring(m)}>Court {m.court} · Open scorer</Button>)}
+        <span>Point scoring</span>{live.map(m => <Button key={m.id} variant="outline" onClick={() => onScore ? onScore(m) : setScoring(m)}>Court {m.court} · Open scorer</Button>)}
       </div>}
       <div className="toolbar">
         <SearchField placeholder="Find a match…" value={query} onChange={setQuery}/>

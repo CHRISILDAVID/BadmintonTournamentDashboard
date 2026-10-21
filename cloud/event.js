@@ -90,12 +90,11 @@ export class TournamentEvent extends DurableObject {
     return r ? JSON.parse(r.data) : null;
   }
   saveScore(record) { this.sql.exec("INSERT INTO scores VALUES(?,?) ON CONFLICT(match) DO UPDATE SET data=excluded.data", record.matchId, encode(record)); }
-  assigned(s, matchId) {
-    if (["owner", "organizer"].includes(s.role)) return true;
-    return s.role === "umpire" && !!this.sql.exec("SELECT match FROM assignments WHERE match=? AND profile=?", matchId, s.profile).toArray()[0];
+  canScore(s) {
+    return ["owner", "organizer", "umpire"].includes(s.role);
   }
   canSee(s, matchId, record) {
-    if (s.role !== "display") return this.assigned(s, matchId);
+    if (s.role !== "display") return this.canScore(s);
     const preset = this.preset(s.preset), context = (record || this.score(matchId))?.context;
     if (!preset || !context) return true;
     return (!preset.courts.length || preset.courts.includes(context.court)) &&
@@ -113,12 +112,8 @@ export class TournamentEvent extends DurableObject {
         teams: state.teams.filter(t => ids.has(t.tournamentId)), matches: state.matches.filter(m => ids.has(m.tournamentId)) };
     }
     if (s.role !== "umpire") return state;
-    const ids = new Set(this.sql.exec("SELECT match FROM assignments WHERE profile=?", s.profile).toArray().map(r => r.match));
-    const matches = state.matches.filter(m => ids.has(m.id));
-    const teamIds = new Set(matches.flatMap(m => [m.a, m.b]));
-    const categoryIds = new Set(matches.map(m => m.tournamentId));
-    return { revision: state.revision, event: state.event, matches,
-      teams: state.teams.filter(t => teamIds.has(t.id)), tournaments: state.tournaments.filter(t => categoryIds.has(t.id)) };
+    return { revision: state.revision, event: state.event, matches: state.matches,
+      teams: state.teams, tournaments: state.tournaments };
   }
   live(s) {
     const contacts = new Map();
@@ -222,10 +217,10 @@ export class TournamentEvent extends DurableObject {
       const result = this.ctx.storage.transactionSync(() => {
         const current = this.session(hash); // Revalidate after awaits.
         if (path === "/api/claim") {
-          check(this.assigned(current, body.matchId), "This match is not assigned to you.", 403);
+          check(this.canScore(current), "Scoring access required.", 403);
           check(typeof body.device === "string" && body.device.length >= 16 && body.device.length <= 100, "Invalid controller.");
           const state = this.get("state"), match = state.matches.find(m => m.id === body.matchId);
-          check(match?.status === "live", "Organizer must put the match on court first.", 409);
+          check(match?.status === "live", "Start this match on a court before claiming scoring control.", 409);
           let r = this.score(match.id);
           check(!r?.invalidated, "Organizer must reconcile/reset this score before control can be claimed.", 409);
           if (!r) r = { matchId: match.id, generation: 1, revision: 0, seq: 0, score: newScore(match, scoringRules(state.tournaments.find(t => t.id === match.tournamentId), match.stage, match)) };
@@ -246,8 +241,10 @@ export class TournamentEvent extends DurableObject {
           this.sql.exec("UPDATE sessions SET revoked=1 WHERE id=?", current.id);
           return { ok: true };
         }
-        manager(current);
         if (path === "/api/action") {
+          if (current.role === "umpire") {
+            check(["schedule", "start", "returnMatch", "finish", "correctResult", "knockouts"].includes(body.action), "This action requires organizer access.", 403);
+          } else manager(current);
           check(!["demo", "practice", "clearDemo", "randomComplete"].includes(body.action), "Testing tools are disabled in cloud events.", 403);
           const before = this.get("state");
           check(body.revision === before.revision, "The event changed. Reload and retry.", 409);
@@ -255,6 +252,7 @@ export class TournamentEvent extends DurableObject {
           this.invalidateChanged(before, next);
           this.put("state", next); change = { type: "refresh", payload: {} }; return next;
         }
+        manager(current);
         if (path === "/api/invite") {
           check(["organizer", "umpire", "display"].includes(body.role), "Invalid invitation role.");
           if (body.role === "display") check(this.preset(body.preset), "Select a screen preset.");
@@ -409,13 +407,13 @@ export class TournamentEvent extends DurableObject {
       check(previous.session === s.id && previous.payload === encode(a), "Action ID was already used.", 409);
       const record = this.score(a.matchId);
       // A retry acknowledges its own historical action, never discloses the
-      // replacement controller's record after assignment/control changed.
-      const obsolete = !this.assigned(s, a.matchId) || !record || record.generation !== a.generation || record.controller !== s.id || !!record.invalidated;
+      // replacement controller's record after control changed.
+      const obsolete = !this.canScore(s) || !record || record.generation !== a.generation || record.controller !== s.id || !!record.invalidated;
       return { accepted: true, duplicate: true, ...(obsolete ? { obsolete: true } : { record }) };
     }
     const r = this.score(a.matchId);
-    const allowed = this.assigned(s, a.matchId);
-    const reason = !allowed ? "Assignment removed" : !r || r.generation !== a.generation || r.controller !== s.id || r.device !== a.device
+    const allowed = this.canScore(s);
+    const reason = !allowed ? "Scoring access required" : !r || r.generation !== a.generation || r.controller !== s.id || r.device !== a.device
       ? "Controller replaced" : r.invalidated;
     if (reason) {
       // Only retain evidence from a session that actually wrote/claimed this match.
@@ -453,7 +451,7 @@ export class TournamentEvent extends DurableObject {
       const message = JSON.parse(raw);
       if (message.type === "contact") {
         const r = this.score(message.matchId);
-        check(r && r.controller === s.id && r.device === message.device && r.generation === message.generation && this.assigned(s, r.matchId), "Controller replaced.", 403);
+        check(r && r.controller === s.id && r.device === message.device && r.generation === message.generation && this.canScore(s), "Controller replaced.", 403);
         // Freshness is connection state: no periodic SQL write or server timer.
         const a = ws.deserializeAttachment();
         ws.serializeAttachment({ ...a, matchId: r.matchId, generation: r.generation, contactAt: Date.now() });

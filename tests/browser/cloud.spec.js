@@ -4,11 +4,10 @@ import { owner, request, invitation, importFixture, fixture, origin } from "../c
 async function prepare(browser) {
   const o = await owner(), state = await importFixture(o, fixture(1));
   const m = state.matches.find(m => m.status === "live"), inv = await invitation(o, "umpire", "Test umpire");
-  await request("assign", { matchId: m.id, profile: inv.profile }, o.cookie);
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   await page.goto(inv.url);
-  await expect(page.getByRole("heading", { name: "Your matches" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Event matches" })).toBeVisible();
   await page.getByRole("button", { name: /Open scorer/ }).click();
   await page.getByRole("button", { name: "Claim scoring control" }).click();
   await expect(page.getByRole("button", { name: /^Point for/ }).first()).toBeEnabled();
@@ -40,7 +39,7 @@ test("mobile offline points, undo, completion and reload retain queue; two scree
   await point.click(); await point.click(); await page.getByRole("button", { name: "Undo point" }).click();
   await expect(page.getByRole("status")).toContainText("3 pending");
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Your matches" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Event matches" })).toBeVisible();
   await page.getByRole("button", { name: /Open scorer/ }).click();
   await expect(page.getByRole("status")).toContainText("3 pending");
   await expect(page.locator(".score-team").first().locator("strong")).toHaveText("2");
@@ -93,7 +92,7 @@ test("lost acknowledgement retries once; storage failure never reports a recorde
 test("revocation closes an existing socket; umpire URL cannot expose organizer routes", async ({ browser }) => {
   const { o, context, page } = await prepare(browser);
   await page.goto(`${origin}/settings`);
-  await expect(page.getByRole("heading", { name: "Your matches" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Event matches" })).toBeVisible();
   expect(page.url()).toContain("/matches");
   expect(await page.getByRole("heading", { name: "Club settings" }).count()).toBe(0);
   const sessions = (await request("access", undefined, o.cookie)).data.sessions;
@@ -109,6 +108,8 @@ test("organizer settings render invitations and presets; display preset changes 
   await ctx.addCookies([{ name: "sh_session", value: o.cookie.slice("sh_session=".length), url: origin, httpOnly: true, secure: true, sameSite: "Strict" }]);
   const page = await ctx.newPage(); await page.goto(`${origin}/settings`);
   await expect(page.getByRole("heading", { name: "Cloud access & screens" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scoring control", exact: true })).toBeVisible();
+  await expect(page.getByLabel(/^Assign match/)).toHaveCount(0);
   await page.getByLabel("Screen name").fill("Courts 1");
   await page.getByLabel("Screen courts").fill("1");
   await page.getByRole("button", { name: "Save screen preset", exact: true }).click();
@@ -137,7 +138,6 @@ test("429 and provider failure preserve pending points; switching event never re
   expect((await request("live", undefined, o.cookie)).data.live.find(r => r.matchId === m.id).score.points).toEqual([0, 0]);
   const other = await owner(), otherState = await importFixture(other, fixture(1));
   const otherMatch = otherState.matches.find(m => m.status === "live"), inv = await invitation(other, "umpire");
-  await request("assign", { matchId: otherMatch.id, profile: inv.profile }, other.cookie);
   await page.goto(inv.url);
   await page.getByRole("button", { name: /Open scorer/ }).click();
   await expect(page.getByRole("button", { name: "Claim scoring control" })).toBeVisible();
@@ -148,13 +148,87 @@ test("429 and provider failure preserve pending points; switching event never re
   await context.close();
 });
 
-test("assignment changes refresh an open umpire list without rescanning; final acknowledgement recovers after reopen", async ({ browser }) => {
-  const o = await owner(), state = await importFixture(o, fixture(1)), m = state.matches.find(m => m.status === "live");
+test("umpire starts and schedules matches from the shared match desk", async ({ browser }) => {
+  const o = await owner(), state = await importFixture(o, fixture(1));
+  const m = state.matches.find(m => m.status === "live");
+  expect((await request("action", { action: "returnMatch", revision: state.revision, payload: { matchId: m.id } }, o.cookie)).status).toBe(200);
+  const inv = await invitation(o, "umpire");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await context.newPage();
+  await page.goto(inv.url);
+  await expect(page.getByRole("button", { name: /^Start game:/ })).toHaveCount(state.matches.length);
+  await expect(page.getByLabel("Filter by tournament")).toBeVisible();
+  await page.getByLabel("Match status", { exact: true }).selectOption("upcoming");
+  await page.getByRole("button", { name: /^Start game:/ }).first().click();
+  await page.getByLabel("Optional scheduled start").fill("14:30");
+  await page.getByRole("button", { name: "Save schedule", exact: true }).click();
+  await expect(page.locator(".match-table tbody tr").first()).toContainText("Planned 2:30 pm");
+  await page.getByRole("button", { name: /^Start game:/ }).first().click();
+  await page.getByRole("dialog").getByRole("combobox").selectOption("2");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByLabel("Match status", { exact: true }).selectOption("live");
+  await expect(page.locator(".match-table tbody tr")).toHaveCount(1);
+  await expect(page.locator(".match-table")).toContainText("Court 2");
+  await page.getByRole("button", { name: /Open scorer/ }).click();
+  await page.getByRole("button", { name: "Claim scoring control" }).click();
+  await page.getByRole("button", { name: /^Point for/ }).first().click();
+  await expect(page.getByRole("status")).toContainText("0 pending");
+  const remote = (await request("state", undefined, o.cookie)).data.matches.find(x => x.id === m.id);
+  expect(remote.status).toBe("live"); expect(remote.court).toBe(2);
+  await page.getByRole("button", { name: /Matches/ }).click();
+  await page.getByRole("link", { name: "Match history", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Match history", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Match history", exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Umpire navigation" }).getByRole("link", { name: "Standings & brackets" }).click();
+  await expect(page.locator(".standing-table")).toBeVisible();
+  await context.close();
+});
+
+test("side swap keeps points, game scores and the final winner attached to their teams", async ({ browser }) => {
+  const { o, state, m, context, page } = await prepare(browser);
+  const a = state.teams.find(t => t.id === m.a).name, b = state.teams.find(t => t.id === m.b).name;
+  await page.getByRole("button", { name: `Point for ${a}`, exact: true }).click();
+  await page.getByRole("button", { name: `Point for ${a}`, exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("0 pending");
+  const before = (await request("live", undefined, o.cookie)).data.live[0];
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Swap sides", exact: true }).click();
+  await expect(page.locator(".score-team").first().locator("h2")).toHaveText(b);
+  await expect(page.locator(".score-team").last().locator("strong")).toHaveText("2");
+  await page.getByRole("button", { name: `Point for ${b}`, exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("1 pending");
+  await page.reload();
+  await page.getByRole("button", { name: /Open scorer/ }).click();
+  await expect(page.getByRole("button", { name: "Swap sides", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".score-team").first().locator("strong")).toHaveText("1");
+  await expect(page.locator(".score-team").last().locator("strong")).toHaveText("2");
+  expect((await request("live", undefined, o.cookie)).data.live[0].revision).toBe(before.revision);
+  await context.setOffline(false);
+  await page.getByRole("button", { name: "Sync now" }).click();
+  await expect(page.getByRole("status")).toContainText("0 pending");
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: `Point for ${a}`, exact: true }).click();
+  await expect(page.locator(".score-games")).toContainText("1–5");
+  await expect(page.locator(".score-team").last()).toContainText("1 games won");
+  await page.getByRole("button", { name: "Confirm final result" }).click();
+  await expect(page.getByRole("status")).toContainText("Result confirmed");
+  const final = (await request("state", undefined, o.cookie)).data.matches.find(x => x.id === m.id);
+  expect(final.games).toEqual([[5, 1]]); expect(final.winner).toBe(m.a);
+  await page.getByRole("button", { name: "Swap sides", exact: true }).click();
+  await expect(page.locator(".score-team").first().locator("h2")).toHaveText(a);
+  await expect(page.locator(".score-games")).toContainText("5–1");
+  await context.close();
+});
+
+test("all event fixtures appear without assignment; final acknowledgement recovers after reopen", async ({ browser }) => {
+  const o = await owner();
   const inv = await invitation(o, "umpire");
   const context = await browser.newContext(), page = await context.newPage();
   await page.goto(inv.url);
-  await expect(page.getByText("No assigned matches yet.", { exact: false })).toBeVisible();
-  await request("assign", { matchId: m.id, profile: inv.profile }, o.cookie);
+  await expect(page.getByText("No matches here yet", { exact: false })).toBeVisible();
+  const state = await importFixture(o, fixture(1)), m = state.matches.find(m => m.status === "live");
+  await expect(page.locator(".match-table tbody tr")).toHaveCount(state.matches.length);
+  await expect(page.getByRole("button", { name: /^Start game:/ })).toHaveCount(state.matches.filter(m => m.status === "upcoming").length);
   await page.getByRole("button", { name: /Open scorer/ }).click();
   await page.getByRole("button", { name: "Claim scoring control" }).click();
   for (let i = 0; i < 5; i++) await page.getByRole("button", { name: /^Point for/ }).first().click();
@@ -167,5 +241,8 @@ test("assignment changes refresh an open umpire list without rescanning; final a
   await page.getByRole("button", { name: /Open saved scoring work/ }).click();
   await expect(page.getByRole("status")).toContainText("Result confirmed");
   expect((await request("state", undefined, o.cookie)).data.matches.find(x => x.id === m.id).games).toEqual([[5, 0]]);
+  await page.reload();
+  await expect(page.locator(".match-table").getByText("5–0", { exact: true })).toBeVisible();
+  await expect(page.locator(".match-table tbody tr")).toHaveCount(state.matches.length);
   await context.close();
 });

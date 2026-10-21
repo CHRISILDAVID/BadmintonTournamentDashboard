@@ -29,10 +29,9 @@ export default function AccessPanel({ state }) {
       </div><small>Staff invitations expire in 15 minutes and work once. Display links are shareable for 30 days and can be revoked.</small>
     </form>
     {link && <div className="private-link"><strong>Share only with the intended person</strong><p>{link}</p>{qr && <img alt="Invitation QR code" src={qr}/>}<button onClick={() => navigator.clipboard.writeText(link).catch(() => setError("Copy the link manually."))}>Copy link</button><button onClick={() => setLink("")}>Hide</button></div>}
-    <div><h3>Umpire assignments & control</h3><p>Start matches on a court from Matches. Assignment changes take effect without rescanning.</p>
+    <div><h3>Scoring control</h3><p>Umpires can manage all event matches, start games on a free court, and claim scoring control from their match desk.</p>
       {state.matches.filter(m => m.status === "live").map(m => <div className="access-row" key={m.id}>
         <span>Court {m.court} · {state.teams.find(t => t.id === m.a)?.name} vs {state.teams.find(t => t.id === m.b)?.name}</span>
-        <select aria-label={`Assign match ${m.id}`} value={access?.assignments.find(a => a.match === m.id)?.profile || ""} disabled={busy} onChange={e => run(() => api("assign", { matchId: m.id, profile: e.target.value }))}><option value="">Assign umpire</option>{access?.profiles.filter(p => p.role === "umpire").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
         <button disabled={busy} onClick={() => run(() => api("transfer", { matchId: m.id }))}>Release controller</button>
         <button disabled={busy} onClick={() => {
           if (confirm("Restart point scoring at 0–0 under current rules? Audit history and unresolved offline actions are retained. Use the match desk to enter a corrected final score instead if needed."))

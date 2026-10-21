@@ -8,8 +8,8 @@ The maintainer creates a primary organizer's private setup link/QR from `/mainta
 
 1. Open your private setup/invitation link. Save the primary organizer's recovery link securely. Anyone with that link can recover organizer access.
 2. Manage categories, players, groups, fixtures, standings, and results using the existing dashboard. The desk contains one event with multiple categories.
-3. Start a ready match and assign its court using **Matches**.
-4. In **Club settings → Cloud access & screens**, create an individual umpire invitation/QR and assign that umpire to an on-court match. Assignment updates appear automatically; the umpire does not scan again.
+3. Start a ready match and assign its court using **Matches**, or let an umpire do this from their match desk.
+4. In **Club settings → Cloud access & screens**, create an individual umpire invitation/QR. Every umpire can manage event matches, start them on a free court, and claim scoring control without an assignment.
 5. Create additional organizer invitations for staff who need management access to this same event. Staff invitations expire after 15 minutes and can be used once.
 6. Export a backup periodically. The usage panel reports event-local observations, not the entire Cloudflare account's remaining allowance.
 
@@ -17,15 +17,15 @@ Testing/demo tools are disabled in the cloud deployment.
 
 ## Umpires
 
-1. Scan your individual invitation. You land on **Your matches**, without management navigation.
-2. Open an assigned on-court match and select **Claim scoring control** while online. Wait for **Offline shell prepared on this browser** before relying on offline reopening.
+1. Scan your individual invitation. You land on **Event matches**, using the same match desk as the organizer: search, category/status/stage filters, scheduling, court selection, results, corrections, match history, and knockout creation. **Standings & brackets** opens the qualification review.
+2. For an upcoming match, select **Start game**, choose a free court, and confirm **Start game**. You can also save its scheduled time. Then select **Open scorer** and **Claim scoring control** while online. Wait for **Offline shell prepared on this browser** before relying on offline reopening.
 3. Tap the appropriate team's large **+ Point** button. Each accepted local tap is written to device storage before the visible score changes. **Undo point** removes the last point in score calculation while retaining its audit history.
-4. Use **Pause / Resume** as needed. Best-of games advance automatically according to that match's rules. The timer is calculated locally from recorded timing information.
+4. Use **Swap sides** to match the teams' positions on court. Names, points, games won, and previous-game scores move together on this screen; recorded team identities and results stay in their original order. The choice survives reloads in this browser tab. Use **Pause / Resume** as needed. Best-of games advance automatically according to that match's rules. The timer is calculated locally from recorded timing information.
 5. Confirm the final result after the required games. **Result pending sync** means the cloud has not confirmed it; the authoritative court and bracket remain unchanged until acceptance.
 
 Keep the scoring tab open when practical. If internet drops, keep scoring the already-prepared match. The status shows pending actions. Foreground reopening and reconnection retry in order; **Sync now** provides a manual retry.
 
-After reopening, **Saved work to synchronize or reconcile** includes unfinished acknowledgements even if the server already completed or reassigned the match. Open it to finish synchronization. Do not clear browser storage while work is pending. Storage may be cleared or evicted by the browser; offline durability is not unconditional.
+After reopening, **Saved work to synchronize or reconcile** includes unfinished acknowledgements even if the server already completed the match or transferred scoring control. Open it to finish synchronization. Do not clear browser storage while work is pending. Storage may be cleared or evicted by the browser; offline durability is not unconditional.
 
 If a storage error appears, the failed tap was not recorded locally. Resolve storage availability before continuing. If the cloud is unavailable or quota-limited, pending work stays on the phone.
 
@@ -33,7 +33,7 @@ If a storage error appears, the failed tap was not recorded locally. Resolve sto
 
 Only one controller writes to a match. Disconnection does not release it.
 
-To move to another umpire, the organizer changes the assignment. To reopen control for the same assigned umpire/device workflow, use **Release controller**. The replacement claims the authoritative score while online.
+To move scoring to another umpire or device, the organizer uses **Release controller**. The replacement opens the match and claims the authoritative score while online. Match assignments are not required.
 
 Scoring-rule changes, result corrections, changed opponents, and returning a match to upcoming invalidate affected active scorers. Existing manual final-score entry and result correction remain available. Review the audit and use **Reconcile / restart at 0–0** when a fresh point session is appropriate.
 

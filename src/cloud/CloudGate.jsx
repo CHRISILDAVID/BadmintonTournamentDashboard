@@ -43,7 +43,7 @@ export default function CloudGate() {
         me = { ...me, offline: true };
       }
       globalThis.__shuttleSession = me;
-      if (me.role === "umpire" && location.pathname !== "/matches") history.replaceState(null, "", "/matches");
+      if (me.role === "umpire" && !["/matches", "/matches/history", "/standings"].includes(location.pathname.replace(/\/+$/, ""))) history.replaceState(null, "", "/matches");
       if (me.role === "display" && location.pathname !== "/display") history.replaceState(null, "", "/display");
       if (me.offline) {
         const saved = await read(`${namespace(me)}:snapshot`);

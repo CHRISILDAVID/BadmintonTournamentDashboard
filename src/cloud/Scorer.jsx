@@ -6,6 +6,14 @@ import { reduceScore, elapsedSeconds } from "../../shared/live-scoring.js";
 
 export default function Scorer({ match, teams, category, onClose }) {
   const session = currentSession(), key = `${namespace(session)}:match:${match.id}`;
+  const [swapped, setSwapped] = useState(() => {
+    try { return sessionStorage.getItem(`${key}:swapped`) === "true"; } catch { return false; }
+  });
+  const swapSides = () => {
+    const next = !swapped;
+    setSwapped(next);
+    try { sessionStorage.setItem(`${key}:swapped`, String(next)); } catch {}
+  };
   const [record, setRecord] = useState(null), [error, setError] = useState(""), [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false), [, tick] = useState(0);
   const [offlineReady, setOfflineReady] = useState(false);
@@ -125,12 +133,13 @@ export default function Scorer({ match, teams, category, onClose }) {
     {error && <p role="alert" className="score-error">{error}</p>}
     {!s ? <div className="score-start"><h2>Ready to score</h2><p>Claim this match while connected. Keep this tab for the whole match.</p><button disabled={!locked || busy || !connected} onClick={claim}>Claim scoring control</button></div> : <>
       <div className="score-meta">Game {Math.min(s.games.length + 1, s.rules.bestOf)} · First to {s.rules.points} · {s.rules.goldenPoint ? "Golden point" : `Win by two, cap ${s.rules.cap}`}<b>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</b></div>
-      <div className="score-teams">{s.teams.map((id, side) => <div className="score-team" key={id}>
+      <div className="score-teams">{(swapped ? [1, 0] : [0, 1]).map(side => { const id = s.teams[side]; return <div className="score-team" key={id}>
         <h2>{teams.find(t => t.id === id)?.name || "Team"}</h2><strong>{s.complete ? s.games.at(-1)?.[side] : s.points[side]}</strong>
         <span>{s.wins[side]} games won</span><button aria-label={`Point for ${teams.find(t => t.id === id)?.name}`} disabled={busy || !locked || !!record.conflict || s.paused || s.complete || s.confirmed} onClick={() => tap("point", id)}>+ Point</button>
-      </div>)}</div>
+      </div>; })}</div>
+      <div className="score-controls"><button type="button" aria-pressed={swapped} onClick={swapSides}>Swap sides</button><span>Changes team positions on this screen only.</span></div>
       <div className="score-controls"><button disabled={busy || !!record.conflict || !s.undo.length || s.confirmed} onClick={() => tap("undo")}>Undo point</button><button disabled={busy || !!record.conflict || s.complete || s.confirmed} onClick={() => tap(s.paused ? "resume" : "pause")}>{s.paused ? "Resume" : "Pause"}</button><button disabled={!pending || busy} onClick={flush}>Sync now</button></div>
-      <p className="score-games">Previous games: {s.games.map(g => g.join("–")).join(" / ") || "None yet"}</p>
+      <p className="score-games">Previous games: {s.games.map(g => (swapped ? [...g].reverse() : g).join("–")).join(" / ") || "None yet"}</p>
       {s.complete && !s.confirmed && <button className="confirm-result" disabled={busy || !!record.conflict} onClick={() => tap("confirm")}>Confirm final result</button>}
       {record.conflict && <><p>Pending work is preserved. Ask the organizer to review it before restarting.</p><button onClick={() => {
         const blob = new Blob([JSON.stringify(record, null, 2)], { type: "application/json" });

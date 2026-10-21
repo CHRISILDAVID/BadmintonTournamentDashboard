@@ -29,5 +29,7 @@ export function useDesk() {
     <option value="all">All tournaments</option>
     {state?.tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
   </NativeSelect>;
-  return { ...data, ...ui, ...derived, display, admin: !display && (!currentSession() || ["owner", "organizer"].includes(currentSession().role)), categorySelect };
+  const admin = !display && (!currentSession() || ["owner", "organizer"].includes(currentSession().role));
+  return { ...data, ...ui, ...derived, display, admin,
+    canManageMatches: !display && (admin || currentSession()?.role === "umpire"), categorySelect };
 }

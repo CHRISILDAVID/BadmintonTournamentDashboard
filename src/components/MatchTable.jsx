@@ -12,7 +12,7 @@ import { Button } from "../components/ui/button.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
 function MatchTable({ matches, history = false }) {
-  const { admin, team, tournament, open } = useDesk();
+  const { canManageMatches, team, tournament, open } = useDesk();
   return matches.length ? (
     <div className="table-scroll">
       <Table className="match-table">
@@ -22,7 +22,7 @@ function MatchTable({ matches, history = false }) {
             <TableHead>STAGE</TableHead>
             <TableHead>{history ? "RESULT" : "COURT / TIME"}</TableHead>
             <TableHead>STATUS</TableHead>
-            {admin && <TableHead />}
+            {canManageMatches && <TableHead />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -65,7 +65,7 @@ function MatchTable({ matches, history = false }) {
                       : "On court"}
                 </Pill>
               </TableCell>
-              {admin && (
+              {canManageMatches && (
                 <TableCell className="match-actions-cell">
                   <Button variant="outline"
                     className="btn"
