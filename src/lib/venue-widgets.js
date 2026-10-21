@@ -1,6 +1,7 @@
 import { normalizeLayout, reorderPanel } from "./venue-layout.js";
 
 export const WIDGETS = {
+  live: "Live scores",
   standings: "League standings", upcoming: "Up next", results: "Latest results",
   playoffs: "Playoffs", knockouts: "Knockouts",
 };
@@ -11,6 +12,7 @@ export const WIDGET_GAP = 12;
 export const widgetBreakpoint = width => width >= 900 ? "desktop" : width >= 560 ? "tablet" : "phone";
 export function visibleWidgets(data, preferences = {}) {
   const automatic = {
+    live: !!data.onCourt?.length,
     standings: data.showLeagueStandings,
     upcoming: !data.hasKnockouts,
     results: !data.hasKnockouts,

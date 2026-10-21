@@ -1,6 +1,8 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App.jsx";
+import CloudGate from "./cloud/CloudGate.jsx";
 import "./theme.css";
 import "./styles/organizer.css";
-createRoot(document.getElementById("root")).render(<App />);
+import "./cloud/cloud.css";
+const App = lazy(() => import("./App.jsx"));
+createRoot(document.getElementById("root")).render(__SHUTTLE_CLOUD__ ? <CloudGate/> : <Suspense fallback={<p>Loading…</p>}><App/></Suspense>);

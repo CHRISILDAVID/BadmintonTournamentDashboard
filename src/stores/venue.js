@@ -3,7 +3,8 @@ import { persist } from "zustand/middleware";
 import { cleanSelection } from "../lib/venue-layout.js";
 import { cleanWidgetPreferences, rememberWidgetLayout, WIDGETS } from "../lib/venue-widgets.js";
 
-export const VENUE_STORAGE_KEY = "shuttlehub.venue.layout.v1";
+const profile = globalThis.__shuttleSession;
+export const VENUE_STORAGE_KEY = profile ? `shuttlehub.venue.${profile.eventId}.${profile.profile}.${profile.preset || "default"}` : "shuttlehub.venue.layout.v1";
 export const LEGACY_SELECTION_KEY = "shuttlehub.venue.selection.v1";
 function browserStorage() { try { return globalThis.localStorage; } catch { return undefined; } }
 export function createVenueStore(storage = browserStorage()) {
@@ -13,7 +14,7 @@ export function createVenueStore(storage = browserStorage()) {
       try {
         const raw = storage?.getItem(name);
         if (raw) return JSON.parse(raw);
-        const legacy = storage?.getItem(LEGACY_SELECTION_KEY);
+        const legacy = !profile && storage?.getItem(LEGACY_SELECTION_KEY);
         return legacy ? { state: { selection: cleanSelection(JSON.parse(legacy)), savedLayouts: {} }, version: 1 } : null;
       } catch { return null; }
     },

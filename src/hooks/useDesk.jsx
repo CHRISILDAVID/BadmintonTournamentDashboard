@@ -3,6 +3,7 @@ import { useStore } from "zustand";
 import { organizerStore, tournamentStore } from "../stores/index.js";
 import { upcomingMatches } from "../../shared/matches.js";
 import { NativeSelect } from "../components/ui/native-select.jsx";
+import { currentSession } from "../cloud/storage.js";
 
 // Page-level adapter; small components can subscribe directly to either store.
 export function useDesk() {
@@ -28,5 +29,5 @@ export function useDesk() {
     <option value="all">All tournaments</option>
     {state?.tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
   </NativeSelect>;
-  return { ...data, ...ui, ...derived, display, admin: !display, categorySelect };
+  return { ...data, ...ui, ...derived, display, admin: !display && (!currentSession() || ["owner", "organizer"].includes(currentSession().role)), categorySelect };
 }

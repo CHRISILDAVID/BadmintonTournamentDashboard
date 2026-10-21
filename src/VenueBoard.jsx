@@ -17,6 +17,8 @@ import VenueBracket, { VenuePlayoffs } from "./VenueBracket.jsx";
 import VenueWidgets from "./components/VenueWidgets.jsx";
 import { directPlaces, isPlayoffFormat } from "../shared/format.js";
 import logo from "../assets/logo.jpg";
+import LiveScores from "./cloud/LiveScores.jsx";
+import { liveStore } from "./cloud/connection.js";
 import "./venue-board.css";
 import "./styles/venue-layout.css";
 
@@ -157,6 +159,7 @@ function TournamentPanel({ data, upcoming, teams }) {
   const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: "Playoffs & knockouts", results: data.knockoutResults }] : [])];
   const scroll = (label, children) => <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${t.name} ${label}`}>{children}</div>;
   const renderWidget = widget => {
+    if (widget === "live") return scroll("live scores", <LiveScores matches={onCourt} teams={teams} category={t.name}/>);
     if (widget === "standings") return scroll("standings, scroll for all groups", <>
       <p className="venue-widget-note">{data.hasLeague ? (isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct · remaining places through playoffs` : `Top ${t.qualify} per group advance`) : "Entries · draw pending"}</p>
       <div className="venue-standing-groups">{groups.map(group => <StandingsGroup key={group.key} group={group} tournament={t} hasLeague={data.hasLeague}/>)}</div>
@@ -182,7 +185,15 @@ function TournamentPanel({ data, upcoming, teams }) {
   </article>;
 }
 
-export default function VenueBoard({ state, upcoming, connected }) {
+export default function VenueBoard({ state: fullState, upcoming, connected }) {
+  const preset = useStore(liveStore, s => s.preset);
+  const state = useMemo(() => preset?.categories?.length ? { ...fullState, tournaments: fullState.tournaments.filter(t => preset.categories.includes(t.id)) } : fullState, [fullState, preset]);
+  useEffect(() => {
+    if (preset?.layout) {
+      const saved = preset.layout;
+      venueStore.setState({ selection: saved.selection, savedLayouts: saved.savedLayouts, editing: false, draft: null });
+    }
+  }, [preset?.updatedAt]);
   const boardRef = useRef(null);
   const { selection: preferences, setSelection: setPreferences, editing } = useStore(venueStore);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -232,7 +243,7 @@ export default function VenueBoard({ state, upcoming, connected }) {
           role="status"
         >
           <i />
-          {connected ? "Connected" : "Reconnecting"}
+          {connected ? "Connected" : "Disconnected · Last confirmed board"}
         </span>
       </header>
       {state.demo && (

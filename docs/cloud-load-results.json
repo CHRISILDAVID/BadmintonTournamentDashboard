@@ -1,0 +1,28 @@
+{
+  "measuredAt": "2026-10-20T17:54:50.551Z",
+  "environment": "Wrangler local workerd on maintainer Windows machine; loopback network, not deployed Cloudflare",
+  "venues": 4,
+  "courtsPerVenue": 4,
+  "controllers": 16,
+  "displays": 8,
+  "sockets": 24,
+  "acceptedActions": 480,
+  "elapsedMs": 4264.4948,
+  "actionsPerSecond": 112.55729518066242,
+  "actionToBothDisplaysMs": {
+    "p50": 76.27800000000025,
+    "p95": 108.84520000000066,
+    "p99": 124.82970000000023,
+    "max": 127.1863000000003
+  },
+  "httpAckMs": {
+    "p50": 132.38889999999992,
+    "p95": 168.07600000000002,
+    "max": 177.39090000000033
+  },
+  "observedSqlRowsRead": 10568,
+  "observedSqlRowsWritten": 1920,
+  "observedHandlerWallMs": 4752,
+  "finalDatabaseBytes": 835584,
+  "limitations": "Burst test only; no sustained daily capacity, provider CPU/duration, internet latency, mobile radio loss or deployment SLA inferred."
+}

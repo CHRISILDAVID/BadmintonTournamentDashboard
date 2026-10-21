@@ -1,6 +1,10 @@
 # ShuttleHub Tournament Desk
 
-A local badminton tournament dashboard for organizers and a venue screen. Runs on one host laptop; phones, laptops, and the screen connect over the same Wi-Fi or Ethernet. Nothing is deployed online. No external fonts, analytics, or runtime internet services are used.
+ShuttleHub now includes a Cloudflare deployment with one isolated event per organizer identity, role invitations, mobile point scoring with a persistent offline queue, and independent live displays.
+
+Start with [Cloud setup and migration](docs/CLOUD_SETUP.md), [Tournament-day guide](docs/STAFF_GUIDE.md), and [validation/capacity results](docs/CLOUD_VALIDATION.md). Cloud use requires internet for synchronization. Staff need only a browser and their role link.
+
+The original Express/SQLite server remains available for local-data backup and regression testing. The instructions below describe that **legacy local mode**, which has unrestricted local organizer access and must not be exposed as the cloud application.
 
 ## Start
 

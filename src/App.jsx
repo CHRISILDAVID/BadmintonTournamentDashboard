@@ -25,6 +25,8 @@ import ScoringForm from "./forms/ScoringForm.jsx";
 import TeamForm from "./forms/TeamForm.jsx";
 import MatchForm from "./forms/MatchForm.jsx";
 import ConfirmForm from "./forms/ConfirmForm.jsx";
+import { cloudEnabled, currentSession } from "./cloud/storage.js";
+import Umpire from "./cloud/Umpire.jsx";
 
 const NAV = [
   ["Overview", LayoutDashboard],
@@ -57,6 +59,7 @@ function App() {
   }, [error, modal, setError]);
   if (!state) return <div className="loading"><Logo/><p>{error || "Connecting to tournament desk..."}</p>{error && <Button variant="ghost" onClick={() => location.reload()}>Reconnect</Button>}</div>;
   if (display) return <Suspense fallback={<div className="loading"><Logo/><p>Preparing venue screen...</p></div>}><VenueBoard state={state} upcoming={readyMatches} connected={connected}/></Suspense>;
+  if (currentSession()?.role === "umpire") return <Umpire/>;
   const titles = {
     Overview: "Courtside",
     Tournaments: "Your tournaments",
@@ -165,7 +168,7 @@ function App() {
             <div>
               <span className={`connection ${connected ? "" : "disconnected"}`}>
                 <i className="dot" />
-                {connected ? "Connected locally" : "Reconnecting…"}
+                {connected ? cloudEnabled() ? "Connected to cloud" : "Connected locally" : "Reconnecting…"}
               </span>
               <span className="topbar-courts">
                 <span className="tiny-court" />
@@ -177,7 +180,7 @@ function App() {
             {state.demo && (
               <div className="demo-strip">
                 You’re exploring a sample event.
-                {admin && (
+                {admin && !cloudEnabled() && (
                   <Button variant="ghost" onClick={() => open({ type: "clearDemo" })}>
                     Clear sample & start your event
                     <ArrowRight size={14} />
@@ -237,7 +240,7 @@ function App() {
             ) : page === "Settings" && admin ? (
               <SettingsPage />
             ) : <div className="panel p-6"><p className="mb-4">Use the navigation to continue, or return to the overview.</p><Button asChild><PageLink page="Overview">Go to overview</PageLink></Button></div>}
-            {admin && !state.tournaments.length && (
+            {admin && !cloudEnabled() && !state.tournaments.length && (
               <div className="sample-offer">
                 <span>Want to see how match day looks?</span>
                 <Button variant="ghost"

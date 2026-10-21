@@ -1,0 +1,10 @@
+{
+  "name": "ShuttleHub Scoring",
+  "short_name": "ShuttleHub",
+  "start_url": "/matches",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f6",
+  "theme_color": "#123c35",
+  "icons": [{ "src": "/icon.jpg", "sizes": "any", "type": "image/jpeg" }]
+}

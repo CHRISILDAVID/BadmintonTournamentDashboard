@@ -4,3 +4,8 @@ data/
 output/
 .playwright-cli/
 *.log
+.wrangler/
+.dev.vars*
+.env*
+playwright-report/
+test-results/

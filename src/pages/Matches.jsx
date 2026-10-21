@@ -11,11 +11,14 @@ import SearchField from "../components/SearchField.jsx";
 
 import { NativeSelect } from "../components/ui/native-select.jsx";
 import PageLink from "../components/PageLink.jsx";
+import { cloudEnabled } from "../cloud/storage.js";
+import Scorer from "../cloud/Scorer.jsx";
 
 function Matches({ history = false }) {
-  const { filter, busy, admin, selected, live, upcoming, completed, categorySelect, team, tournament, open,
+  const { state, filter, busy, admin, selected, live, upcoming, completed, categorySelect, team, tournament, open,
     matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage: stage, setMatchStage: setStage } = useDesk();
   const [testTools, setTestTools] = useState(false);
+  const [scoring, setScoring] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/features", { signal: controller.signal })
@@ -34,9 +37,13 @@ function Matches({ history = false }) {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  if (scoring) return <Scorer match={scoring} teams={state.teams} category={tournament(scoring.tournamentId)} onClose={() => setScoring(null)}/>;
   return (
     <section className="panel">
       {!history && <StageActions />}
+      {cloudEnabled() && !history && live.length > 0 && <div className="toolbar">
+        <span>Point scoring</span>{live.map(m => <Button key={m.id} variant="outline" onClick={() => setScoring(m)}>Court {m.court} · Open scorer</Button>)}
+      </div>}
       <div className="toolbar">
         <SearchField placeholder="Find a match…" value={query} onChange={setQuery}/>
         {categorySelect}

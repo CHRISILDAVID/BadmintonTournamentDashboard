@@ -7,6 +7,8 @@ import { Field } from "../components/common.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { Textarea } from "../components/ui/textarea.jsx";
+import { cloudEnabled } from "../cloud/storage.js";
+import AccessPanel from "../cloud/AccessPanel.jsx";
 
 function SettingsPage() {
   const { state, modal, error, busy, act } = useDesk();
@@ -21,6 +23,7 @@ function SettingsPage() {
   const [values, setValues] = useState(state.event),
     [network, setNetwork] = useState([]);
   useEffect(() => {
+    if (cloudEnabled()) return;
     fetch("/api/network")
       .then((r) => r.json())
       .then((d) => setNetwork(d.addresses || []));
@@ -88,7 +91,7 @@ function SettingsPage() {
           <Check size={16} />
         </Button>
       </form>
-      <div>
+      {cloudEnabled() ? <AccessPanel state={state}/> : <div>
         <section className="panel settings-panel">
           <div className="settings-icon">
             <Wifi />
@@ -132,7 +135,7 @@ function SettingsPage() {
             Export event data
           </a>
         </section>
-      </div>
+      </div>}
     </div>
   );
 }

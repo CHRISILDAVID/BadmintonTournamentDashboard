@@ -1,0 +1,23 @@
+.cloud-welcome,.umpire-desk,.scorer{max-width:1000px;margin:auto;padding:24px;color:#123c35}
+.cloud-welcome{max-width:650px;padding-top:10vh}.cloud-welcome h1,.umpire-desk h1{font-size:2rem;font-weight:750;margin-bottom:16px}
+.cloud-welcome p{margin:16px 0;line-height:1.6}.cloud-welcome textarea{width:100%;min-height:100px;border:1px solid #b7c9c0;padding:12px}
+.cloud-welcome button,.umpire-desk button,.scorer button,.cloud-access button{cursor:pointer;border:1px solid #b6cec2;border-radius:10px;padding:12px 18px;background:#e6f2eb;min-height:46px;font-weight:650}
+.cloud-welcome button{margin:8px}.scorer button:disabled,.cloud-access button:disabled,.umpire-desk button:disabled{opacity:.5;cursor:not-allowed}
+.scorer header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.scorer header small{margin-left:auto}
+.score-status{margin:20px 0;padding:14px;border-radius:10px;background:#d8f1e2;font-weight:700}
+.score-status.pending,.score-error{background:#fff0cf;color:#734b00}.score-error{padding:14px;border-radius:8px}
+.score-meta{display:flex;justify-content:space-between;gap:12px;padding:8px 0 20px}.score-teams{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.score-team{border:1px solid #cadbd1;border-radius:18px;background:white;padding:20px;text-align:center;display:flex;flex-direction:column;gap:12px}
+.score-team h2{font-size:1.25rem;min-height:60px;font-weight:650}.score-team strong{font-size:clamp(70px,14vw,150px);font-variant-numeric:tabular-nums;line-height:1.1}
+.score-team button{min-height:100px;font-size:1.8rem;background:#145d43;color:white;touch-action:manipulation}
+.score-team:nth-child(2) button{background:#244e73}.score-controls{display:flex;gap:12px;margin:20px 0;flex-wrap:wrap}.score-controls button{flex:1}
+.score-games{padding:14px 0}.scorer .confirm-result{width:100%;background:#145d43;color:#fff}.score-start{padding:40px 0}
+.umpire-desk header{display:flex;justify-content:space-between;align-items:center;gap:20px}.umpire-match{display:flex;flex-direction:column;text-align:left;gap:10px;width:100%;margin:16px 0;background:white!important}
+.live-score-list{display:grid;gap:12px}.live-score-card{border:1px solid #c6d9cd;border-radius:12px;background:#f7fbf8;padding:14px}
+.live-score-card header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.live-score-card header small{margin-left:auto;font-size:12px}.score-delayed{color:#8b5700}
+.live-score-team{display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center;font-size:clamp(14px,1.4vw,25px);padding:3px 0}.live-score-team b{font-size:1.7em;line-height:1}.live-score-team small{font-size:12px}
+.live-score-card footer{font-size:12px;margin-top:6px;color:#536c60}
+.cloud-access{display:grid;gap:18px}.cloud-access h2{font-size:1.4rem;font-weight:700}.cloud-access h3{font-size:1.1rem;font-weight:700;margin:12px 0}
+.cloud-access input,.cloud-access select,.cloud-access textarea{border:1px solid #b8cbc0;border-radius:8px;padding:10px;max-width:100%;background:white}.cloud-access label{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.access-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid #e0e9e3}.access-row>span{flex:1;min-width:160px}.private-link{overflow-wrap:anywhere;padding:16px;background:#fff5d8;border-radius:8px}.private-link img{max-width:220px}
+@media(max-width:560px){.scorer,.umpire-desk{padding:12px}.score-teams{gap:10px}.score-team{padding:12px}.score-team h2{font-size:1rem}.score-team button{min-height:90px;font-size:1.4rem}.score-meta{font-size:12px}.score-controls{gap:8px}.live-score-team{gap:8px}.scorer header{font-size:13px}}
