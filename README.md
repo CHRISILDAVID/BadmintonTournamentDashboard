@@ -4,6 +4,8 @@ ShuttleHub now includes a Cloudflare deployment with one isolated event per orga
 
 Start with [Cloud setup and migration](docs/CLOUD_SETUP.md), [Tournament-day guide](docs/STAFF_GUIDE.md), and [validation/capacity results](docs/CLOUD_VALIDATION.md). Cloud use requires internet for synchronization. Staff need only a browser and their role link.
 
+Maintainers can open `/maintainer` on the deployed cloud website to create primary-organizer setup links/QRs and restore existing organizer access through a form. Unlock it with the private provisioning secret; organizers only need their individual link.
+
 The original Express/SQLite server remains available for local-data backup and regression testing. The instructions below describe that **legacy local mode**, which has unrestricted local organizer access and must not be exposed as the cloud application.
 
 ## Start

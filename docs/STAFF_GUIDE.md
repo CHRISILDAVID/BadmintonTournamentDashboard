@@ -4,6 +4,8 @@ Every device opens the same HTTPS website using its own internet connection. Org
 
 ## Primary and additional organizers
 
+The maintainer creates a primary organizer's private setup link/QR from `/maintainer`. Primary organizers only open their link and save the recovery link; they do not run provisioning commands or receive the maintainer secret. Additional organizers are invited from the existing event desk.
+
 1. Open your private setup/invitation link. Save the primary organizer's recovery link securely. Anyone with that link can recover organizer access.
 2. Manage categories, players, groups, fixtures, standings, and results using the existing dashboard. The desk contains one event with multiple categories.
 3. Start a ready match and assign its court using **Matches**.

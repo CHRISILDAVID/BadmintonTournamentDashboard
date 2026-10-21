@@ -1,14 +1,14 @@
 # Cloud validation and capacity
 
-Checked on 20 October 2026. Implementation and local verification are complete for the scenarios listed below. No deployment to the user's Cloudflare account, paid plan, or production-data migration has been performed.
+Core cloud checks were recorded on 20 October 2026; maintainer provisioning checks were added on 21 October 2026. The user has deployed the base application and reported successful phone tests. The maintainer-page update was tested locally and has not itself been deployed. No paid plan or production-data migration was performed during this update.
 
 ## Recorded verification
 
 | Check | Result |
 |---|---|
 | Existing engine/UI-store/import/layout suite plus point-scoring and migration-backup tests | 99 passed |
-| Workers-runtime HTTP/WebSocket integration scenarios | 7 passed |
-| Browser scenarios in installed Microsoft Edge, including a 390 × 844 phone viewport | 6 passed |
+| Workers-runtime HTTP/WebSocket integration scenarios | 10 passed |
+| Browser scenarios in installed Microsoft Edge, including a 390 × 844 phone viewport | 7 passed |
 | Separate workerd restart/expiry check | Passed |
 | Cloud Vite build | Passed; existing Excel library emits a large-chunk advisory |
 | Visual review | Mobile scorer and desktop live-score board inspected |
@@ -18,6 +18,8 @@ The cloud scenarios verify concurrent one-event provisioning; distinct events wi
 Browser scenarios verify offline points, undo, completion, reload and reconnect; two independent displays; competing-tab locks; simulated local-storage failure; lost HTTP acknowledgements; HTTP 429/503 failures; role-route restrictions; event switching without replay; central screen updates; assignment changes without rescanning; and reopening a final confirmation whose acknowledgement was lost. The restart check also verifies real invitation expiry and persistence of sessions, accepted scores, deduplication records, and owner uniqueness.
 
 The original suite continues to cover CSV/XLSX handling, player conflicts, category/team formats, large grouped draws, stage scoring, standings, playoff/knockout advancement, byes, result corrections and dependent resets, navigation, and layout persistence. This is not a claim that every existing UI workflow was exhaustively retested on every browser.
+
+The maintainer extension verifies a separate secure browser session, rejected organizer-only access and cross-origin mutations, concurrent single-event provisioning from the browser API, single-use setup/restoration links, preservation of event data during recovery, current/all-browser logout, and session persistence across process restart. Rotating the provisioning secret invalidates maintainer sessions while leaving event sessions valid. Its browser scenario also exercises login failure, reload, QR generation, phone layout, duplicate prevention, restoration, and locking without losing the original event session.
 
 ## Measured multi-venue burst
 

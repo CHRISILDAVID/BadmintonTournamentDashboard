@@ -17,6 +17,7 @@ const call = async (route, body, cookie = "", auth = false) => {
 };
 try {
   worker = await unstable_dev("cloud/worker.js", options);
+  const maintainer = await call("maintainer/session", { secret: "runtime-check-secret" }); assert.equal(maintainer.status, 200);
   const setup = await call("provision", { owner: "restart-owner" }, "", true);
   const [eventId, token] = new URLSearchParams(new URL(setup.data.setupUrl).hash.slice(1)).get("invite").split(".");
   const owner = await call("redeem", { eventId, token }); assert.equal(owner.status, 200);
@@ -32,10 +33,15 @@ try {
   assert.equal((await call("redeem", { eventId: e, token: t })).status, 403);
   await worker.stop();
   worker = await unstable_dev("cloud/worker.js", options);
+  assert.equal((await call("maintainer/session", undefined, maintainer.cookie)).status, 200);
   const after = await call("live", undefined, owner.cookie);
   assert.equal(after.status, 200); assert.deepEqual(after.data.live[0].score.points, [1, 0]);
   const retry = await call("score", action, owner.cookie);
   assert.equal(retry.data.duplicate, true);
   assert.equal((await call("provision", { owner: "restart-owner" }, "", true)).status, 409);
-  console.log("PASS: real invitation expiry, durable score/session/dedup persistence across workerd restart, persistent owner uniqueness.");
+  await worker.stop();
+  worker = await unstable_dev("cloud/worker.js", { ...options, vars: { ...options.vars, PROVISIONING_SECRET: "rotated-runtime-secret" } });
+  assert.equal((await call("maintainer/session", undefined, maintainer.cookie)).status, 401);
+  assert.equal((await call("me", undefined, owner.cookie)).status, 200);
+  console.log("PASS: invitation expiry, durable score/session/dedup persistence, owner uniqueness, maintainer session persistence and revocation on secret rotation.");
 } finally { await worker?.stop(); }

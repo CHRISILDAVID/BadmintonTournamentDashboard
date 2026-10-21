@@ -1,0 +1,45 @@
+import { test, expect } from "@playwright/test";
+import { owner, origin } from "../cloud/helpers.js";
+
+test("maintainer creates a single-use organizer QR without commands; session survives reload and locks separately", async ({ browser }) => {
+  const organizer = await owner();
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  // An organizer cookie alone never unlocks primary-organizer provisioning.
+  const [name, value] = organizer.cookie.split("=");
+  await context.addCookies([{ name, value, url: origin }]);
+  await page.goto("/maintainer");
+  await expect(page.getByRole("heading", { name: "Unlock organizer setup" })).toBeVisible();
+  await page.getByLabel("Provisioning secret").fill("wrong");
+  await page.getByRole("button", { name: "Unlock maintainer tools" }).click();
+  await expect(page.getByRole("alert")).toContainText("not accepted");
+  await page.getByLabel("Provisioning secret").fill("local-test-secret");
+  await page.getByRole("button", { name: "Unlock maintainer tools" }).click();
+  await expect(page.getByRole("heading", { name: "Primary organizer access" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Primary organizer access" })).toBeVisible();
+  const identity = `000-browser-${crypto.randomUUID()}`;
+  await page.getByLabel("Permanent organizer identifier").fill(identity);
+  await page.getByRole("button", { name: "Create private setup link" }).click();
+  const link = page.getByLabel("Private setup link", { exact: true });
+  await expect(link).toBeVisible();
+  const setupUrl = await link.inputValue();
+  await expect(page.getByAltText("Private organizer setup QR")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "output/playwright/maintainer-mobile.png", fullPage: true, mask: [link, page.getByAltText("Private organizer setup QR")] });
+  const recipient = await browser.newContext(), recipientPage = await recipient.newPage();
+  await recipientPage.goto(setupUrl);
+  await expect(recipientPage.getByRole("heading", { name: "Save your recovery link" })).toBeVisible();
+  await page.getByLabel("Permanent organizer identifier").fill(identity);
+  await page.getByRole("button", { name: "Create private setup link" }).click();
+  await expect(page.getByRole("alert")).toContainText("already owns event");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: `Restore access for ${identity}`, exact: true }).click();
+  await expect(page.getByRole("heading", { name: `Access restoration: ${identity}`, exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Lock this browser", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Unlock organizer setup" })).toBeVisible();
+  await expect(link).toHaveCount(0);
+  const originalSession = await page.evaluate(async () => (await fetch("/api/me")).status);
+  expect(originalSession).toBe(200);
+  await context.close(); await recipient.close();
+});

@@ -2,6 +2,12 @@ export const token = () => Array.from(crypto.getRandomValues(new Uint8Array(32))
 export async function digest(value) {
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))), b => b.toString(16).padStart(2, "0")).join("");
 }
+export async function secretMatches(provided, expected) {
+  const encoder = new TextEncoder();
+  const hashes = await Promise.all([provided, expected].map(value =>
+    crypto.subtle.digest("SHA-256", encoder.encode(value))));
+  return crypto.subtle.timingSafeEqual(hashes[0], hashes[1]);
+}
 export const json = (data, status = 200, headers = {}) => Response.json(data, { status, headers: {
   "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", ...headers,
 } });

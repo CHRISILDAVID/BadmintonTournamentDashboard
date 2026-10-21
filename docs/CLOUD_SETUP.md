@@ -1,6 +1,6 @@
 # Cloud setup and migration
 
-The cloud code is implemented and tested locally. It has not been deployed to your Cloudflare account. No production credentials, local tournament database, or billing settings were changed.
+The cloud code is implemented and tested locally. Deploy changes from this checkout before expecting new features on the live website. The primary-organizer setup page was added on 21 October 2026; this update has not itself been deployed. No production credentials, local tournament database, or billing settings were changed by this update.
 
 ## One-time maintainer setup
 
@@ -35,6 +35,24 @@ Wrangler's browser login is sufficient for deployment. A scoped `CLOUDFLARE_API_
 ## Provision the primary organizer
 
 Choose a permanent identity label, for example `venue-a-primary`. Keep your private mapping from that label to its organizer. The persistent directory enforces one event per label, including concurrent requests. Reusing it cannot create another event.
+
+### Recommended: use the maintainer page
+
+After deploying this update, primary organizers can be provisioned without terminal commands:
+
+1. Open your live website with `/maintainer` at the end, for example `https://shuttlehub.your-subdomain.workers.dev/maintainer`.
+2. Unlock it with the existing `PROVISIONING_SECRET` saved in your password manager. This is maintainer access, separate from organizer invitations and sessions. Do not share that secret with organizers.
+3. Enter a permanent identifier such as `venue-a-primary`, then click **Create private setup link**. Identifiers are case-sensitive; use the same spelling for that organizer every time.
+4. Send the generated link or QR privately to its intended organizer. It expires after 24 hours and can be used once. The organizer opens it and saves the recovery link shown by the app.
+5. If access is lost, find the identifier under **Existing organizers** and choose **Restore access**. This targets the same event and replaces prior setup/recovery links. Opening the replacement link revokes previous primary-organizer sessions. Verify the recipient before sharing it.
+
+The browser remembers maintainer access for up to seven days using a separate Secure/HttpOnly/SameSite cookie. The provisioning secret is not written to localStorage or IndexedDB. Directory entries are paginated at 100 per page; private setup links are not retained by the page after it closes. If a link is lost, restore that same identifier rather than making another identity.
+
+**Lock this browser** revokes its maintainer session. **Lock all maintainer browsers** revokes every maintainer session without revoking event organizer/umpire sessions. Rotating `PROVISIONING_SECRET` through Wrangler invalidates existing maintainer sessions on their next request. Maintainer access does not itself authorize reading or scoring event data through event APIs.
+
+The page URL is public; knowing it grants no access without the secret/session. An organizer session alone cannot unlock it. There is no public primary-organizer signup. This remains one event per provisioned identity; it cannot prove that two separately provisioned identifiers represent different physical people.
+
+### Optional: use the maintainer command
 
 Read the provisioning secret without putting it into PowerShell history:
 
