@@ -30,7 +30,9 @@ function SettingsPage() {
   }, []);
   return (
     <div className="settings-grid">
+      <nav className="section-jumps" aria-label="Settings sections"><a href="#venue-settings">Venue & courts</a>{cloudEnabled() && <><a href="#access-invite">Invitations</a><a href="#access-scoring">Scoring control</a><a href="#access-screens">Screens</a><a href="#access-revoke">Access</a><a href="#access-unresolved">Unresolved work</a><a href="#access-backup">Backup</a></>}</nav>
       <form
+        id="venue-settings"
         className="panel settings-panel"
         onSubmit={async (e) => {
           e.preventDefault();
@@ -87,7 +89,7 @@ function SettingsPage() {
           />
         </Field>
         <Button variant="default" className="btn primary" disabled={busy}>
-          Save club settings
+          {busy ? "Saving settings…" : "Save club settings"}
           <Check size={16} />
         </Button>
       </form>

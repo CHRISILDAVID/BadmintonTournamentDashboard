@@ -26,18 +26,25 @@ function Standings() {
         </span>
       </div>
       <StageActions />
+      {ts.length > 1 && <nav className="section-jumps" aria-label="Jump to tournament standings">{ts.map(t => <a key={t.id} href={`#standings-${t.id}`}>{t.name}</a>)}</nav>}
+      <p className="standings-legend">P: played · W: wins · L: losses · GD: game difference · PD: point difference</p>
       {ts.length ? (
         ts.map((t) => (
-          <section key={t.id} className="standing-section">
+          <section key={t.id} id={`standings-${t.id}`} className="standing-section">
             <div className="section-heading">
               <h2>{t.name}</h2>
               <Pill>{isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct + playoffs` : `${t.qualify} qualify per group`}</Pill>
             </div>
+            <nav className="section-jumps" aria-label={`${t.name} sections`}>
+              {Array.from({ length: t.groups }, (_, g) => <a key={g} href={`#group-${t.id}-${g}`}>{groupName(g)}</a>)}
+              {state.matches.some(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE) && <a href={`#playoffs-${t.id}`}>Playoffs</a>}
+              {state.matches.some(m => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE) && <a href={`#bracket-${t.id}`}>Knockout bracket</a>}
+            </nav>
             <div className="standings-grid">
               {Array.from({ length: t.groups }, (_, g) => {
                 const rows = standings(state, t.id, g);
                 return (
-                  <div className="panel" key={g}>
+                  <div className="panel" key={g} id={`group-${t.id}-${g}`}>
                     <div className="panel-heading">
                       <h3>{groupName(g)}</h3>
                       <span className="muted">{rows.length} teams</span>
@@ -49,11 +56,11 @@ function Standings() {
                             <TableRow>
                               <TableHead>#</TableHead>
                               <TableHead>TEAM</TableHead>
-                              <TableHead>P</TableHead>
-                              <TableHead>W</TableHead>
-                              <TableHead>L</TableHead>
-                              <TableHead>GD</TableHead>
-                              <TableHead>PD</TableHead>
+                              <TableHead aria-label="Played"><abbr title="Played">P</abbr></TableHead>
+                              <TableHead aria-label="Wins"><abbr title="Wins">W</abbr></TableHead>
+                              <TableHead aria-label="Losses"><abbr title="Losses">L</abbr></TableHead>
+                              <TableHead aria-label="Game difference"><abbr title="Game difference">GD</abbr></TableHead>
+                              <TableHead aria-label="Point difference"><abbr title="Point difference">PD</abbr></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -89,14 +96,14 @@ function Standings() {
             <p className="standings-note">
               <i className="dot" /> {isPlayoffFormat(t) ? "Green: direct places or playoff winners. Amber: playoff places. League rankings stay unchanged after playoffs." : "Shaded places qualify once the league is complete."} Seed breaks any remaining tie.
             </p>
-            {state.matches.some(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE) && <section className="organizer-playoffs">
+            {state.matches.some(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE) && <section className="organizer-playoffs" id={`playoffs-${t.id}`}>
               <h3>Qualification playoffs</h3><p className="muted">{scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Winners fill the named knockout slots.</p>
               <div className="organizer-playoff-groups">{Array.from({ length: t.groups }, (_, g) => g).map(g => <div key={g}><h4>{groupName(g)}</h4>{state.matches.filter(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE && m.group === g).map(m => <MatchCard key={m.id} m={m} compact/>)}</div>)}</div>
             </section>}
             {state.matches.some(
               (m) => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
             ) && (
-              <div className="bracket">
+              <div className="bracket" id={`bracket-${t.id}`} tabIndex={0} aria-label={`${t.name} knockout bracket; scroll for all rounds`}>
                 {[
                   ...new Set(
                     state.matches

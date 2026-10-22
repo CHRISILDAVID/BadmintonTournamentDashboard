@@ -13,7 +13,7 @@
   --color-secondary: #edf4f0;
   --color-secondary-foreground: var(--foreground);
   --color-muted: #f0f4f2;
-  --color-muted-foreground: #60766c;
+  --color-muted-foreground: #52665f;
   --color-accent: #e3f3eb;
   --color-accent-foreground: #124c3c;
   --color-destructive: #b33e3e;
@@ -31,12 +31,12 @@
   --foreground: #102f3e;
   --card: #ffffff;
   --primary: #087c5c;
-  --border: #dbe5df;
+  --border: #cbd7d1;
   --radius: 0.75rem;
   --green: var(--primary);
   --navy: #102f3e;
   --deep: #102f3e;
-  --muted: #60766c;
+  --muted: #52665f;
   --line: var(--border);
   --sport: "Segoe UI", Arial, sans-serif;
   font-family: "Segoe UI", Arial, sans-serif;

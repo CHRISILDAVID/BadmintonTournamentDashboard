@@ -15,7 +15,7 @@ import SearchField from "../components/SearchField.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
 function Teams() {
-  const { state, filter, admin, categorySelect, tournament, open, teamQuery: query, setTeamQuery: setQuery } = useDesk();
+  const { state, filter, admin, categorySelect, tournament, open, setPage, teamQuery: query, setTeamQuery: setQuery } = useDesk();
   const selectedTournament = state.tournaments.find((t) => t.id === filter);
   const groupLock = selectedTournament ? groupEditLockReason(state, filter) : "";
   const teams = state.teams.filter(
@@ -26,10 +26,10 @@ function Teams() {
         .includes(query.toLowerCase()),
   );
   return (
-    <section className="panel">
-      <div className="toolbar">
+    <section className="panel teams-panel">
+      <div className="toolbar teams-toolbar">
         <SearchField placeholder="Search teams or players…" value={query} onChange={setQuery}/>
-        {categorySelect}
+        <label className="filter-control"><span className="control-label">Tournament</span>{categorySelect}</label>
         {selectedTournament?.groups > 1 && (
           <Button variant="outline" className="btn" disabled={!!groupLock} title={groupLock || "Move or swap teams between groups"}
             onClick={() => open({ type: "groups", tournament: selectedTournament })}>
@@ -55,32 +55,33 @@ function Teams() {
           </>
         )}
       </div>
+      <div className="results-summary"><span role="status">{teams.length} of {state.teams.filter(t => filter === "all" || t.tournamentId === filter).length} teams{query && <> · Search: “{query}”</>}</span>{(query || filter !== "all") && <Button variant="ghost" onClick={() => setPage("Teams & players", { filter: "all", teamQuery: "" })}>Reset filters</Button>}</div>
       {selectedTournament?.groups > 1 && <p className="group-edit-hint">
         {groupLock || "Select teams in Edit groups to move or swap them. Editing locks after the first completed match."}
       </p>}
       {teams.length ? (
         <div className="table-scroll">
-          <Table>
+          <Table className="teams-table" aria-label="Teams and players">
             <TableHeader>
               <TableRow>
                 <TableHead>SEED</TableHead>
                 <TableHead>TEAM / PLAYER</TableHead>
                 <TableHead>TOURNAMENT</TableHead>
                 <TableHead>GROUP</TableHead>
-                {admin && <TableHead />}
+                {admin && <TableHead><span className="sr-only">Actions</span></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {teams.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell>
+                  <TableCell data-label="Seed">
                     <span className="seed">{t.seed}</span>
                   </TableCell>
                   <TableCell>
                     <strong>{t.name}</strong>
                   </TableCell>
-                  <TableCell>{tournament(t.tournamentId)?.name}</TableCell>
-                  <TableCell>{groupName(t.group) || "Not assigned"}</TableCell>
+                  <TableCell data-label="Tournament">{tournament(t.tournamentId)?.name}</TableCell>
+                  <TableCell data-label="Group">{groupName(t.group) || "Not assigned"}</TableCell>
                   {admin && (
                     <TableCell>
                       {t.group != null ? (
@@ -103,6 +104,8 @@ function Teams() {
                       >
                         <Pencil size={16} /> Edit players
                       </Button>
+                      {groupEditLockReason(state, t.tournamentId) && <small className="lock-reason">{groupEditLockReason(state, t.tournamentId)}</small>}
+                      {tournamentProgress(state, t.tournamentId).champion && <small className="lock-reason">Player names are locked after the tournament ends.</small>}
                     </TableCell>
                   )}
                 </TableRow>
@@ -111,9 +114,8 @@ function Teams() {
           </Table>
         </div>
       ) : (
-        <Empty title="Make room for your competitors">
-          Create a tournament, then add teams manually or import a CSV / Excel
-          workbook.
+        <Empty title={query || filter !== "all" ? "No teams found" : "Make room for your competitors"} action={(query || filter !== "all") && <Button variant="outline" onClick={() => setPage("Teams & players", { filter: "all", teamQuery: "" })}>Reset filters</Button>}>
+          {query || filter !== "all" ? "Try another player name or reset your tournament filter." : "Create a tournament, then add teams manually or import a CSV / Excel workbook."}
         </Empty>
       )}
     </section>

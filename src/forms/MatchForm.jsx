@@ -33,6 +33,7 @@ function MatchEditor() {
     [scheduled, setScheduled] = useState(m.scheduled || ""),
     [games, setGames] = useState(m.games.length ? m.games.map(game => game.map(String)) : [["", ""]]);
   const [confirmCorrection, setConfirmCorrection] = useState(false);
+  const [scoreError, setScoreError] = useState("");
   const resultRevision = useRef(state.revision);
   useEffect(() => {
     if (modal?.conflictRevision) {
@@ -43,6 +44,7 @@ function MatchEditor() {
   function updateGameScore(index, side, value) {
     setConfirmCorrection(false);
     setError("");
+    setScoreError("");
     setGames(current => current.map((game,i) => i === index ? game.map((score,j) => j === side ? value : score) : game));
   }
   return (
@@ -131,6 +133,7 @@ function MatchEditor() {
             I confirm this correction. Standings and the draw will update. Later games whose opponents change will return to upcoming, clearing their scores and freeing any occupied courts. Unaffected results stay saved.
           </label>}
           <div className="game-inputs">
+            {scoreError && <p id="match-score-error" className="sr-only">{scoreError}</p>}
             {games.map((g, i) => (
               <div className="game-score-row" key={i}>
                 <div className="game-score-heading">
@@ -138,9 +141,9 @@ function MatchEditor() {
                   {i === games.length - 1 && i > 0 && <Button variant="ghost" type="button" className="icon-btn" disabled={busy} aria-label="Remove last game" onClick={() => setGames(games.slice(0,-1))}><X size={16}/></Button>}
                 </div>
                 <div className="game-score-sides">
-                  <ScoreInput label={`Game ${i + 1} first team`} value={g[0]} cap={rules.cap} disabled={busy} onChange={value => updateGameScore(i,0,value)}/>
+                  <ScoreInput label={`Game ${i + 1} first team`} describedBy={scoreError ? "match-score-error" : undefined} invalid={!!scoreError && g[0] === ""} value={g[0]} cap={rules.cap} disabled={busy} onChange={value => updateGameScore(i,0,value)}/>
                   <span className="score-separator">&ndash;</span>
-                  <ScoreInput label={`Game ${i + 1} second team`} value={g[1]} cap={rules.cap} disabled={busy} onChange={value => updateGameScore(i,1,value)}/>
+                  <ScoreInput label={`Game ${i + 1} second team`} describedBy={scoreError ? "match-score-error" : undefined} invalid={!!scoreError && g[1] === ""} value={g[1]} cap={rules.cap} disabled={busy} onChange={value => updateGameScore(i,1,value)}/>
                 </div>
               </div>
             ))}
@@ -160,7 +163,7 @@ function MatchEditor() {
               onClick={async () => {
                 let completedGames;
                 try { completedGames = finalScores(games); }
-                catch (error) { setError(error.message); return; }
+                catch (error) { setScoreError(error.message); setError(error.message); return; }
                 if (
                   await act(
                     m.status === "completed" ? "correctResult" : "finish",

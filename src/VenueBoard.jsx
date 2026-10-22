@@ -200,7 +200,7 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
   }, [preset?.updatedAt]);
   const boardRef = useRef(null);
   const { selection: preferences, setSelection: setPreferences, editing, draft, savedLayouts } = useStore(venueStore);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [layoutControls, setLayoutControls] = useState(null);
   useAutoScroll(boardRef, !editing && autoScroll);
   const [error, setError] = useState("");

@@ -13,27 +13,27 @@ import { cloudEnabled } from "../cloud/storage.js";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
 function MatchTable({ matches, history = false, onScore }) {
-  const { canManageMatches, team, tournament, open } = useDesk();
+  const { canManageMatches, admin, team, tournament, open } = useDesk();
   return matches.length ? (
     <div className="table-scroll">
-      <Table className="match-table">
+      <Table className="match-table" aria-label={history ? "Completed matches" : "Event matches"}>
         <TableHeader>
           <TableRow>
             <TableHead>MATCH / TOURNAMENT</TableHead>
             <TableHead>STAGE</TableHead>
             <TableHead>{history ? "RESULT" : "COURT / TIME"}</TableHead>
             <TableHead>STATUS</TableHead>
-            {canManageMatches && <TableHead />}
+            {canManageMatches && <TableHead><span className="sr-only">Actions</span></TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {matches.map((m) => (
-            <TableRow key={m.id}>
+            <TableRow key={m.id} data-match-status={m.status}>
               <TableCell>
-                <strong>
-                  {team(m.a)?.name || pendingOpponent(m, "a")}{" "}
+                <strong className="match-opponents">
+                  <span>{team(m.a)?.name || pendingOpponent(m, "a")}</span>{" "}
                   <span className="versus">vs</span>{" "}
-                  {team(m.b)?.name || pendingOpponent(m, "b")}
+                  <span>{team(m.b)?.name || pendingOpponent(m, "b")}</span>
                 </strong>
                 <small>{tournament(m.tournamentId)?.name}</small>
               </TableCell>
@@ -69,10 +69,10 @@ function MatchTable({ matches, history = false, onScore }) {
               {canManageMatches && (
                 <TableCell className="match-actions-cell">
                   <div className="match-action-buttons">
-                  {cloudEnabled() && m.status === "live" && <Button variant="outline" className="btn"
+                  {cloudEnabled() && m.status === "live" && <Button variant="default" className="btn primary"
                     aria-label={`Open scorer: ${team(m.a)?.name} vs ${team(m.b)?.name}`}
                     onClick={() => onScore ? onScore(m) : open({ type: "scorer", matchId: m.id })}>Open scorer</Button>}
-                  <Button variant="outline"
+                  <Button variant={m.status === "upcoming" ? "default" : "outline"}
                     className="btn"
                     disabled={m.status === "upcoming" && (!m.a || !m.b)}
                     aria-label={`${m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : (m.bye ? "View bye" : "Edit result")}: ${team(m.a)?.name || "match"} vs ${team(m.b)?.name || "qualifier"}`}
@@ -92,7 +92,7 @@ function MatchTable({ matches, history = false, onScore }) {
     <Empty title={history ? "No results yet" : "No matches here yet"}>
       {history
         ? "Completed matches will appear here automatically."
-        : "Add teams and generate fixtures from Tournaments."}
+        : admin ? "Add teams and generate fixtures from Tournaments." : "Matches will appear when the organizer creates fixtures."}
     </Empty>
   );
 }

@@ -1,7 +1,7 @@
 import { Toaster } from "./components/ui/sonner.jsx";
 import { toast } from "sonner";
 import React, { Suspense, lazy, useEffect, useRef } from "react";
-import { LayoutDashboard, Trophy, Users, CalendarDays, GitBranch, Settings, Monitor, ArrowUpRight, ArrowRight, Plus, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ArrowRight, Plus, ChevronRight } from "lucide-react";
 
 const VenueBoard = lazy(() => import("./VenueBoard.jsx"));
 
@@ -14,6 +14,8 @@ import { Button } from "./components/ui/button.jsx";
 
 import { tournamentStore, organizerStore } from "./stores/index.js";
 import PageLink from "./components/PageLink.jsx";
+import DeskNavigation from "./components/DeskNavigation.jsx";
+import useScorerReturn from "./hooks/useScorerReturn.js";
 import Overview from "./pages/Overview.jsx";
 import Tournaments from "./pages/Tournaments.jsx";
 import Teams from "./pages/Teams.jsx";
@@ -29,23 +31,17 @@ import { cloudEnabled, currentSession } from "./cloud/storage.js";
 import Umpire from "./cloud/Umpire.jsx";
 import Scorer from "./cloud/Scorer.jsx";
 
-const NAV = [
-  ["Overview", LayoutDashboard],
-  ["Tournaments", Trophy],
-  ["Teams & players", Users],
-  ["Matches", CalendarDays],
-  ["Standings", GitBranch],
-];
-function MatchScorer({ match, teams, category, onClose }) {
+function MatchScorer({ match, teams, category, onClose, returnLabel }) {
   // Keep the prepared fixture available through result confirmation.
   const [prepared] = React.useState(() => ({ match, teams, category }));
-  return <Scorer {...prepared} onClose={onClose}/>;
+  return <Scorer {...prepared} onClose={onClose} returnLabel={returnLabel}/>;
 }
 function App() {
   const { state, page, filter, modal, error, notice, connected, busy, admin, display, readyMatches, act, open, setPage, setFilter, setModal, setError, setNotice } = useDesk();
   useEffect(() => tournamentStore.getState().connect(), []);
   useEffect(() => organizerStore.getState().connectNavigation(), []);
   const heading = useRef(null);
+  useScorerReturn(modal?.type === "scorer");
   useEffect(() => {
     document.querySelector("nav [aria-current='page']")?.scrollIntoView({ block: "nearest", inline: "nearest" });
     window.scrollTo(0, 0);
@@ -67,7 +63,7 @@ function App() {
   if (display) return <Suspense fallback={<div className="loading"><Logo/><p>Preparing venue screen...</p></div>}><VenueBoard state={state} upcoming={readyMatches} connected={connected}/></Suspense>;
   if (cloudEnabled() && modal?.type === "scorer") {
     const match = state.matches.find(m => m.id === modal.matchId);
-    if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} onClose={() => setModal(null)}/>;
+    if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} returnLabel={page === "History" ? "Match history" : page} onClose={() => setModal(null)}/>;
   }
   if (currentSession()?.role === "umpire") return <Umpire/>;
   const titles = {
@@ -92,86 +88,12 @@ function App() {
   };
   return (
       <div className="app-shell">
-        <aside className="sidebar">
-          <Logo />
-          <div className="event-label">
-            <span className="event-icon">
-              <Trophy size={18} />
-            </span>
-            <div>
-              <strong>{state.event.name}</strong>
-              <small>{state.demo ? "Demo courts" : "Organizing desk"}</small>
-            </div>
-          </div>
-          <span className="nav-label">TOURNAMENT CONTROL</span>
-          <nav aria-label="Main navigation">
-            {NAV.map(([label, Icon]) => (
-              <Button variant="ghost" asChild
-                key={label}
-                className={
-                  page === label || (label === "Matches" && page === "History")
-                    ? "active justify-start bg-emerald-900 text-white hover:bg-emerald-900 hover:text-white md:w-full"
-                    : "justify-start hover:bg-white/10 hover:text-white md:w-full"
-                }
-                aria-current={page === label || (label === "Matches" && page === "History") ? "page" : undefined}
-              >
-                <PageLink page={label}>
-                <Icon size={19} />
-                {label}
-                {label === "Matches" &&
-                  state.matches.some((m) => m.status === "live") && (
-                    <span className="nav-number">
-                      {state.matches.filter((m) => m.status === "live").length}
-                    </span>
-                  )}
-                </PageLink>
-              </Button>
-            ))}
-          </nav>
-          <div className="sidebar-bottom">
-            <a
-              className="display-promo"
-              href="/display"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span className="display-icon">
-                <Monitor size={23} />
-                <ArrowUpRight size={16} />
-              </span>
-              <strong>The courtside screen</strong>
-              <p>
-                Results and upcoming games,
-                <br />
-                ready for the whole venue.
-              </p>
-              <span>
-                Open scoreboard
-                <ArrowRight size={15} />
-              </span>
-            </a>
-            {admin && (
-              <Button variant="ghost" asChild
-                className={`settings-nav ${page === "Settings" ? "active" : ""}`}
-              >
-                <PageLink page="Settings" aria-current={page === "Settings" ? "page" : undefined}>
-                <Settings size={18} />
-                Club settings
-                </PageLink>
-              </Button>
-            )}
-            <div className="club-signature">
-              <span>SHUTTLEHUB</span>
-              <span>
-                COURTSIDE CONTROL <ArrowUpRight size={13} />
-              </span>
-            </div>
-          </div>
-        </aside>
+        <a className="skip-link" href="#desk-content">Skip to content</a>
+        <DeskNavigation page={page} event={state.event}/>
         <main>
           <header className="topbar">
             <div className="breadcrumb">
-              CONTROL DESK
+              {page === "History" ? <PageLink page="Matches">Matches</PageLink> : <span>{state.event.name}</span>}
               <ChevronRight size={14} />
               <strong>{page}</strong>
             </div>
@@ -186,7 +108,7 @@ function App() {
               </span>
             </div>
           </header>
-          <div className="main-content">
+          <div className="main-content" id="desk-content" tabIndex={-1}>
             {state.demo && (
               <div className="demo-strip">
                 You’re exploring a sample event.
@@ -200,42 +122,10 @@ function App() {
             )}
             <div className="page-heading">
               <div>
-                <div className="eyebrow">
-                  {page === "Overview"
-                    ? "SHUTTLEHUB / CONTROL DESK"
-                    : "SHUTTLEHUB / CONTROL DESK"}
-                </div>
                 <h1 ref={heading} tabIndex={-1} className="page-title">{titles[page]}</h1>
                 <p>{subtitles[page]}</p>
               </div>
-              <div className="heading-actions">
-                {admin && (
-                  <Button variant="outline"
-                    className="btn settings-mobile"
-                    aria-label="Club settings"
-                    onClick={() => setPage("Settings")}
-                  >
-                    <Settings size={16} />
-                  </Button>
-                )}
-                <a
-                  className="btn"
-                  href="/display"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Monitor size={16} />
-                  Venue display
-                  <ArrowUpRight size={14} />
-                </a>
-                <Button variant="default"
-                  className="btn primary"
-                  onClick={() => open({ type: "tournament" })}
-                >
-                  <Plus size={17} />
-                  New tournament
-                </Button>
-              </div>
+              {admin && page === "Tournaments" && <div className="heading-actions"><Button onClick={() => open({ type: "tournament" })}><Plus size={17}/>New tournament</Button></div>}
             </div>
             {page === "Overview" ? (
               <Overview />
@@ -273,6 +163,7 @@ function App() {
         </main>
         {modal && (
           <Modal
+            busy={busy}
             title={
               {
                 tournament: modal.tournament

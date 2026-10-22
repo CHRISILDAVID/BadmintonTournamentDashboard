@@ -167,6 +167,8 @@ function Tournaments() {
                       </Button>
                     ))}
                 </div>
+                {matches.length > 0 && t.groups > 1 && groupEditLockReason(state, t.id) && <p className="lock-reason">Groups: {groupEditLockReason(state, t.id)}</p>}
+                {drawn && !matches.some(m => m.stage !== "League") && !tournamentProgress(state, t.id).canCreateKnockouts && <p className="lock-reason">Complete all league matches before creating the knockout draw.</p>}
                 {admin &&
                   drawn &&
                   done === 0 &&

@@ -5,6 +5,7 @@ const App = lazy(() => import("../App.jsx"));
 const POINTER = "shuttlehub.active-session";
 export default function CloudGate() {
   const [session, setSession] = useState(null), [error, setError] = useState(""), [recovery, setRecovery] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
   useEffect(() => {
     let active = true;
     const revoke = () => {
@@ -58,6 +59,6 @@ export default function CloudGate() {
     return () => { active = false; window.removeEventListener("shuttle-revoked", revoke); window.removeEventListener("hashchange", invitationChanged); window.removeEventListener("storage", identityChanged); };
   }, []);
   if (!session) return <main className="cloud-welcome"><h1>ShuttleHub</h1><p>{error || "Opening your event…"}</p><p>Use the private setup, umpire invitation, or display link provided by your organizer.</p><button onClick={() => location.reload()}>Try again</button></main>;
-  if (recovery) return <main className="cloud-welcome"><h1>Save your recovery link</h1><p>This private link grants organizer access. Store it securely before continuing. Recovery revokes your previous organizer sessions and generates a replacement link.</p><textarea readOnly aria-label="Private recovery link" value={recovery}/><button onClick={() => navigator.clipboard.writeText(recovery).catch(() => {})}>Copy recovery link</button><button onClick={() => setRecovery("")}>I have saved it — open event</button></main>;
+  if (recovery) return <main className="cloud-welcome"><h1>Save your recovery link</h1><p>This private link grants organizer access. Store it securely before continuing. Recovery revokes your previous organizer sessions and generates a replacement link.</p><textarea readOnly aria-label="Private recovery link" value={recovery}/><button onClick={() => navigator.clipboard.writeText(recovery).then(() => setCopyNotice("Recovery link copied.")).catch(() => setCopyNotice("Could not copy. Select the link above and copy it manually."))}>Copy recovery link</button><p role="status">{copyNotice}</p><button onClick={() => setRecovery("")}>I have saved it — open event</button></main>;
   return <Suspense fallback={<p>Loading tournament desk…</p>}><App/></Suspense>;
 }

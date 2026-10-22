@@ -5,12 +5,14 @@ import { ChevronUp, ChevronDown } from "lucide-react";
 import { scoreText, stepScore } from "./scores.js";
 import "./score-input.css";
 
-export default function ScoreInput({ label, value, cap, onChange, disabled }) {
+export default function ScoreInput({ label, value, cap, onChange, disabled, describedBy, invalid }) {
   const step = (amount) => onChange(stepScore(value, amount, cap));
   return (
     <div className="score-input">
       <Input
         aria-label={label}
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
         role="spinbutton"
         aria-valuemin={0}
         aria-valuemax={cap}
