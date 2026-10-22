@@ -1,24 +1,16 @@
 import React, { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import StartupLoading from "../components/StartupLoading.jsx";
-
-async function request(path, body) {
-  const response = await fetch(`/api/${path}`, {
-    method: body === undefined ? "GET" : "POST", credentials: "same-origin", cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw Object.assign(new Error(data.error || "Could not reach the cloud. Try again."), { status: response.status });
-  return data;
-}
+import MaintainerHistory from "./MaintainerHistory.jsx";
+import { maintainerRequest as request } from "./maintainer-api.js";
 
 export default function Maintainer() {
   const [session, setSession] = useState(undefined), [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [owner, setOwner] = useState(""), [directory, setDirectory] = useState(null);
   const [grant, setGrant] = useState(null), [qr, setQr] = useState("");
-  function lock() { setSession(null); setDirectory(null); setGrant(null); setQr(""); setSecret(""); }
+  const [tab, setTab] = useState("access");
+  function lock() { setSession(null); setDirectory(null); setGrant(null); setQr(""); setSecret(""); setTab("access"); }
   async function load(after = "") {
     setDirectory(await request(`maintainer/owners${after ? `?after=${encodeURIComponent(after)}` : ""}`));
   }
@@ -68,7 +60,7 @@ export default function Maintainer() {
     <header><a className="maintainer-brand" href="/">ShuttleHub</a><span>Maintainer tools</span></header>
     {!session ? <section className="maintainer-card">
       <h1>Unlock organizer setup</h1>
-      <p>Create primary-organizer access and restore existing events. Use your private provisioning secret to unlock these tools.</p>
+      <p>Manage primary-organizer access and browse event history. Use your private provisioning secret to unlock these tools.</p>
       <form onSubmit={unlock}>
         <label htmlFor="maintainer-secret">Provisioning secret</label>
         <input id="maintainer-secret" type="password" autoComplete="current-password" required maxLength={2048} value={secret} onChange={e => setSecret(e.target.value)}/>
@@ -76,9 +68,11 @@ export default function Maintainer() {
       </form>
       <small>This browser remembers access for up to 7 days. This secret grants authority to provision organizers; keep it private.</small>
     </section> : <>
-      <div className="maintainer-heading"><div><h1>Primary organizer access</h1><p>Create a private setup link. The organizer opens it and saves their recovery link.</p></div>
+      <div className="maintainer-heading"><div><h1>{tab === "access" ? "Primary organizer access" : "Event history"}</h1><p>{tab === "access" ? "Create a private setup link. The organizer opens it and saves their recovery link." : "Read-only results across every organizer’s event."}</p></div>
         <div className="maintainer-controls"><button disabled={busy} onClick={() => logout()}>Lock this browser</button><button disabled={busy} onClick={() => logout(true)}>Lock all maintainer browsers</button></div>
       </div>
+      <nav className="maintainer-tabs" aria-label="Maintainer sections"><button aria-current={tab === "access" ? "page" : undefined} onClick={() => setTab("access")}>Organizer access</button><button aria-current={tab === "history" ? "page" : undefined} onClick={() => setTab("history")}>Event history</button></nav>
+      {tab === "history" ? <MaintainerHistory onLock={lock}/> : <>
       <section className="maintainer-card">
         <h2>Create primary organizer</h2>
         <p>Use one permanent identifier per organizer, such as <code>ravi-club</code>. Each identifier owns exactly one event. Restore an existing identifier if access is lost.</p>
@@ -103,6 +97,7 @@ export default function Maintainer() {
         {!directory ? <p>Loading organizers…</p> : !directory.owners.length ? <p>No organizers on this page.</p> : <ul className="maintainer-owners">{directory.owners.map(row => <li key={row.owner}><strong>{row.owner}</strong><button disabled={busy} aria-label={`Restore access for ${row.owner}`} onClick={() => issue(row.owner, true)}>Restore access</button></li>)}</ul>}
         <div className="maintainer-controls">{directory?.nextCursor && <button disabled={busy} onClick={() => run(() => load(directory.nextCursor))}>Next 100 organizers</button>}<button disabled={busy} onClick={() => run(() => load())}>First page</button></div>
       </section>
+      </>}
     </>}
     {error && <p className="score-error" role="alert">{error}</p>}
     {notice && <p className="maintainer-notice" role="status">{notice}</p>}

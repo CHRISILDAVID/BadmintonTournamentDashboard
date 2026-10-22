@@ -3,6 +3,7 @@ import { emptyState, applyAction, validateGames } from "../server/engine.js";
 import { scoringRules } from "../shared/format.js";
 import { newScore, reduceScore, publicScore } from "../shared/live-scoring.js";
 import { token, digest, json, check, cookie, sessionCookie, manager, readJson } from "./security.js";
+import { EventHistory } from "./history.js";
 
 const DAY = 86400000;
 const encode = JSON.stringify;
@@ -39,6 +40,7 @@ export class TournamentEvent extends DurableObject {
       CREATE TABLE IF NOT EXISTS presets (id TEXT PRIMARY KEY, data TEXT NOT NULL);
     `);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+    this.history = new EventHistory(this);
   }
   get(key) {
     const row = this.sql.exec("SELECT value FROM meta WHERE key=?", key).toArray()[0];
@@ -47,7 +49,8 @@ export class TournamentEvent extends DurableObject {
       return JSON.parse(this.sql.exec("SELECT value FROM documents WHERE key=? ORDER BY part", key).toArray().map(r => r.value).join(""));
     return JSON.parse(row.value);
   }
-  put(key, value) {
+  put(key, value, previousState) {
+    if (key === "state") this.history.beforeStateChange(previousState ?? this.get("state"), value);
     const serialized = encode(value), chunkSize = 200000;
     this.sql.exec("DELETE FROM documents WHERE key=?", key);
     if (serialized.length > chunkSize) {
@@ -79,6 +82,9 @@ export class TournamentEvent extends DurableObject {
       this.sql.exec("INSERT INTO invitations(hash,role,profile,expires) VALUES(?,?,?,?)", hash, "recovery", owner.id, Date.now() + DAY);
     });
   }
+  historySummary() { return this.history.summary(); }
+  historyPage(options) { return this.history.page(options); }
+  historyCategory(id, options) { return this.history.category(id, options); }
   session(hash) {
     const s = this.sql.exec("SELECT * FROM sessions WHERE hash=? AND revoked=0 AND expires>?", hash, Date.now()).toArray()[0];
     check(s, "Session expired or revoked. Open a valid invitation or recovery link.", 401);
@@ -255,7 +261,7 @@ export class TournamentEvent extends DurableObject {
           check(body.revision === before.revision, "The event changed. Reload and retry.", 409);
           const next = applyAction(before, body.action, body.payload);
           this.invalidateChanged(before, next);
-          this.put("state", next); change = { type: "refresh", payload: {} }; return next;
+          this.put("state", next, before); change = { type: "refresh", payload: {} }; return next;
         }
         manager(current);
         if (path === "/api/invite") {
@@ -322,7 +328,7 @@ export class TournamentEvent extends DurableObject {
           check(["shuttlehub-v1", "shuttlehub-cloud-v1"].includes(backup?.format), "Unsupported backup.");
           const next = this.validateImport(backup.state);
           this.put("preMigrationBackup", before);
-          next.revision = before.revision + 1; this.put("state", next);
+          next.revision = before.revision + 1; this.put("state", next, before);
           // Preserve historical cloud scoring as evidence; controllers are never restored.
           if (backup.format === "shuttlehub-cloud-v1") this.put("importedScoringArchive", { scoring: backup.scoring, actions: backup.actions, rejected: backup.rejected });
           change = { type: "refresh", payload: {} }; return next;
@@ -441,7 +447,7 @@ export class TournamentEvent extends DurableObject {
       validateGames(next.games, next.rules);
       const updated = applyAction(state, "finish", { matchId: match.id, games: next.games });
       this.invalidateChanged(state, updated);
-      this.put("state", updated);
+      this.put("state", updated, state);
     }
     this.sql.exec("INSERT INTO actions VALUES(?,?,?,?,?,?)", a.id, a.matchId, a.generation, a.seq, s.id, encode(a));
     this.saveScore(r);

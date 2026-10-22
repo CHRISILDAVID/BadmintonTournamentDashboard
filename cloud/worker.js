@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { token, digest, json, check, cookie, readJson, secretMatches } from "./security.js";
+import { historyLimit } from "./history.js";
 export { TournamentEvent } from "./event.js";
 const MAINTAINER_AGE = 7 * 24 * 60 * 60;
 const maintenanceCookie = (secret, age = MAINTAINER_AGE) =>
@@ -41,6 +42,16 @@ export class OwnerDirectory extends DurableObject {
     check(typeof after === "string" && (!after || /^[a-zA-Z0-9_-]{3,100}$/.test(after)), "Invalid directory cursor.");
     const rows = this.ctx.storage.sql.exec("SELECT owner,event FROM owners WHERE owner>? ORDER BY owner LIMIT 101", after).toArray();
     return { owners: rows.slice(0, 100), nextCursor: rows.length > 100 ? rows[99].owner : null };
+  }
+  historyOwners(after = "", limit = 10) {
+    check(typeof after === "string" && (!after || /^[a-zA-Z0-9_-]{3,100}$/.test(after)), "Invalid history cursor.");
+    const size = historyLimit(limit, 10, 10);
+    const rows = this.ctx.storage.sql.exec("SELECT owner,event FROM owners WHERE owner>? ORDER BY owner LIMIT ?", after, size + 1).toArray();
+    return { owners: rows.slice(0, size), total: this.ctx.storage.sql.exec("SELECT COUNT(*) AS n FROM owners").one().n,
+      nextCursor: rows.length > size ? rows[size - 1].owner : null, limit: size };
+  }
+  eventOwner(eventId) {
+    return this.ctx.storage.sql.exec("SELECT owner,event FROM owners WHERE event=?", eventId).toArray()[0] || null;
   }
   async provision(owner) {
     check(typeof owner === "string" && /^[a-zA-Z0-9_-]{3,100}$/.test(owner), "Use a stable owner identifier (3–100 letters, digits, _ or -).");
@@ -95,6 +106,32 @@ export default {
         if (url.pathname === "/api/maintainer/owners") {
           check(request.method === "GET", "GET required.", 405);
           return json(await directory.listOwners(url.searchParams.get("after") || ""));
+        }
+        if (url.pathname === "/api/maintainer/history") {
+          check(request.method === "GET", "GET required.", 405);
+          const page = await directory.historyOwners(url.searchParams.get("after") || "", historyLimit(url.searchParams.get("limit"), 10, 10));
+          // Only fan out to the requested page, never every organizer/event.
+          const items = await Promise.all(page.owners.map(async row => {
+            try { return { owner: row.owner, eventId: row.event, ...await env.EVENTS.getByName(row.event).historySummary() }; }
+            catch { return { owner: row.owner, eventId: row.event, unavailable: true }; }
+          }));
+          return json({ items, total: page.total, nextCursor: page.nextCursor, limit: page.limit });
+        }
+        const historyRoute = url.pathname.match(/^\/api\/maintainer\/history\/([^/]+)(?:\/tournaments\/([^/]+))?$/);
+        if (historyRoute) {
+          check(request.method === "GET", "GET required.", 405);
+          const [, eventId, encodedCategory] = historyRoute;
+          check(/^[a-f0-9-]{36}$/.test(eventId), "Invalid history address.");
+          let categoryId;
+          try { categoryId = encodedCategory === undefined ? undefined : decodeURIComponent(encodedCategory); }
+          catch { check(false, "Invalid history address."); }
+          const row = await directory.eventOwner(eventId);
+          check(row, "Event not found.", 404);
+          const options = { after: url.searchParams.get("after") || "", limit: historyLimit(url.searchParams.get("limit"), categoryId ? 20 : 10),
+            revision: url.searchParams.get("revision") ?? undefined, ...(categoryId ? { view: url.searchParams.get("view") || "matches" } : {}) };
+          const event = env.EVENTS.getByName(eventId);
+          const data = categoryId ? await event.historyCategory(categoryId, options) : await event.historyPage(options);
+          return json({ owner: row.owner, eventId, ...data });
         }
         if (["/api/maintainer/logout", "/api/maintainer/logout-all"].includes(url.pathname)) {
           check(request.method === "POST", "POST required.", 405); sameOrigin(request, url);

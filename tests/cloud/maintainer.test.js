@@ -35,9 +35,15 @@ test("maintainer form provisioning enforces one event; restoration retains data 
   assert.equal(attempts.filter(r => r.status === 409).length, 2);
   const setup = attempts.find(r => r.status === 201).data, organizer = await redeem(setup.setupUrl);
   const state = await importFixture(organizer);
-  const directory = await request("maintainer/owners", undefined, maintainer.cookie);
+  let directory = await request("maintainer/owners", undefined, maintainer.cookie);
   assert.equal(directory.status, 200);
-  assert.ok(directory.data.owners.some(o => o.owner === identity && o.event === organizer.eventId));
+  let listed = directory.data.owners.some(o => o.owner === identity && o.event === organizer.eventId);
+  while (!listed && directory.data.nextCursor) {
+    directory = await request(`maintainer/owners?after=${encodeURIComponent(directory.data.nextCursor)}`, undefined, maintainer.cookie);
+    assert.equal(directory.status, 200);
+    listed = directory.data.owners.some(o => o.owner === identity && o.event === organizer.eventId);
+  }
+  assert.ok(listed);
   assert.equal((await request("maintainer/owners?after=bad%27", undefined, maintainer.cookie)).status, 400);
   const recovery = await request("maintainer-recovery", { owner: identity }, maintainer.cookie);
   assert.equal(recovery.status, 201); assert.equal(recovery.data.eventId, organizer.eventId);

@@ -48,7 +48,11 @@ After deploying this update, primary organizers can be provisioned without termi
 
 The browser remembers maintainer access for up to seven days using a separate Secure/HttpOnly/SameSite cookie. The provisioning secret is not written to localStorage or IndexedDB. Directory entries are paginated at 100 per page; private setup links are not retained by the page after it closes. If a link is lost, restore that same identifier rather than making another identity.
 
-**Lock this browser** revokes its maintainer session. **Lock all maintainer browsers** revokes every maintainer session without revoking event organizer/umpire sessions. Rotating `PROVISIONING_SECRET` through Wrangler invalidates existing maintainer sessions on their next request. Maintainer access does not itself authorize reading or scoring event data through event APIs.
+**Lock this browser** revokes its maintainer session. **Lock all maintainer browsers** revokes every maintainer session without revoking event organizer/umpire sessions. Rotating `PROVISIONING_SECRET` through Wrangler invalidates existing maintainer sessions on their next request. Maintainer access authorizes the read-only **Event history** tab; it does not authorize event scoring or management through staff APIs.
+
+### Event history
+
+Choose **Event history** to browse all organizers' events and their sub-tournaments, including winners and runners-up from completed finals. Open a sub-tournament to view its recorded matches, scores and entries. Events and sub-tournaments load ten at a time; matches and entries load twenty at a time. Sub-tournaments removed after this update retain their last recorded results in maintainer history. Previously deleted records cannot be recovered. See [Maintainer event history](MAINTAINER_HISTORY.md) for retention, pagination and validation details.
 
 The page URL is public; knowing it grants no access without the secret/session. An organizer session alone cannot unlock it. There is no public primary-organizer signup. This remains one event per provisioned identity; it cannot prove that two separately provisioned identifiers represent different physical people.
 
