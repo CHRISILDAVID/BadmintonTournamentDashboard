@@ -9,6 +9,7 @@ import GroupEditor from "./GroupEditor.jsx";
 
 import { useDesk } from "./hooks/useDesk.jsx";
 import { Logo, Modal } from "./components/common.jsx";
+import StartupLoading from "./components/StartupLoading.jsx";
 
 import { Button } from "./components/ui/button.jsx";
 
@@ -59,8 +60,9 @@ function App() {
     if (error && !modal) toast.error(error, { id: "desk-error", onDismiss: () => setError("") });
     else toast.dismiss("desk-error");
   }, [error, modal, setError]);
-  if (!state) return <div className="loading"><Logo/><p>{error || "Connecting to tournament desk..."}</p>{error && <Button variant="ghost" onClick={() => location.reload()}>Reconnect</Button>}</div>;
-  if (display) return <Suspense fallback={<div className="loading"><Logo/><p>Preparing venue screen...</p></div>}><VenueBoard state={state} upcoming={readyMatches} connected={connected}/></Suspense>;
+  if (!state && !error) return <StartupLoading/>;
+  if (!state) return <div className="loading"><Logo/><p role="alert">{error}</p><Button variant="ghost" onClick={() => location.reload()}>Reconnect</Button></div>;
+  if (display) return <Suspense fallback={<StartupLoading/>}><VenueBoard state={state} upcoming={readyMatches} connected={connected}/></Suspense>;
   if (cloudEnabled() && modal?.type === "scorer") {
     const match = state.matches.find(m => m.id === modal.matchId);
     if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} returnLabel={page === "History" ? "Match history" : page} onClose={() => setModal(null)}/>;

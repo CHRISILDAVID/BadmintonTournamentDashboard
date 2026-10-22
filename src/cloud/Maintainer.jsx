@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import StartupLoading from "../components/StartupLoading.jsx";
 
 async function request(path, body) {
   const response = await fetch(`/api/${path}`, {
@@ -62,9 +63,10 @@ export default function Maintainer() {
     if (all && !window.confirm("Lock maintainer tools on every browser? Organizer and umpire sessions will stay active.")) return;
     await run(async () => { await request(all ? "maintainer/logout-all" : "maintainer/logout", {}); lock(); });
   }
+  if (session === undefined) return <StartupLoading/>;
   return <main className="maintainer-page">
     <header><a className="maintainer-brand" href="/">ShuttleHub</a><span>Maintainer tools</span></header>
-    {session === undefined ? <p>Checking maintainer access…</p> : !session ? <section className="maintainer-card">
+    {!session ? <section className="maintainer-card">
       <h1>Unlock organizer setup</h1>
       <p>Create primary-organizer access and restore existing events. Use your private provisioning secret to unlock these tools.</p>
       <form onSubmit={unlock}>

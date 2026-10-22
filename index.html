@@ -7,9 +7,35 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/jpeg" href="/assets/logo.jpg" />
     <title>ShuttleHub · Tournament desk</title>
+    <style>
+      html, body { margin: 0; }
+      #startup-splash { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: #fff; color: #102f3e; }
+      #startup-splash .splash-media { position: relative; width: min(100%, 1440px, 177.7778dvh); aspect-ratio: 16 / 9; }
+      #startup-splash :is(img, video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      #startup-splash video { background: #fff; }
+      #startup-splash .splash-status { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); left: 24px; right: 24px; text-align: center; font: 14px/1.5 "Segoe UI", Arial, sans-serif; }
+      #startup-splash .splash-retry { display: block; margin: 12px auto 0; min-height: 44px; padding: 10px 20px; border: 1px solid #cbd7d1; border-radius: 8px; background: white; color: #075e46; cursor: pointer; }
+      #startup-splash .splash-retry:focus-visible { outline: 3px solid #087c5c; outline-offset: 3px; }
+      #startup-splash [hidden] { display: none; }
+      #root[inert] { visibility: hidden; }
+      @media (prefers-reduced-motion: reduce) { #startup-splash video { display: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="startup-splash" role="status" aria-label="Loading ShuttleHub" aria-live="polite">
+      <div class="splash-media" aria-hidden="true">
+        <img src="/assets/shuttlehub-splash-poster.jpg" alt="" width="1920" height="1080" />
+        <video autoplay muted playsinline preload="auto" poster="/assets/shuttlehub-splash-poster.jpg" tabindex="-1" disablepictureinpicture>
+          <source src="/assets/ShuttleHub_Vector_Splash_4s.mp4" type="video/mp4" media="(prefers-reduced-motion: no-preference)" />
+        </video>
+      </div>
+      <div class="splash-status" hidden>
+        Still opening your event…
+        <button type="button" class="splash-retry">Reload</button>
+      </div>
+    </div>
+    <div id="root" inert aria-hidden="true"></div>
+    <noscript><style>#startup-splash { display: none; }</style><p>Enable JavaScript to open the ShuttleHub tournament desk.</p></noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
