@@ -133,14 +133,15 @@ export class TournamentEvent extends DurableObject {
       if (a.matchId && this.sessionById(a.session)) contacts.set(key, Math.max(contacts.get(key) || 0, a.contactAt || 0));
     }
     return this.sql.exec("SELECT data FROM scores").toArray().map(r => JSON.parse(r.data))
-      .filter(r => matchIds.has(r.matchId) && this.canSee(s, r.matchId, r)).map(r => publicScore({ ...r, contactAt: Math.max(r.contactAt || 0, contacts.get(`${r.matchId}:${r.controller}:${r.generation}`) || 0) }));
+      .filter(r => matchIds.has(r.matchId) && this.canSee(s, r.matchId, r)).map(r => publicScore({ ...r, contactAt: Math.max(r.contactAt || 0, contacts.get(`${r.matchId}:${r.controller}:${r.generation}`) || 0) }, s.id));
   }
   broadcast(type, payload, matchId) {
+    const record = type === "score" ? this.score(matchId) : null;
     for (const ws of this.ctx.getWebSockets()) {
       try {
         const a = ws.deserializeAttachment(), s = this.sessionById(a.session);
         if (!s) { ws.close(4001, "Access revoked or expired"); continue; }
-        if (!matchId || this.canSee(s, matchId)) ws.send(encode({ type, ...payload }));
+        if (!matchId || this.canSee(s, matchId)) ws.send(encode({ type, ...payload, ...(record ? { record: publicScore(record, s.id) } : {}) }));
       } catch { try { ws.close(1011, "Reconnect"); } catch {} }
     }
   }
@@ -234,7 +235,7 @@ export class TournamentEvent extends DurableObject {
           let r = this.score(match.id);
           check(!r?.invalidated, "Organizer must reconcile/reset this score before control can be claimed.", 409);
           if (!r) r = { matchId: match.id, generation: 1, revision: 0, seq: 0, score: newScore(match, scoringRules(state.tournaments.find(t => t.id === match.tournamentId), match.stage, match)) };
-          check(!r.controller || (r.controller === current.id && r.device === body.device), "Another device controls this match. Ask an organizer to transfer control.", 409);
+          check(!r.controller || (r.controller === current.id && (!r.device || r.device === body.device)), "Another device controls this match. Ask an organizer to transfer control.", 409);
           r.controller = current.id; r.device = body.device; r.contactAt = Date.now();
           r.context = { court: match.court, category: match.tournamentId, stage: match.stage };
           this.sql.exec("INSERT OR IGNORE INTO controllers VALUES(?,?,?)", r.matchId, r.generation, current.id);
@@ -253,7 +254,11 @@ export class TournamentEvent extends DurableObject {
         }
         if (path === "/api/action") {
           if (current.role === "umpire") {
-            check(["schedule", "start", "returnMatch", "finish", "correctResult", "knockouts"].includes(body.action), "This action requires organizer access.", 403);
+            check(["schedule", "start", "returnMatch"].includes(body.action), "This action requires organizer access. Umpires must confirm results from the match scorer.", 403);
+            if (body.action === "returnMatch") {
+              const record = this.score(body.payload?.matchId);
+              check(!record?.controller || record.controller === current.id, "Another umpire controls this match. Ask an organizer to return it to waiting.", 403);
+            }
           } else manager(current);
           check(!["demo", "practice", "clearDemo"].includes(body.action), "Sample event tools are disabled in cloud events.", 403);
           if (body.action === "randomComplete") check(this.testToolsEnabled(current), "Enable cloud testing tools to generate random results.", 403);
@@ -261,6 +266,16 @@ export class TournamentEvent extends DurableObject {
           check(body.revision === before.revision, "The event changed. Reload and retry.", 409);
           const next = applyAction(before, body.action, body.payload);
           this.invalidateChanged(before, next);
+          if (current.role === "umpire" && body.action === "start") {
+            // Reserve control in the same transaction as the court assignment.
+            // The starting umpire binds their scoring device when opening the scorer.
+            const match = next.matches.find(m => m.id === body.payload.matchId);
+            const previous = this.score(match.id);
+            this.saveScore({ matchId: match.id, generation: (previous?.generation || 0) + 1,
+              revision: 0, seq: 0, controller: current.id, device: null, contactAt: Date.now(),
+              context: { court: match.court, category: match.tournamentId, stage: match.stage },
+              score: newScore(match, scoringRules(next.tournaments.find(t => t.id === match.tournamentId), match.stage, match)) });
+          }
           this.put("state", next, before); change = { type: "refresh", payload: {} }; return next;
         }
         manager(current);

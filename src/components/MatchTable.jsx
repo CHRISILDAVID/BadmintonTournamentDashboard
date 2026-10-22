@@ -72,14 +72,14 @@ function MatchTable({ matches, history = false, onScore }) {
                   {cloudEnabled() && m.status === "live" && <Button variant="default" className="btn primary"
                     aria-label={`Open scorer: ${team(m.a)?.name} vs ${team(m.b)?.name}`}
                     onClick={() => onScore ? onScore(m) : open({ type: "scorer", matchId: m.id })}>Open scorer</Button>}
-                  <Button variant={m.status === "upcoming" ? "default" : "outline"}
+                  {(admin || m.status === "upcoming") && <Button variant={m.status === "upcoming" ? "default" : "outline"}
                     className="btn"
                     disabled={m.status === "upcoming" && (!m.a || !m.b)}
                     aria-label={`${m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : (m.bye ? "View bye" : "Edit result")}: ${team(m.a)?.name || "match"} vs ${team(m.b)?.name || "qualifier"}`}
                     onClick={() => open({ type: "match", matchId: m.id })}
                   >
                     {m.status === "upcoming" ? "Start game" : m.status === "live" ? "Record result" : (m.bye ? "View bye" : "Edit result")}
-                  </Button>
+                  </Button>}
                   </div>
                 </TableCell>
               )}

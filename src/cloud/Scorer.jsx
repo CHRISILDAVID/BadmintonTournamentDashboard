@@ -19,6 +19,8 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
   const [busy, setBusy] = useState(false), [, tick] = useState(0);
   const [offlineReady, setOfflineReady] = useState(false);
   const { connected } = useStore(liveStore);
+  const remote = useStore(liveStore, state => state.records[match.id]);
+  const controlledElsewhere = remote?.control === "other";
   const ref = useRef(null), syncing = useRef(false), editing = useRef(false), alive = useRef(true);
   const commit = async value => { await write(key, value); ref.current = value; if (alive.current) setRecord(value); };
   const flush = async () => {
@@ -133,7 +135,7 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
     </div>
     <small>{offlineReady ? "Offline shell prepared on this browser" : "Preparing offline shell — keep internet connected"}</small>
     {error && <p role="alert" className="score-error">{error}</p>}
-    {!s ? <div className="score-start"><h2>Ready to score</h2><div className="claim-opponents"><strong>{teams.find(t => t.id === match.a)?.name}</strong><span>vs</span><strong>{teams.find(t => t.id === match.b)?.name}</strong></div><p>{match.stage} · {scoringLabel(scoringRules(category, match.stage, match))}</p><p>Check the opponents and court, then claim this match while connected. Keep this tab for the whole match.</p><button disabled={!locked || busy || !connected} onClick={claim}>{busy ? "Claiming control…" : "Claim scoring control"}</button></div> : <>
+    {!s ? <div className="score-start"><h2>{controlledElsewhere ? "Scoring in progress" : "Ready to score"}</h2><div className="claim-opponents"><strong>{teams.find(t => t.id === match.a)?.name}</strong><span>vs</span><strong>{teams.find(t => t.id === match.b)?.name}</strong></div><p>{match.stage} · {scoringLabel(scoringRules(category, match.stage, match))}</p><p>{controlledElsewhere ? "Another umpire controls this match. Ask an organizer if control needs to be transferred." : "Check the opponents and court, then claim this match while connected. Keep this tab for the whole match."}</p><button disabled={!locked || busy || !connected || controlledElsewhere} onClick={claim}>{busy ? "Claiming control…" : "Claim scoring control"}</button></div> : <>
       <div className="score-meta">Game {Math.min(s.games.length + 1, s.rules.bestOf)} · First to {s.rules.points} · {s.rules.goldenPoint ? "Golden point" : `Win by two, cap ${s.rules.cap}`}<b>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</b></div>
       <div className="score-teams">{(swapped ? [1, 0] : [0, 1]).map(side => { const id = s.teams[side]; return <div className="score-team" key={id}>
         <h2>{teams.find(t => t.id === id)?.name || "Team"}</h2><strong>{s.complete ? s.games.at(-1)?.[side] : s.points[side]}</strong>

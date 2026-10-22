@@ -12,7 +12,7 @@ import { cloudEnabled } from "../cloud/storage.js";
 import LiveMatchSummary from "./LiveMatchSummary.jsx";
 
 function MatchCard({ m, compact = false }) {
-  const { canManageMatches, team, tournament, open } = useDesk();
+  const { canManageMatches, admin, team, tournament, open } = useDesk();
   const t = tournament(m.tournamentId),
     a = team(m.a),
     b = team(m.b);
@@ -92,7 +92,7 @@ function MatchCard({ m, compact = false }) {
           {cloudEnabled() && m.status === "live" && <Button variant="ghost" className="text-btn"
             aria-label={`Open scorer: ${a?.name} vs ${b?.name}`}
             onClick={() => open({ type: "scorer", matchId: m.id })}>Open scorer<ArrowUpRight size={15}/></Button>}
-          <Button variant="ghost"
+          {(admin || m.status === "upcoming") && <Button variant="ghost"
             className="text-btn"
             disabled={m.status === "upcoming" && (!m.a || !m.b)}
             onClick={() => open({ type: "match", matchId: m.id })}
@@ -103,7 +103,7 @@ function MatchCard({ m, compact = false }) {
                 ? (m.bye ? "View bye" : "Edit result")
                 : "Start game"}
             <ArrowUpRight size={15} />
-          </Button>
+          </Button>}
         </div>}
       </div>
     </div>

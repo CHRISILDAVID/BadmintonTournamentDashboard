@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import { organizerStore, tournamentStore } from "../stores/index.js";
 import { upcomingMatches } from "../../shared/matches.js";
@@ -10,7 +10,13 @@ export function useDesk() {
   const data = useStore(tournamentStore);
   const ui = useStore(organizerStore);
   const { state } = data;
-  const { filter, setFilter } = ui;
+  const { setFilter } = ui;
+  const umpire = currentSession()?.role === "umpire";
+  const filter = umpire && !state?.tournaments.some(t => t.id === ui.filter)
+    ? state?.tournaments[0]?.id || "all" : ui.filter;
+  useEffect(() => {
+    if (umpire && filter !== ui.filter) setFilter(filter, true);
+  }, [umpire, filter, ui.filter, setFilter]);
   const display = ui.page === "Display";
   const derived = useMemo(() => {
     const selected = state?.matches.filter(m => filter === "all" || m.tournamentId === filter) || [];
@@ -26,10 +32,10 @@ export function useDesk() {
     };
   }, [state, filter]);
   const categorySelect = <NativeSelect aria-label="Filter by tournament" className="category-select" value={filter} onChange={e => setFilter(e.target.value)}>
-    <option value="all">All tournaments</option>
+    {!umpire && <option value="all">All tournaments</option>}
     {state?.tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
   </NativeSelect>;
   const admin = !display && (!currentSession() || ["owner", "organizer"].includes(currentSession().role));
-  return { ...data, ...ui, ...derived, display, admin,
+  return { ...data, ...ui, ...derived, filter, display, admin, umpire,
     canManageMatches: !display && (admin || currentSession()?.role === "umpire"), categorySelect };
 }

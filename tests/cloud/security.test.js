@@ -53,6 +53,18 @@ test("umpires see every event match and score without assignment while control r
   const claim = await request("claim", { matchId: live.id, device: crypto.randomUUID() }, second.cookie);
   assert.equal(claim.status, 200);
   assert.equal((await request("claim", { matchId: live.id, device: crypto.randomUUID() }, first.cookie)).status, 409);
+  const firstView = (await request("live", undefined, first.cookie)).data.live.find(r => r.matchId === live.id);
+  assert.equal(firstView.control, "other");
+  assert.equal(firstView.controller, undefined);
+  assert.equal(firstView.device, undefined);
+  assert.equal((await request("live", undefined, second.cookie)).data.live.find(r => r.matchId === live.id).control, "yours");
+  // Neither a direct result submission nor returning the match may bypass control.
+  for (const action of ["finish", "returnMatch", "correctResult", "knockouts"]) {
+    const denied = await request("action", { action, revision: state.revision,
+      payload: { matchId: live.id, tournamentId: live.tournamentId, games: [[5, 0]] } }, first.cookie);
+    assert.equal(denied.status, 403, action);
+  }
+  assert.equal((await request("state", undefined, o.cookie)).data.revision, state.revision);
   const point = await request("score", envelope(second, claim.data, "point", live.a), second.cookie);
   assert.equal(point.data.accepted, true);
   assert.deepEqual((await request("live", undefined, first.cookie)).data.live.find(r => r.matchId === live.id).score.points, [1, 0]);
@@ -63,7 +75,7 @@ test("umpires see every event match and score without assignment while control r
   }
 });
 
-test("umpire match desk supports the full match lifecycle but denies unrelated organizer operations", async () => {
+test("umpires start matches and confirm controlled scores; organizers correct results and create knockouts", async () => {
   const o = await owner(), initial = fixture(1), m = initial.matches.find(m => m.status === "live");
   let state = await importFixture(o, applyAction(initial, "returnMatch", { matchId: m.id }));
   const inv = await invitation(o, "umpire"), u = await redeem(inv.url);
@@ -76,6 +88,10 @@ test("umpire match desk supports the full match lifecycle but denies unrelated o
   assert.equal((await act("schedule", { matchId: m.id, scheduled: "14:30" })).scheduled, "14:30");
   const staleRevision = state.revision;
   assert.equal((await act("start", { matchId: m.id, court: 1 })).status, "live");
+  const otherUmpire = await redeem((await invitation(o, "umpire")).url);
+  assert.equal((await request("claim", { matchId: m.id, device: crypto.randomUUID() }, otherUmpire.cookie)).status, 409);
+  assert.equal((await request("action", { action: "returnMatch", revision: state.revision, payload: { matchId: m.id } }, otherUmpire.cookie)).status, 403);
+  assert.equal((await request("action", { action: "finish", revision: state.revision, payload: { matchId: m.id, games: [[5, 0]] } }, otherUmpire.cookie)).status, 403);
   const other = state.matches.find(x => x.status === "upcoming");
   assert.equal((await request("action", { action: "start", revision: staleRevision, payload: { matchId: other.id, court: 2 } }, u.cookie)).status, 409);
   const occupied = await request("action", { action: "start", revision: state.revision, payload: { matchId: other.id, court: 1 } }, u.cookie);
@@ -86,15 +102,37 @@ test("umpire match desk supports the full match lifecycle but denies unrelated o
   assert.match(playerConflict.data.error, /already playing/);
   assert.equal((await act("returnMatch", { matchId: m.id })).status, "upcoming");
   await act("start", { matchId: m.id, court: 2 });
-  const claimed = (await request("claim", { matchId: m.id, device: crypto.randomUUID() }, u.cookie)).data;
-  assert.equal((await act("finish", { matchId: m.id, games: [[5, 0]] })).winner, m.a);
-  assert.equal((await request("score", envelope(u, claimed, "point", m.a), u.cookie)).data.conflict, true);
-  assert.equal((await act("correctResult", { matchId: m.id, games: [[0, 5]] })).winner, m.b);
+  const finishControlledMatch = async match => {
+    let record = (await request("claim", { matchId: match.id, device: crypto.randomUUID() }, u.cookie)).data;
+    for (let point = 0; point < 5; point++) {
+      const scored = await request("score", envelope(u, record, "point", match.a), u.cookie);
+      assert.equal(scored.data.accepted, true);
+      record = scored.data.record;
+    }
+    const confirmed = await request("score", envelope(u, record, "confirm"), u.cookie);
+    assert.equal(confirmed.data.finalized, true);
+    state = (await request("state", undefined, u.cookie)).data;
+    return record;
+  };
+  const claimed = await finishControlledMatch(m);
+  assert.equal(state.matches.find(x => x.id === m.id).winner, m.a);
+  assert.equal((await request("score", envelope(u, claimed, "point", m.a), u.cookie)).status, 409);
+  const deniedCorrection = await request("action", { action: "correctResult", payload: { matchId: m.id, games: [[0, 5]] }, revision: state.revision }, u.cookie);
+  assert.equal(deniedCorrection.status, 403);
+  const correction = await request("action", { action: "correctResult", payload: { matchId: m.id, games: [[0, 5]] }, revision: state.revision }, o.cookie);
+  assert.equal(correction.status, 200);
+  state = correction.data;
+  assert.equal(state.matches.find(x => x.id === m.id).winner, m.b);
   for (const match of state.matches.filter(x => x.status === "upcoming")) {
     await act("start", { matchId: match.id, court: 1 });
-    await act("finish", { matchId: match.id, games: [[5, 0]] });
+    await finishControlledMatch(match);
   }
-  await act("knockouts", { tournamentId: m.tournamentId });
+  const deniedKnockouts = await request("action", { action: "knockouts", payload: { tournamentId: m.tournamentId }, revision: state.revision }, u.cookie);
+  assert.equal(deniedKnockouts.status, 403);
+  assert.ok(!state.matches.some(x => x.stage === "Final"));
+  const knockouts = await request("action", { action: "knockouts", payload: { tournamentId: m.tournamentId }, revision: state.revision }, o.cookie);
+  assert.equal(knockouts.status, 200);
+  state = knockouts.data;
   assert.ok(state.matches.some(x => x.stage === "Final"));
   for (const action of ["event", "tournament", "teams", "deleteTournament", "scoring", "generate", "randomComplete", "moveGroup", "swapGroups"]) {
     assert.equal((await request("action", { action, payload: {}, revision: state.revision }, u.cookie)).status, 403);

@@ -10,7 +10,7 @@ async function prepare(browser) {
   await expect(page.getByRole("heading", { name: "Event matches" })).toBeVisible();
   const a = state.teams.find(t => t.id === m.a).name, b = state.teams.find(t => t.id === m.b).name;
   await expect(page.locator(".point-scoring-match")).toContainText(`${a} vs ${b}`);
-  await expect(page.getByRole("row").filter({ has: page.getByRole("button", { name: /^Open scorer:/ }) }).getByRole("button", { name: /^Record result:/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Record result:|^Edit result:/ })).toHaveCount(0);
   await page.getByRole("button", { name: /^Open scorer:/ }).click();
   await page.getByRole("button", { name: "Claim scoring control" }).click();
   await expect(page.getByRole("button", { name: /^Point for/ }).first()).toBeEnabled();

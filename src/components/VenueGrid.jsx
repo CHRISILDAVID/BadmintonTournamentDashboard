@@ -36,8 +36,7 @@ export default function VenueGrid({ panels, renderPanel, controls }) {
   const breakpoint = breakpointFor(width);
   useEffect(() => {
     const measure = () => {
-      const top = containerRef.current?.getBoundingClientRect().top || 140;
-      setHeight(Math.max(400, window.innerHeight - top - 24));
+      setHeight(Math.max(1, (containerRef.current?.clientHeight || 1) - 4));
     };
     measure(); window.addEventListener("resize", measure);
     const observer = new ResizeObserver(measure);
@@ -49,6 +48,9 @@ export default function VenueGrid({ panels, renderPanel, controls }) {
   const saved = useMemo(() => ({ ...resolveLayouts(preferences.savedLayouts[key], defaults), widgets: preferences.savedLayouts[key]?.widgets || {}, liveScores: cleanLiveScoreLayout(preferences.savedLayouts[key]?.liveScores) }), [preferences.savedLayouts, key, defaults]);
   const liveScores = cleanLiveScoreLayout(preferences.editing ? preferences.draft?.liveScores : saved.liveScores);
   const layouts = preferences.editing && preferences.editingKey === key ? resolveLayouts(preferences.draft, defaults) : saved;
+  const rows = Math.max(1, ...layouts[breakpoint].map(item => item.y + item.h));
+  const rowGap = preferences.editing ? GAP : Math.min(GAP, height / (rows * 4));
+  const rowHeight = preferences.editing ? ROW_HEIGHT : Math.max(1, (height - rowGap * (rows - 1)) / rows);
   useEffect(() => {
     if (preferences.editing && preferences.editingKey !== key) preferences.cancel();
   }, [key, preferences.editing, preferences.editingKey, preferences.cancel]);
@@ -56,7 +58,7 @@ export default function VenueGrid({ panels, renderPanel, controls }) {
     const changed = layouts[breakpoint].map(item => item.i === id ? { ...item, [dimension]: Number(value) } : item);
     preferences.updateDraft(breakpoint, normalizeLayout(changed, defaults[breakpoint], COLUMNS[breakpoint]));
   };
-  return <section className="venue-layout-area" aria-label="Venue screen layout">
+  return <section className={`venue-layout-area ${preferences.editing ? "is-editing" : ""}`} aria-label="Venue screen layout">
     {controls && createPortal(<>
         {preferences.editing ? <>
           <Button variant="ghost" size="icon" title="Reset layout" aria-label="Reset layout" onClick={() => preferences.reset(defaults)}><RotateCcw/></Button>
@@ -76,7 +78,7 @@ export default function VenueGrid({ panels, renderPanel, controls }) {
     {preferences.storageError && <p className="rounded-lg bg-red-50 p-3 text-sm text-destructive" role="alert">{preferences.storageError}</p>}
     <div ref={containerRef} className="venue-grid-viewport vb-scroll">
       {mounted && <ResponsiveGridLayout key={`${key}:${breakpoint}`} width={width} breakpoint={breakpoint} breakpoints={BREAKPOINTS} cols={COLUMNS}
-        layouts={layouts} rowHeight={ROW_HEIGHT} margin={[GAP, GAP]} containerPadding={[0, 0]}
+        layouts={layouts} rowHeight={rowHeight} margin={[GAP, rowGap]} containerPadding={[0, 0]}
         dragConfig={{ enabled: preferences.editing, handle: ".venue-drag-handle", cancel: "button,input,select,.venue-widget-canvas" }}
         resizeConfig={{ enabled: preferences.editing, handles: ["se"] }}
         onDragStop={layout => preferences.updateDraft(breakpoint, normalizeLayout(layout, defaults[breakpoint], COLUMNS[breakpoint]))}

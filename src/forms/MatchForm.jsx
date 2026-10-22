@@ -16,8 +16,9 @@ import { Input } from "../components/ui/input.jsx";
 import { NativeSelect } from "../components/ui/native-select.jsx";
 
 function MatchForm() {
-  const { state, modal } = useDesk();
+  const { state, modal, admin } = useDesk();
   if (!state.matches.some(m => m.id === modal.matchId)) return <Empty title="This match was removed">Its tournament or fixtures were removed on another device.</Empty>;
+  if (!admin && state.matches.find(m => m.id === modal.matchId).status !== "upcoming") return <Empty title="Results are read only">Use the match scorer to record a live game. Ask an organizer to correct a completed result.</Empty>;
   return <MatchEditor />;
 }
 function MatchEditor() {

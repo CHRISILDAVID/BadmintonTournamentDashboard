@@ -28,7 +28,7 @@ export default function Umpire() {
       .catch(e => setStorageError(e.message));
   }, [prepared, state]);
   if (prepared) return <Scorer key={prepared.match.id} {...prepared} returnLabel={page === "History" ? "Match history" : page} onClose={() => setPrepared(null)}/>;
-  const titles = { match: "Match desk", returnMatch: "Return this match to waiting?", knockouts: "Create the knockout bracket" };
+  const titles = { match: "Match desk", returnMatch: "Return this match to waiting?" };
   return <main className="umpire-desk">
     <a className="skip-link" href="#umpire-content">Skip to matches and standings</a>
     <div className="umpire-context"><strong>ShuttleHub <span>/ Umpire desk</span></strong><span className={`connection ${connected ? "" : "disconnected"}`}><i className="dot"/>{connected ? "Connected" : "Offline — prepared matches only"}</span></div>

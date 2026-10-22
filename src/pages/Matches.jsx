@@ -15,7 +15,7 @@ import { Empty } from "../components/common.jsx";
 import { cloudEnabled, currentSession } from "../cloud/storage.js";
 
 function Matches({ history = false, onScore }) {
-  const { state, filter, busy, admin, selected, live, upcoming, completed, categorySelect, team, tournament, open, setPage,
+  const { state, filter, busy, admin, umpire, selected, live, upcoming, completed, categorySelect, team, tournament, open, setPage,
     matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage: stage, setMatchStage: setStage } = useDesk();
   const [testTools, setTestTools] = useState(false);
   const openScorer = match => onScore ? onScore(match) : open({ type: "scorer", matchId: match.id });
@@ -37,10 +37,10 @@ function Matches({ history = false, onScore }) {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
-  const filtered = !!query || filter !== "all" || (!history && (status !== "all" || stage !== "all"));
+  const filtered = !!query || (!umpire && filter !== "all") || (!history && (status !== "all" || stage !== "all"));
   const hasRecords = state.matches.some(m => !history || m.status === "completed");
   const reset = () => {
-    setPage(history ? "History" : "Matches", { filter: "all", matchQuery: "", ...(history ? {} : { matchStatus: "all", matchStage: "all" }) });
+    setPage(history ? "History" : "Matches", { filter: umpire ? filter : "all", matchQuery: "", ...(history ? {} : { matchStatus: "all", matchStage: "all" }) });
     requestAnimationFrame(() => document.querySelector("#match-filters input")?.focus());
   };
   return (

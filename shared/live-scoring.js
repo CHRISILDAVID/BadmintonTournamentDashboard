@@ -40,9 +40,10 @@ export function reduceScore(previous, action, now = Date.now()) {
 export function elapsedSeconds(s, now = Date.now()) {
   return Math.max(0, Math.floor(((s.endedAt || (s.paused ? s.pausedAt : now)) - s.startedAt - s.pausedMs) / 1000));
 }
-export function publicScore(record) {
+export function publicScore(record, viewerSession) {
   if (!record) return null;
   const { undo, ...score } = record.score;
   return { matchId: record.matchId, generation: record.generation, revision: record.revision,
+    control: !record.controller ? "available" : record.controller === viewerSession ? "yours" : "other",
     contactAt: record.contactAt, invalidated: record.invalidated || null, score };
 }
