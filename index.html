@@ -16,26 +16,17 @@
       @keyframes splash-enter-left { from { transform: translateX(-100vw); } to { transform: translateX(0); } }
       #startup-splash[data-playing] video { animation: splash-enter-left 450ms ease-out both; animation-duration: 450ms !important; }
       #startup-splash[data-playing] .splash-media > img { visibility: hidden; }
-      #startup-splash .splash-status { position: absolute; bottom: calc(84px + env(safe-area-inset-bottom)); left: 24px; right: 24px; text-align: center; font: 14px/1.5 "Segoe UI", Arial, sans-serif; }
-      #startup-splash .splash-retry { display: block; margin: 12px auto 0; min-height: 44px; padding: 10px 20px; border: 1px solid #cbd7d1; border-radius: 8px; background: white; color: #075e46; cursor: pointer; }
-      #startup-splash .splash-retry:focus-visible { outline: 3px solid #087c5c; outline-offset: 3px; }
       #startup-splash [hidden] { display: none; }
-      #startup-splash .splash-hint { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); left: 16px; right: 16px; margin: 0; text-align: center; color: #52665f; font: 13px/1.5 "Segoe UI", Arial, sans-serif; }
       #root[inert] { visibility: hidden; }
     </style>
   </head>
   <body>
     <div id="startup-splash" role="status" aria-label="Loading ShuttleHub" aria-live="polite">
       <div class="splash-media" aria-hidden="true">
-        <img src="/assets/shuttlehub-splash-poster.jpg" alt="" width="1920" height="1080" />
+        <img src="/assets/shuttlehub-splash-icon-poster.jpg" alt="" width="1920" height="1080" />
         <video muted playsinline preload="auto" tabindex="-1" disablepictureinpicture>
-          <source src="/assets/ShuttleHub_Vector_Splash_4s.mp4" type="video/mp4" />
+          <source src="/assets/ShuttleHub_Vector_Splash_4s_Only_Icon.mp4" type="video/mp4" />
         </video>
-      </div>
-      <p class="splash-hint">Click, tap or press a key to skip</p>
-      <div class="splash-status" hidden>
-        Still opening your event…
-        <button type="button" class="splash-retry">Reload</button>
       </div>
     </div>
     <div id="root" inert aria-hidden="true"></div>

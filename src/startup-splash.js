@@ -27,7 +27,6 @@ export function initializeStartupSplash() {
     dismissed = true;
     observer.disconnect();
     clearTimeout(mediaTimeout);
-    clearTimeout(retryTimeout);
     if (checkpointFrame !== undefined) video.cancelVideoFrameCallback?.(checkpointFrame);
     document.removeEventListener("visibilitychange", visibilityChanged);
     for (const type of skipEvents) document.removeEventListener(type, skip, true);
@@ -94,10 +93,8 @@ export function initializeStartupSplash() {
   video.addEventListener("waiting", watchForStall);
   video.addEventListener("stalled", watchForStall);
   watchForStall();
-  const retryTimeout = setTimeout(() => { splash.querySelector(".splash-status").hidden = false; }, 12000);
-  splash.querySelector(".splash-retry").addEventListener("click", () => location.reload());
   const skip = event => {
-    if (dismissed || event.target.closest?.(".splash-retry")) return;
+    if (dismissed) return;
     // Preserve browser shortcuts such as reload, tab switching and zoom.
     if (event.type === "keydown" && (event.ctrlKey || event.metaKey || event.altKey || event.repeat ||
       ["Shift", "Control", "Alt", "Meta"].includes(event.key) || /^F\d+$/.test(event.key))) return;
@@ -109,7 +106,6 @@ export function initializeStartupSplash() {
     skipped = true;
     entranceChecked = true;
     if (checkpointFrame !== undefined) video.cancelVideoFrameCallback?.(checkpointFrame);
-    splash.querySelector(".splash-hint").hidden = true;
     showPoster();
   };
   for (const type of skipEvents) document.addEventListener(type, skip, { capture: true, passive: false });
