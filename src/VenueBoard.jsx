@@ -20,7 +20,7 @@ import SharedLiveScores from "./components/SharedLiveScores.jsx";
 import { cleanLiveScoreLayout } from "./lib/venue-widgets.js";
 import { selectionKey } from "./lib/venue-layout.js";
 import { directPlaces, isPlayoffFormat } from "../shared/format.js";
-import AnimatedLogo from "./components/AnimatedLogo.jsx";
+import logo from "../assets/logo.jpg";
 import LiveScores from "./cloud/LiveScores.jsx";
 import { liveStore } from "./cloud/connection.js";
 import "./venue-board.css";
@@ -241,7 +241,7 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
       className={`venue-board ${selection.count > 1 ? "vb-multiple" : "vb-single"} ${selection.count >= 3 ? "vb-dense" : ""}`}
     >
       <header className="vb-header">
-        <AnimatedLogo className="vb-logo" iconOnly/>
+        <img className="vb-logo" src={logo} alt="ShuttleHub" />
         <div className="vb-title">
           <h1>{state.event.name}</h1>
         </div>

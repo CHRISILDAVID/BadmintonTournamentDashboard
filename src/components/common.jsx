@@ -3,10 +3,10 @@ import { Trophy, MapPin } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog.jsx";
 import { Badge } from "./ui/badge.jsx";
 import { Label } from "./ui/label.jsx";
-import AnimatedLogo from "./AnimatedLogo.jsx";
+import logo from "../../assets/logo.jpg";
 
 export function Logo({ small = false }) {
-  return <div className={`brand ${small ? "small" : ""}`}><AnimatedLogo iconOnly={small}/></div>;
+  return <div className={`brand ${small ? "small" : ""}`}><img src={logo} alt="ShuttleHub" width="150" height="150" /></div>;
 }
 export function Pill({ children, tone = "" }) {
   return <Badge variant="secondary" className={`pill ${tone} ${tone === "green" ? "bg-emerald-50 text-emerald-800" : ""}`}>{children}</Badge>;

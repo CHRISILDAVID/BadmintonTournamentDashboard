@@ -29,7 +29,6 @@ export function initializeStartupSplash() {
     splash.remove();
     root.inert = false;
     root.removeAttribute("aria-hidden");
-    window.dispatchEvent(new Event("shuttle-startup-ready"));
     if (document.activeElement === document.body) root.querySelector("h1[tabindex='-1']")?.focus({ preventScroll: true });
   };
   const showPoster = () => {

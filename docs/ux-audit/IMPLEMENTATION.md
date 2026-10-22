@@ -59,10 +59,10 @@ Existing offline scoring, delayed acknowledgements, storage failures, revocation
 
 The build retains its pre-existing large-chunk warning for ExcelJS. Browser checks used desktop Edge viewport emulation; physical iOS/Android keyboards, outdoor lighting and screen-reader operation were not directly tested. Scoring retains its existing non-route invocation: browser Back is not a new scorer-close operation. The visible return control is the supported path back to the originating view.
 
-## Animated branding update
+## Loading animation update
 
 The splash now starts deliberately after its playback handlers attach, so its entrance cannot finish during a slow bootstrap. It plays on desktop even when the operating system reports reduced motion, as explicitly requested. The shuttle enters from the left of the viewport once per document load. When startup takes longer than four seconds, a separate clip containing only seconds 2–4 loops until the actual screen is ready.
 
-All in-app image logos use the shared `AnimatedLogo` component, including the organizer sidebar, reconnect view and venue header. Compact logos use the supplied icon-only video's breathing segment; larger logos use the wordmark version. The two-second clips are cropped and encoded for their display sizes, with native video looping. Navigation never repeats the entrance. Clicking or keyboard-activating a logo pauses/resumes the brand animation, and the pause choice survives navigation within the page. Static posters remain as media-failure fallbacks; favicons and installed-app icons retain their required image formats.
+Following the updated preference, animation is limited to the loading splash. The organizer sidebar, reconnect view and venue header use the original static logo. The shared animated-logo component, its pause controls and its unused derived media have been removed. The splash retains its desktop playback fix, loading-only breathing loop and media-failure fallback.
 
-Validation: cloud build passed; 24 focused browser checks passed, covering both desktop motion settings, phone playback, the single entrance, native breathing loops, navigation, pause/resume, venue branding and media failure. The existing browser suite passed all 11 enabled tests; the disabled test-tools case remains skipped. No business rules, scoring behavior, data contracts or permissions changed.
+No business rules, scoring behavior, data contracts or permissions changed.
