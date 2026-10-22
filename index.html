@@ -13,22 +13,27 @@
       #startup-splash .splash-media { position: relative; width: min(100%, 1440px, 177.7778dvh); aspect-ratio: 16 / 9; }
       #startup-splash :is(img, video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
       #startup-splash video { background: #fff; }
-      #startup-splash .splash-status { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); left: 24px; right: 24px; text-align: center; font: 14px/1.5 "Segoe UI", Arial, sans-serif; }
+      @keyframes splash-enter-left { from { transform: translateX(-100vw); } to { transform: translateX(0); } }
+      #startup-splash[data-playing] video { animation: splash-enter-left 450ms ease-out both; animation-duration: 450ms !important; }
+      #startup-splash[data-playing] .splash-media > img { visibility: hidden; }
+      #startup-splash .splash-status { position: absolute; bottom: calc(84px + env(safe-area-inset-bottom)); left: 24px; right: 24px; text-align: center; font: 14px/1.5 "Segoe UI", Arial, sans-serif; }
       #startup-splash .splash-retry { display: block; margin: 12px auto 0; min-height: 44px; padding: 10px 20px; border: 1px solid #cbd7d1; border-radius: 8px; background: white; color: #075e46; cursor: pointer; }
       #startup-splash .splash-retry:focus-visible { outline: 3px solid #087c5c; outline-offset: 3px; }
       #startup-splash [hidden] { display: none; }
+      #startup-splash .splash-motion { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); right: 24px; min-height: 44px; padding: 10px 16px; border: 1px solid #cbd7d1; border-radius: 8px; background: white; color: #075e46; font: 14px/1.5 "Segoe UI", Arial, sans-serif; cursor: pointer; }
+      #startup-splash .splash-motion:focus-visible { outline: 3px solid #087c5c; outline-offset: 3px; }
       #root[inert] { visibility: hidden; }
-      @media (prefers-reduced-motion: reduce) { #startup-splash video { display: none; } }
     </style>
   </head>
   <body>
     <div id="startup-splash" role="status" aria-label="Loading ShuttleHub" aria-live="polite">
       <div class="splash-media" aria-hidden="true">
         <img src="/assets/shuttlehub-splash-poster.jpg" alt="" width="1920" height="1080" />
-        <video autoplay muted playsinline preload="auto" poster="/assets/shuttlehub-splash-poster.jpg" tabindex="-1" disablepictureinpicture>
+        <video muted playsinline preload="auto" tabindex="-1" disablepictureinpicture>
           <source src="/assets/ShuttleHub_Vector_Splash_4s.mp4" type="video/mp4" />
         </video>
       </div>
+      <button type="button" class="splash-motion" aria-pressed="false" hidden>Pause animation</button>
       <div class="splash-status" hidden>
         Still opening your event…
         <button type="button" class="splash-retry">Reload</button>
