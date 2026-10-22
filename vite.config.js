@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -23,7 +23,13 @@ const excelBrowserAsset = {
 const offlineShell = {
   name: "prepared-scoring-shell",
   generateBundle(_, bundle) {
-    const files = ["/", "/manifest.webmanifest", "/icon.jpg", ...Object.keys(bundle).map(name => `/${name}`)];
+    // Include unhashed public/assets/* files (splash video, poster, logo) that
+    // index.html references directly and that Vite copies verbatim from public/.
+    const publicAssets = readdirSync(new URL("./public/assets", import.meta.url))
+      .map(name => `/assets/${name}`);
+    const files = ["/", "/manifest.webmanifest", "/icon.jpg",
+      ...publicAssets,
+      ...Object.keys(bundle).map(name => `/${name}`)];
     const version = Date.now().toString(36);
     this.emitFile({ type: "asset", fileName: "sw.js", source: `
 const CACHE = "shuttlehub-shell-${version}";
