@@ -20,8 +20,7 @@
       #startup-splash .splash-retry { display: block; margin: 12px auto 0; min-height: 44px; padding: 10px 20px; border: 1px solid #cbd7d1; border-radius: 8px; background: white; color: #075e46; cursor: pointer; }
       #startup-splash .splash-retry:focus-visible { outline: 3px solid #087c5c; outline-offset: 3px; }
       #startup-splash [hidden] { display: none; }
-      #startup-splash .splash-motion { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); right: 24px; min-height: 44px; padding: 10px 16px; border: 1px solid #cbd7d1; border-radius: 8px; background: white; color: #075e46; font: 14px/1.5 "Segoe UI", Arial, sans-serif; cursor: pointer; }
-      #startup-splash .splash-motion:focus-visible { outline: 3px solid #087c5c; outline-offset: 3px; }
+      #startup-splash .splash-hint { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); left: 16px; right: 16px; margin: 0; text-align: center; color: #52665f; font: 13px/1.5 "Segoe UI", Arial, sans-serif; }
       #root[inert] { visibility: hidden; }
     </style>
   </head>
@@ -33,7 +32,7 @@
           <source src="/assets/ShuttleHub_Vector_Splash_4s.mp4" type="video/mp4" />
         </video>
       </div>
-      <button type="button" class="splash-motion" aria-pressed="false" hidden>Pause animation</button>
+      <p class="splash-hint">Click, tap or press a key to skip</p>
       <div class="splash-status" hidden>
         Still opening your event…
         <button type="button" class="splash-retry">Reload</button>

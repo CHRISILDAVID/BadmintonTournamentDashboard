@@ -61,8 +61,10 @@ The build retains its pre-existing large-chunk warning for ExcelJS. Browser chec
 
 ## Loading animation update
 
-The splash now starts deliberately after its playback handlers attach, so its entrance cannot finish during a slow bootstrap. It plays on desktop even when the operating system reports reduced motion, as explicitly requested. The shuttle enters from the left of the viewport once per document load. When startup takes longer than four seconds, a separate clip containing only seconds 2–4 loops until the actual screen is ready.
+The splash now starts deliberately after its playback handlers attach, so its entrance cannot finish during a slow bootstrap. It plays on desktop even when the operating system reports reduced motion, as explicitly requested. The shuttle enters from the left of the viewport once per document load. At 2.2 seconds of playback, the ready application is revealed immediately. If the application is still loading at that checkpoint, the original video finishes at four seconds before the application can appear. When startup takes longer than four seconds, a separate clip containing only seconds 2–4 loops until the actual screen is ready.
 
 Following the updated preference, animation is limited to the loading splash. The organizer sidebar, reconnect view and venue header use the original static logo. The shared animated-logo component, its pause controls and its unused derived media have been removed. The splash retains its desktop playback fix, loading-only breathing loop and media-failure fallback.
+
+Clicking, tapping, scrolling or pressing a key anywhere in the page skips the animation; there is no dedicated pause button. Skipping reveals a ready app immediately, or holds the static final frame until loading completes. The skip gesture is consumed to prevent accidental activation of underlying controls. Browser shortcuts and the loading-error Reload action remain available.
 
 No business rules, scoring behavior, data contracts or permissions changed.
