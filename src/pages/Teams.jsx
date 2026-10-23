@@ -81,7 +81,7 @@ function Teams() {
                     <strong>{t.name}</strong>
                   </TableCell>
                   <TableCell data-label="Tournament">{tournament(t.tournamentId)?.name}</TableCell>
-                  <TableCell data-label="Group">{groupName(t.group) || "Not assigned"}</TableCell>
+                  <TableCell data-label="Group">{t.knockoutEntry ? "Knockout entry" : groupName(t.group) || "Not assigned"}</TableCell>
                   {admin && (
                     <TableCell>
                       {t.group != null ? (

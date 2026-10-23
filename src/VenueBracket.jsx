@@ -8,7 +8,7 @@ import {
   groupLabel,
 } from "../shared/format.js";
 
-function BracketMatch({ match, teams, previousStage }) {
+function BracketMatch({ match, teams, previousStage, slotProps }) {
   const ready = !!match.a && !!match.b;
   const status =
     match.status === "completed"
@@ -40,7 +40,8 @@ function BracketMatch({ match, teams, previousStage }) {
             ? `Winner of ${previousStage} ${match.index * 2 + side + 1}`
             : "Awaiting qualifier";
         return <BracketTeam key={side} team={player} placeholder={placeholder} winner={winner}
-          games={match.games} side={side} completed={match.status === "completed"} bye={match.bye}/>;
+          games={match.games} side={side} completed={match.status === "completed"} bye={match.bye}
+          slotProps={slotProps?.(match, side === 0 ? "a" : "b", player, placeholder)}/>;
       })}
     </article>
   );
@@ -57,7 +58,7 @@ export function VenuePlayoffs({ tournament, playoffs, teams }) {
   </div>;
 }
 
-export default function VenueBracket({ tournament, rounds, teams }) {
+export default function VenueBracket({ tournament, rounds, teams, slotProps }) {
   const matches = rounds.flatMap(round => round.matches).filter(m => !m.bye);
   return <div className="venue-knockout-content">
     <p className="venue-widget-note">{matches.filter(m => m.status === "completed").length} / {matches.length} played</p>
@@ -67,7 +68,7 @@ export default function VenueBracket({ tournament, rounds, teams }) {
         <div className="vb-bracket-row-scroll vb-scroll" data-auto-scroll="" data-scroll-axis="x" tabIndex={0} role="region" aria-label={`${round.stage} matches, scroll horizontally for all teams`}>
           <div className="vb-bracket-matches" style={{ "--round-matches": round.matches.length }}>
             {round.matches.map(match => <div key={match.id} className={`vb-bracket-cell ${match.index % 2 === 0 ? "vb-branch-upper" : "vb-branch-lower"} ${match.winner ? "vb-branch-decided" : ""}`}>
-              <BracketMatch match={match} teams={teams} previousStage={rounds[index - 1]?.stage}/>
+              <BracketMatch match={match} teams={teams} previousStage={rounds[index - 1]?.stage} slotProps={slotProps}/>
             </div>)}
           </div>
         </div>

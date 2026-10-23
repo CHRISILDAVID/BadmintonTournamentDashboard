@@ -109,11 +109,17 @@ function Tournaments() {
                 )}
                 <div className="tournament-actions">
                   {admin && matches.length > 0 && <Button variant="outline" className="btn" onClick={() => open({ type: "scoring", tournament: t })}>Edit scoring</Button>}
-                  {matches.length > 0 && t.groups > 1 && (
+                  {matches.length > 0 && t.groups > 1 && !matches.some(m => m.stage !== "League") && (
                     <Button variant="outline" className="btn" disabled={!!groupEditLockReason(state, t.id)}
                       title={groupEditLockReason(state, t.id) || "Move or swap teams between groups"}
                       onClick={() => open({ type: "groups", tournament: t })}>
                       Edit groups
+                    </Button>
+                  )}
+                  {admin && matches.some(m => m.stage !== "League" && m.stage !== PLAYOFF_STAGE) && (
+                    <Button variant="outline" className="btn" disabled={busy}
+                      onClick={() => open({ type: "editKnockouts", tournament: t })}>
+                      Edit knockouts
                     </Button>
                   )}
                   <Button variant="outline"
@@ -167,7 +173,7 @@ function Tournaments() {
                       </Button>
                     ))}
                 </div>
-                {matches.length > 0 && t.groups > 1 && groupEditLockReason(state, t.id) && <p className="lock-reason">Groups: {groupEditLockReason(state, t.id)}</p>}
+                {matches.length > 0 && t.groups > 1 && !matches.some(m => m.stage !== "League") && groupEditLockReason(state, t.id) && <p className="lock-reason">Groups: {groupEditLockReason(state, t.id)}</p>}
                 {drawn && !matches.some(m => m.stage !== "League") && !tournamentProgress(state, t.id).canCreateKnockouts && <p className="lock-reason">Complete all league matches before creating the knockout draw.</p>}
                 {admin &&
                   drawn &&

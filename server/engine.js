@@ -5,6 +5,7 @@ import { playerLabel } from "../shared/players.js";
 import { removeLegacyCalls } from "../shared/matches.js";
 import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "../shared/groups.js";
 import { randomGames } from "./random-scores.js";
+import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams } from "../shared/knockouts.js";
 import {
   PLAYOFF_STAGE,
   qualificationFormats,
@@ -232,20 +233,61 @@ function reconcileDraw(s, t, rebuild = false) {
       for (const side of ["a", "b"])
         if (m[`${side}Source`]) m[`${side}Source`].matchId = ids.get(m[`${side}Source`].matchId);
     blueprints = new Map(draft.matches.map(m => [key(m), m]));
+    const originalSlots = new Map(draft.matches.map(m => [ids.get(m.id), structuredClone(m)]));
+    for (const fixture of fixtures.filter(m => m.stage !== PLAYOFF_STAGE)) {
+      const blueprint = blueprints.get(key(fixture));
+      for (const side of ["a", "b"]) {
+        let source = fixture[`${side}Source`];
+        if (!source) continue;
+        // Re-rank original qualification places while retaining manual swaps
+        // and entrants added directly to a bye.
+        if (source.seedMatchId) source = { ...source, teamId: originalSlots.get(source.seedMatchId)[source.seedSide] };
+        if (fixture.round === 1) {
+          blueprint[side] = source.teamId || null;
+          blueprint[`${side}Source`] = source;
+        } else fixture[`${side}Source`] = source;
+      }
+      if (fixture.round === 1) blueprint.bye = ["a", "b"].some(side => !blueprint[side] && !blueprint[`${side}Source`]);
+    }
   }
   const byId = new Map(fixtures.map(m => [m.id, m]));
   const mainByPosition = new Map(fixtures.filter(m => m.stage !== PLAYOFF_STAGE).map(m => [`${m.round}:${m.index}`, m]));
-  fixtures.sort((a, b) => (a.stage === PLAYOFF_STAGE ? 0 : a.round) - (b.stage === PLAYOFF_STAGE ? 0 : b.round));
-  for (const m of fixtures) {
+  // A swapped winner can feed a game in an earlier numbered round.
+  // Follow the actual sources so corrections cannot leave stale opponents behind.
+  const ordered = [], visited = new Set(), visiting = new Set();
+  function visit(fixture) {
+    if (!fixture || visited.has(fixture.id)) return;
+    if (visiting.has(fixture.id)) fail("The knockout draw contains a circular winner connection.");
+    visiting.add(fixture.id);
+    const blueprint = blueprints?.get(key(fixture));
+    for (const [i, side] of ["a", "b"].entries()) {
+      const source = blueprint && (fixture.stage === PLAYOFF_STAGE || fixture.round === 1)
+        ? blueprint[`${side}Source`] : fixture[`${side}Source`];
+      if (source) visit(byId.get(source.matchId));
+      else if (fixture.stage !== PLAYOFF_STAGE && fixture.round > 1)
+        visit(mainByPosition.get(`${fixture.round - 1}:${fixture.index * 2 + i}`));
+    }
+    visiting.delete(fixture.id);
+    visited.add(fixture.id);
+    ordered.push(fixture);
+  }
+  fixtures.forEach(visit);
+  for (const m of ordered) {
+    const blueprint = blueprints?.get(key(m));
+    if (blueprint && m.stage !== PLAYOFF_STAGE && m.round === 1) {
+      if (!!m.bye !== !!blueprint.bye) resetResult(m);
+      if (blueprint.bye) m.bye = true;
+      else delete m.bye;
+    }
     const opponents = [m.a, m.b];
     for (const [i, side] of ["a", "b"].entries()) {
-      const blueprint = blueprints?.get(key(m));
       if (blueprint && (m.stage === PLAYOFF_STAGE || m.round === 1)) {
         opponents[i] = blueprint[side];
         if (blueprint[`${side}Source`]) m[`${side}Source`] = blueprint[`${side}Source`];
         else delete m[`${side}Source`];
       }
-      if (m[`${side}Source`]) opponents[i] = byId.get(m[`${side}Source`].matchId)?.winner || null;
+      if (m[`${side}Source`]) opponents[i] = Object.hasOwn(m[`${side}Source`], "teamId")
+        ? m[`${side}Source`].teamId : byId.get(m[`${side}Source`].matchId)?.winner || null;
       else if (m.stage !== PLAYOFF_STAGE && m.round > 1)
         opponents[i] = mainByPosition.get(`${m.round - 1}:${m.index * 2 + i}`)?.winner || null;
     }
@@ -564,6 +606,56 @@ export function applyAction(previous, action, payload = {}) {
       fail("Complete every league match before creating the knockout bracket.");
     createDraw(s, t);
     reconcileDraw(s, t);
+  } else if (action === "swapKnockouts" || action === "fillKnockoutBye") {
+    if (!t) fail("Tournament not found.");
+    const fixtures = s.matches.filter(m => m.tournamentId === t.id && isKnockout(m));
+    const first = fixtures.find(m => m.id === payload.matchId);
+    const side = payload.side;
+    const reason = knockoutSlotLockReason(s, first, side);
+    if (reason) fail(reason);
+    if (action === "swapKnockouts") {
+      const second = fixtures.find(m => m.id === payload.otherMatchId);
+      const otherSide = payload.otherSide;
+      const otherReason = knockoutSlotLockReason(s, second, otherSide);
+      if (otherReason) fail(otherReason);
+      if (!first[side] || !second[otherSide] || first[side] === second[otherSide])
+        fail("Choose two different teams in uncompleted knockout games.");
+      const source = knockoutSource(fixtures, first, side);
+      const otherSource = knockoutSource(fixtures, second, otherSide);
+      [first[side], second[otherSide]] = [second[otherSide], first[side]];
+      first[`${side}Source`] = otherSource;
+      second[`${otherSide}Source`] = source;
+    } else {
+      if (!first.bye || first[side] || first[`${side}Source`]) fail("Choose an available bye.");
+      let entrant;
+      if (payload.teamId) {
+        entrant = eligibleKnockoutTeams(s, t.id).find(team => team.id === payload.teamId);
+        if (!entrant) fail("Choose a new team that has not played in the league or entered the knockout draw.");
+      } else {
+        const players = (Array.isArray(payload.players) ? payload.players : []).map(p => clean(p, 80)).filter(Boolean);
+        if (players.length !== t.size) fail(`Each ${t.name} entry needs exactly ${t.size} player(s).`);
+        const normalized = players.map(p => p.toLowerCase());
+        if (new Set(normalized).size !== normalized.length || s.teams.some(team =>
+          team.tournamentId === t.id && team.players.some(p => normalized.includes(p.toLowerCase()))))
+          fail("A player is already entered in this category. League-eliminated teams cannot re-enter the knockout draw.");
+        const seed = integer(Math.max(0, ...s.teams.filter(team => team.tournamentId === t.id).map(team => team.seed)) + 1, 1, 10000, "Seed");
+        entrant = { id: id(), tournamentId: t.id, group: null, name: playerLabel(players), players, seed, knockoutEntry: true };
+        s.teams.push(entrant);
+      }
+      entrant.knockoutEntry = true;
+      first[side] = entrant.id;
+      first[`${side}Source`] = { teamId: entrant.id };
+      delete first.bye;
+      resetResult(first);
+    }
+    reconcileDraw(s, t);
+    // Editing the draw must never erase a played game or change an on-court fixture.
+    const afterById = new Map(s.matches.map(m => [m.id, m]));
+    for (const fixture of previous.matches.filter(m => m.tournamentId === t.id &&
+      (m.status === "live" || (m.status === "completed" && !m.bye)))) {
+      if (JSON.stringify(fixture) !== JSON.stringify(afterById.get(fixture.id)))
+        fail("This change would affect a game that is on court or completed.");
+    }
   } else if (action === "randomComplete") {
     // Temporary testing operation: one atomic save, including dependent rounds.
     if (payload.tournamentId && !t) fail("Category not found.");

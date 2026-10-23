@@ -6,6 +6,7 @@ import { ArrowUpRight, ArrowRight, Plus, ChevronRight } from "lucide-react";
 const VenueBoard = lazy(() => import("./VenueBoard.jsx"));
 
 import GroupEditor from "./GroupEditor.jsx";
+import KnockoutEditor from "./KnockoutEditor.jsx";
 
 import { useDesk } from "./hooks/useDesk.jsx";
 import { Logo, Modal } from "./components/common.jsx";
@@ -178,6 +179,7 @@ function App() {
                 knockouts: "Create the knockout bracket",
                 resetFixtures: "Reset fixtures",
                 groups: "Edit groups",
+                editKnockouts: "Edit knockouts",
                 deleteTeam: "Remove team",
                 deleteTournament: "Delete tournament",
                 returnMatch: "Return this match to waiting?",
@@ -186,7 +188,7 @@ function App() {
                 scoring: "Correct tournament scoring",
               }[modal.type]
             }
-            wide={["tournament", "scoring", "import", "groups"].includes(modal.type)}
+            wide={["tournament", "scoring", "import", "groups", "editKnockouts"].includes(modal.type)}
             close={() => {
               setModal(null);
               setError("");
@@ -200,6 +202,8 @@ function App() {
               <TeamForm importing={modal.type === "import"} />
             ) : modal.type === "match" ? (
               <MatchForm />
+            ) : modal.type === "editKnockouts" ? (
+              <KnockoutEditor state={state} tournamentId={modal.tournament.id} busy={busy} act={act} close={() => setModal(null)} />
             ) : modal.type === "groups" ? (
               <GroupEditor state={state} tournamentId={modal.tournament.id}
                 initialTeamId={modal.team?.id} busy={busy} act={act} close={() => setModal(null)} />
