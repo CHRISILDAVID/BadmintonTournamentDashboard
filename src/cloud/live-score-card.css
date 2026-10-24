@@ -1,0 +1,42 @@
+.live-score-list { display:grid; gap:12px; }
+.live-score-card { container:live-score-card / inline-size; min-width:0; padding:18px 20px 14px; border:1px solid #214d5d; border-radius:14px; background:#0d2d3d; color:#f4fafb; font-variant-numeric:tabular-nums; box-shadow:0 3px 8px #09283a0c; }
+.live-score-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; column-gap:12px; row-gap:6px; }
+.live-score-court { font-size:clamp(20px,4.6cqi,28px); line-height:1.2; font-weight:750; letter-spacing:-.03em; }
+.live-score-status { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; padding:5px 8px; border-radius:6px; font-size:11px; font-weight:650; line-height:1.2; }
+.live-score-status.live,.live-score-status.complete { background:#153f43; color:#7ee5bd; }
+.live-score-status.warning { background:#ffdfa0; color:#634100; }
+.live-score-status.waiting { background:#254553; color:#d2e0e7; }
+.live-score-context { flex:1 0 100%; margin:0; color:#b0c9d3; font-size:12px; overflow-wrap:anywhere; }
+.live-score-format { display:flex; justify-content:space-between; align-items:baseline; gap:6px 12px; flex-wrap:wrap; margin:12px 0 5px; font-size:11px; color:#acc4ce; }
+.live-score-format > strong { color:#8ce4c4; font-size:12px; font-weight:650; }
+.live-score-board { width:100%; table-layout:fixed; border-collapse:collapse; white-space:normal; }
+.live-score-board th,.live-score-board td { padding:8px 0; border:0; background:transparent; color:inherit; text-align:left; vertical-align:middle; }
+.live-score-board thead th { padding:5px 0 7px; color:#9bb8c5; font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+.live-score-board th:first-child { width:auto; padding-right:12px; }
+.live-score-board thead th:nth-child(2),.live-score-board .live-score-points { width:25%; text-align:center; background:#ffffff05; }
+.live-score-board.multi-game thead th:nth-child(2),.live-score-board.multi-game .live-score-points { width:22%; }
+.live-score-board thead th:nth-child(3),.live-score-board .live-score-wins { width:19%; text-align:center; border-left:1px solid #2b4c5c; }
+.live-score-board tbody tr + tr { border-top:1px solid #2b4c5c; }
+.live-score-names { display:flex; flex-direction:column; gap:2px; font-size:clamp(17px,3.4cqi,24px); font-weight:650; letter-spacing:-.02em; line-height:1.25; overflow-wrap:anywhere; }
+.live-score-points b { display:block; font-size:clamp(38px,8cqi,56px); font-weight:750; line-height:1.12; letter-spacing:-.04em; }
+.live-score-wins b { font-size:clamp(22px,4.5cqi,32px); font-weight:600; color:#c8e0e8; }
+.live-score-point-label { display:inline-block; margin-top:5px; color:#8ce4c4; font-size:10px; font-weight:650; letter-spacing:.02em; }
+.live-score-footer { display:flex; gap:8px; flex-wrap:wrap; align-items:center; border-top:1px solid #2b4c5c; margin-top:8px; padding-top:10px; }
+.live-score-history { display:flex; gap:5px; flex-wrap:wrap; }
+.live-score-history > span { display:inline-flex; align-items:center; gap:7px; border:1px solid #345566; border-radius:5px; padding:3px 7px; color:#9ebac7; font-size:10px; }
+.live-score-history b { color:#e0eef3; font-size:11px; font-weight:600; }
+.live-score-rules { display:flex; gap:6px; flex-wrap:wrap; margin:0; font-size:11px; color:#acc4ce; }
+.live-score-note { flex-basis:100%; margin:0; color:#c8d6dc; font-size:11px; }
+.venue-widget .live-score-card { padding:14px 16px 12px; }
+.venue-widget .live-score-court { font-size:24px; }
+.venue-widget .live-score-format { margin:10px 0 5px; }
+.venue-widget .live-score-board tbody th,.venue-widget .live-score-board tbody td { padding-top:8px; padding-bottom:8px; }
+.venue-widget .live-score-names { font-size:clamp(16px,3cqi,22px); }
+.venue-widget .live-score-points b { font-size:clamp(34px,6cqi,48px); }
+.venue-widget .live-score-footer { margin-top:6px; padding-top:8px; }
+@container live-score-card (max-width:340px) {
+  .live-score-board thead th { font-size:9px; letter-spacing:.03em; }
+  .live-score-format { margin-top:10px; }
+  .live-score-names { font-size:16px; }
+  .live-score-points b { font-size:36px; }
+}

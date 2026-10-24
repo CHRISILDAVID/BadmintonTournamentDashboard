@@ -164,7 +164,7 @@ function TournamentPanel({ data, upcoming, teams, sharedLiveScores }) {
   const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: "Playoffs & knockouts", results: data.knockoutResults }] : [])];
   const scroll = (label, children) => <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${t.name} ${label}`}>{children}</div>;
   const renderWidget = widget => {
-    if (widget === "live") return scroll("live scores", <LiveScores matches={onCourt} teams={teams} category={t.name}/>);
+    if (widget === "live") return scroll("live scores", <LiveScores matches={onCourt} teams={teams} tournament={t}/>);
     if (widget === "standings") return scroll("standings, scroll for all groups", <>
       <p className="venue-widget-note">{data.hasLeague ? (isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct · remaining places through playoffs` : `Top ${t.qualify} per group advance`) : "Entries · draw pending"}</p>
       <div className="venue-standing-groups">{groups.map(group => <StandingsGroup key={group.key} group={group} tournament={t} hasLeague={data.hasLeague}/>)}</div>

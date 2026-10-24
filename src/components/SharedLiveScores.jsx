@@ -15,7 +15,10 @@ export default function SharedLiveScores({ matches, teams, tournaments, flow }) 
     measure(); observer.observe(node); observer.observe(node.firstElementChild);
     return () => observer.disconnect();
   }, [flow, matches]);
-  const move = direction => scroll.current?.scrollBy({ left: direction * scroll.current.clientWidth * 0.8, behavior: "smooth" });
+  const move = direction => {
+    const node = scroll.current;
+    if (node) node.scrollBy({ left: direction * ((node.querySelector(".live-score-card")?.getBoundingClientRect().width || node.clientWidth) + 12), behavior: "smooth" });
+  };
   return <section className={`venue-shared-live ${flow}`} aria-label="Live scores across all matches">
     <header className="venue-widget-heading">
       <h3>Live scores <small>All matches · {matches.length} on court</small></h3>

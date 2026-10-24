@@ -74,6 +74,8 @@ Organizers can choose **New custom game** from Overview or Matches, enter single
 
 Use the **Custom** filter in Matches and Match history to find these games. They keep their own players and scoring rules, with no tournament category, group, standings or knockout draw. The venue display includes live custom games even without any tournaments; screens restricted to specific tournament categories continue to show only those categories. Completed custom games are retained in match history and included in event backups. Games, backups and saved links from before the rename remain supported.
 
+Live-score cards separate **Points** in the current game from **Games won** in the match. Single-game matches omit the games-won column. Best-of-three and best-of-five matches show how many games are needed to win, with completed game scores below the players. Game-point and match-point labels follow the match's scoring rules. Courts without a scoring record show **Awaiting score** and dashes; offline or delayed displays retain the last received score with a clear status.
+
 ## Organizer navigation
 
 Organizer pages have real URLs: `/`, `/tournaments`, `/teams`, `/matches`, `/matches/history`, `/standings`, and `/settings`. Navigation links support opening in another tab. Browser Back/Forward and refresh restore the page and URL filters. Tournament selection uses `?tournament=...`; team/match search uses `q`, with `status` and `stage` for matches. Typing replaces the current history entry so Back does not step through every keystroke. Background score updates retain searches and filters. Category-specific actions navigate to the relevant page in one history step. Unknown paths show a recovery link to the overview.
