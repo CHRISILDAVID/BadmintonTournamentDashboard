@@ -37,7 +37,7 @@ export function widgetDefaults(ids, breakpoint, height = 600) {
   const rows = stacked ? ids.length : ids.length <= 1 ? 1 : 1 + Math.ceil((ids.length - 1) / 2);
   const h = Math.max(8, Math.min(80, Math.floor((height + WIDGET_GAP) / (rows || 1) / (WIDGET_ROW + WIDGET_GAP))));
   // Give the live scoreboard room for two sides, format and score history.
-  const liveExtra = ids[0] === "live" ? Math.max(0, 15 - h) : 0;
+  const liveExtra = ids[0] === "live" ? Math.max(0, 11 - h) : 0;
   return ids.map((i, index) => ({
     i, x: stacked || index === 0 ? 0 : ((index - 1) % 2) * cols / 2,
     y: (stacked ? index * h : index === 0 ? 0 : (1 + Math.floor((index - 1) / 2)) * h) + (index > 0 ? liveExtra : 0),
