@@ -5,12 +5,12 @@ import { owner, request, invitation, redeem, envelope, origin } from "./helpers.
 
 const setup = { size: 2, sides: [["Alice", "Bob"], ["Chris", "Dana"]], scoring: { bestOf: 1, points: 5, cap: 5, goldenPoint: true } };
 
-test("organizers create friendly games; umpires score them live and displays receive results", async () => {
+test("organizers create custom games; umpires score them live and displays receive results", async () => {
   const o = await owner(), u = await redeem((await invitation(o, "umpire")).url);
   const co = await redeem((await invitation(o, "organizer")).url);
   const preset = (await request("preset", { name: "All games" }, o.cookie)).data;
   const display = await redeem((await invitation(o, "display", "Screen", preset.id)).url);
-  const create = (session, revision = 0) => request("action", { action: "friendly", payload: setup, revision }, session.cookie);
+  const create = (session, revision = 0) => request("action", { action: "custom", payload: setup, revision }, session.cookie);
   assert.equal((await create(u)).status, 403);
   assert.equal((await create(display)).status, 403);
   const created = await create(co);
@@ -49,14 +49,14 @@ test("organizers create friendly games; umpires score them live and displays rec
   } finally { socket.close(); }
 });
 
-test("friendly backups restore without categories and reject invalid standalone references", async () => {
+test("custom backups restore without categories and reject invalid standalone references", async () => {
   const o = await owner();
-  const created = await request("action", { action: "friendly", payload: setup, revision: 0 }, o.cookie);
+  const created = await request("action", { action: "custom", payload: setup, revision: 0 }, o.cookie);
   const backup = (await request("export", undefined, o.cookie)).data;
   for (const corrupt of [
     s => { s.matches[0].scoring.bestOf = 2; },
     s => { s.matches[0].tournamentId = "missing"; },
-    s => { s.teams[0].friendlyMatchId = "other"; },
+    s => { s.teams[0].customMatchId = "other"; },
     s => { s.matches[0].b = s.matches[0].a; },
     s => { s.matches[0].kind = "tournament"; },
   ]) {
@@ -72,4 +72,10 @@ test("friendly backups restore without categories and reject invalid standalone 
   assert.deepEqual(imported.data.matches, created.data.matches);
   assert.deepEqual(imported.data.teams, created.data.teams);
   assert.deepEqual(imported.data.tournaments, []);
+  const legacy = structuredClone(backup), legacyOwner = await owner();
+  legacy.state.matches[0].kind = "friendly"; legacy.state.matches[0].stage = "Friendly";
+  for (const team of legacy.state.teams) { team.friendlyMatchId = team.customMatchId; delete team.customMatchId; }
+  const legacyImport = await request("import", { destination: legacyOwner.eventId, backup: legacy }, legacyOwner.cookie);
+  assert.equal(legacyImport.status, 200);
+  assert.deepEqual(legacyImport.data.matches, legacy.state.matches);
 });

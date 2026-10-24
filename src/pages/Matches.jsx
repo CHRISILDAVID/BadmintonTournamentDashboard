@@ -13,6 +13,7 @@ import { NativeSelect } from "../components/ui/native-select.jsx";
 import PageLink from "../components/PageLink.jsx";
 import { Empty } from "../components/common.jsx";
 import { cloudEnabled, currentSession } from "../cloud/storage.js";
+import { isCustomGame } from "../../shared/matches.js";
 
 function Matches({ history = false, onScore }) {
   const { state, filter, busy, admin, umpire, selected, live, upcoming, completed, categorySelect, team, tournament, open, setPage,
@@ -32,7 +33,7 @@ function Matches({ history = false, onScore }) {
   const matches = (history ? completed : [...live, ...upcoming, ...waiting, ...completed]).filter(
     (m) =>
       (history || status === "all" || m.status === status) &&
-      (history || stage === "all" || (stage === "postseason" ? m.stage !== "League" && m.stage !== "Friendly" : m.stage === stage)) &&
+      (history || stage === "all" || (stage === "postseason" ? m.stage !== "League" && !isCustomGame(m) : m.stage === stage)) &&
       `${team(m.a)?.name} ${team(m.b)?.name}`
         .toLowerCase()
         .includes(query.toLowerCase()),
@@ -66,7 +67,7 @@ function Matches({ history = false, onScore }) {
         </NativeSelect></label>}
       </div>
       <div className="results-summary">
-        <span role="status" aria-live="polite" aria-atomic="true"><strong>{matches.length}</strong> of {history ? completed.length : selected.length} {history ? "results" : "matches"}{filter !== "all" ? ` · ${filter === "friendly" ? "Friendly" : tournament(filter)?.name}` : " · All matches"}{query && <> · Search: “{query}”</>}</span>
+        <span role="status" aria-live="polite" aria-atomic="true"><strong>{matches.length}</strong> of {history ? completed.length : selected.length} {history ? "results" : "matches"}{filter !== "all" ? ` · ${filter === "custom" ? "Custom" : tournament(filter)?.name}` : " · All matches"}{query && <> · Search: “{query}”</>}</span>
         {filtered && <Button variant="ghost" onClick={reset}>Reset filters</Button>}
         <a href="#match-filters" className="filter-return">Filters ↑</a>
         {currentSession()?.role !== "umpire" && <Button variant="outline" asChild
@@ -86,7 +87,7 @@ function Matches({ history = false, onScore }) {
           <strong>{team(m.a)?.name} vs {team(m.b)?.name}</strong><small>Court {m.court} · Open scorer</small>
         </Button>)}</div>
       </details>}
-      {!history && admin && testTools && filter !== "friendly" && <div className="toolbar">
+      {!history && admin && testTools && filter !== "custom" && <div className="toolbar">
         <Button variant="destructive" className="btn danger" disabled={busy || !unfinishedCount}
           onClick={() => open({ type: "randomComplete", tournament: filter === "all" ? undefined : tournament(filter) })}>
           Testing: complete unfinished matches

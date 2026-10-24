@@ -68,11 +68,11 @@ Layouts are saved per selection of tournament IDs. Panel layouts adapt to deskto
 
 Each widget has one scrolling surface, with thin scrollbars. The full screen and tournament panel containers only scroll manually. Automatic scrolling pauses during editing and for eight seconds after touch, wheel, or keyboard interaction. Use the **pause/play icon** beside the pencil to stop/resume automatic scrolling for the current view. Large brackets retain readable text and scroll vertically/horizontally instead of shrinking the entire draw into tiny cards. Brackets remeasure when resized. Fullscreen and live connection indicators remain available.
 
-## Friendly games
+## Custom games
 
-Organizers can choose **New friendly game** from Overview or Matches, enter singles or doubles players, and set best-of, points and finish rules. Start the game on a free court, then score it through the umpire/organizer scorer or record its final result from the organizer match desk. Friendly games share court and player availability checks with tournament matches.
+Organizers can choose **New custom game** from Overview or Matches, enter singles or doubles players, and set best-of, points and finish rules. Start the game on a free court, then score it through the umpire/organizer scorer or record its final result from the organizer match desk. Custom games share court and player availability checks with tournament matches.
 
-Use the **Friendly** filter in Matches and Match history to find these games. They keep their own players and scoring rules, with no tournament category, group, standings or knockout draw. The venue display includes live friendlies even without any tournaments; screens restricted to specific tournament categories continue to show only those categories. Completed friendlies are retained in match history and included in event backups.
+Use the **Custom** filter in Matches and Match history to find these games. They keep their own players and scoring rules, with no tournament category, group, standings or knockout draw. The venue display includes live custom games even without any tournaments; screens restricted to specific tournament categories continue to show only those categories. Completed custom games are retained in match history and included in event backups. Games, backups and saved links from before the rename remain supported.
 
 ## Organizer navigation
 

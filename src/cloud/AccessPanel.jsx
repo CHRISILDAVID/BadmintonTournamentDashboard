@@ -8,15 +8,31 @@ export default function AccessPanel({ state }) {
   const [screen, setScreen] = useState({ name: "Main screen", courts: "", categories: [], finals: false });
   const [usage, setUsage] = useState(null), [busy, setBusy] = useState(false), [destination, setDestination] = useState("");
   const [notice, setNotice] = useState("");
+  const [linkProfile, setLinkProfile] = useState(null);
   const load = async () => { const [a, u] = await Promise.all([api("access"), api("usage")]); setAccess(a); setUsage(u); };
   useEffect(() => { load().catch(e => setError(e.message)); }, []);
-  useEffect(() => { setQr(""); if (link) QRCode.toDataURL(link, { width: 240 }).then(setQr).catch(() => {}); }, [link]);
-  const run = async fn => {
+  useEffect(() => {
+    let active = true;
+    setQr("");
+    if (link) QRCode.toDataURL(link, { width: 240 }).then(value => { if (active) setQr(value); }).catch(() => {});
+    return () => { active = false; };
+  }, [link]);
+  const run = async (fn, message = "Changes saved.") => {
     setBusy(true); setError(""); setNotice("");
-    try { const result = await fn(); if (result?.url) setLink(result.url); await load(); setNotice("Changes saved."); return result; }
+    try { const result = await fn(); if (result?.url) { setLink(result.url); setLinkProfile(result.profile || currentSession().profile); } await load(); setNotice(message); return result; }
     catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   const umpireName = id => access?.profiles.find(p => p.id === id)?.name || "Unassigned";
+  const remove = profile => {
+    if (!window.confirm(`Remove ${profile.name} (${profile.role})? This signs out all their devices and invalidates their invitation links. Their accepted scores stay saved. A new invitation is needed to grant access again.`)) return;
+    run(async () => {
+      const result = await api("remove-access", { profile: profile.id });
+      setAccess(current => ({ ...current, profiles: current.profiles.filter(p => p.id !== profile.id),
+        sessions: current.sessions.filter(s => s.profile !== profile.id), assignments: current.assignments.filter(a => a.profile !== profile.id) }));
+      if (linkProfile === profile.id) { setLink(""); setQr(""); }
+      return result;
+    }, `${profile.name} removed. Sessions and invitation links were revoked.`);
+  };
   return <section className="panel settings-panel cloud-access" aria-busy={busy}>
     <h2>Cloud access & screens</h2><p>Every device connects directly to this website. Your organizer laptop can be closed.</p>
     <small>Event ID: {currentSession().eventId}</small>
@@ -58,7 +74,7 @@ export default function AccessPanel({ state }) {
         setScreen({ ...screen, layout: { selection, savedLayouts } });
       }}>Use this browser’s saved display layout</button><button disabled={busy}>Save screen preset</button></div>
     </form>
-    <div><h3 id="access-revoke">Access revocation</h3>{currentSession().role !== "owner" && <p className="help-text">Only the primary owner can revoke owner access.</p>}{access?.profiles.map(p => <div className="access-row" key={p.id}><span>{p.name} · {p.role}</span><button disabled={busy || p.id === currentSession().profile || (p.role === "owner" && currentSession().role !== "owner")} onClick={() => run(() => api("revoke", { profile: p.id }))}>Revoke sessions & links</button></div>)}
+    <div><h3 id="access-revoke">Access revocation</h3><p>Remove co-organizers, umpires or displays to revoke their access and remove them from this list. Their accepted scores stay saved.</p>{currentSession().role !== "owner" && <p className="help-text">Primary organizer access is managed from the maintainer page.</p>}{access?.profiles.map(p => <div className="access-row" key={p.id} data-profile-id={p.id}><span>{p.name} · {p.role}{p.id === currentSession().profile ? " (you)" : ""}</span><button disabled={busy || p.id === currentSession().profile || (p.role === "owner" && currentSession().role !== "owner")} onClick={() => run(() => api("revoke", { profile: p.id }))}>Revoke sessions & links</button>{p.role !== "owner" && p.id !== currentSession().profile && <button className="access-remove" disabled={busy} aria-label={`Remove ${p.name} (${p.role})`} onClick={() => remove(p)}>Remove</button>}</div>)}
       {access?.sessions.filter(s => !s.revoked).map(s => <div className="access-row" key={s.id}><span>{umpireName(s.profile)} · session {s.id.slice(0, 8)} {s.id === currentSession().sessionId ? "(this browser)" : ""}</span><button disabled={busy || (s.role === "owner" && currentSession().role !== "owner")} onClick={() => run(() => api("revoke", { sessionId: s.id }))}>Revoke session</button></div>)}
       {currentSession().role === "owner" && <button disabled={busy} onClick={() => run(() => api("recovery", {}))}>Replace private recovery link</button>}
     </div>

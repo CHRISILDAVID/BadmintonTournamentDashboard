@@ -1,7 +1,7 @@
 import React from "react";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { groupName } from "../utils.js";
-import { matchCategory } from "../../shared/matches.js";
+import { matchCategory, matchStageLabel } from "../../shared/matches.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Empty, MapPinIcon } from "../components/common.jsx";
@@ -170,7 +170,7 @@ function Overview() {
                     </strong>
                     <small>
                       {matchCategory(m, tournament(m.tournamentId))} <span>/</span>{" "}
-                      {groupName(m.group) || m.stage}
+                      {groupName(m.group) || matchStageLabel(m)}
                     </small>
                   </span>
                   <span className="queue-time">

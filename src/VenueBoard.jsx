@@ -20,7 +20,7 @@ import SharedLiveScores from "./components/SharedLiveScores.jsx";
 import { cleanLiveScoreLayout } from "./lib/venue-widgets.js";
 import { selectionKey } from "./lib/venue-layout.js";
 import { directPlaces, isPlayoffFormat } from "../shared/format.js";
-import { isFriendly } from "../shared/matches.js";
+import { isCustomGame } from "../shared/matches.js";
 import logo from "../assets/logo.jpg";
 import LiveScores from "./cloud/LiveScores.jsx";
 import { liveStore } from "./cloud/connection.js";
@@ -221,7 +221,7 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
     () => selection.ids.map((id) => tournamentDisplayData(state, id)),
     [state, selection],
   );
-  const sharedLiveScores = liveLayout.position === "top" || liveMatches.some(isFriendly) || !panels.length;
+  const sharedLiveScores = liveLayout.position === "top" || liveMatches.some(isCustomGame) || !panels.length;
   useEffect(() => {
     if (
       selection.count !== preferences.count ||

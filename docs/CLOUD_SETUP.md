@@ -52,6 +52,12 @@ The browser remembers maintainer access for up to seven days using a separate Se
 
 **Remove access** beside an existing organizer immediately signs out that event's primary organizer and co-organizers, invalidates their outstanding setup, recovery and organizer invitation links, and releases any scoring control they held while keeping accepted scores. The event and its data stay saved; umpire/display access and other organizers' events stay active. The identifier stays in the directory so **Restore access** can issue a fresh primary-organizer link for the same event. Co-organizers need new invitations after restoration.
 
+### Remove staff or display access
+
+In **Settings → Access**, use **Remove** beside a co-organizer, umpire or display. Confirming removes the entry from the directory, signs out all its sessions, invalidates its invitation links and releases scoring control without clearing accepted points or audit history. Removed entries stay removed after reloading; grant access again with a new invitation. You cannot remove your own profile or the primary organizer from this screen. Primary-organizer access remains managed through `/maintainer`.
+
+**Revoke sessions & links** keeps the staff entry listed but revokes its sessions and invitation links. **Revoke session** affects one browser. Both release scoring control held by the affected sessions.
+
 ### Event history
 
 Choose **Event history** to browse all organizers' events and their sub-tournaments, including winners and runners-up from completed finals. Open a sub-tournament to view its recorded matches, scores and entries. Events and sub-tournaments load ten at a time; matches and entries load twenty at a time. Sub-tournaments removed after this update retain their last recorded results in maintainer history. Previously deleted records cannot be recovered. See [Maintainer event history](MAINTAINER_HISTORY.md) for retention, pagination and validation details.

@@ -1,9 +1,11 @@
 import { hasLeagueDraw } from "./groups.js";
 
-export const isFriendly = match => match?.kind === "friendly";
+// Read games saved before standalone games were renamed from Friendly to Custom.
+export const isCustomGame = match => ["custom", "friendly"].includes(match?.kind);
+export const matchStageLabel = match => isCustomGame(match) ? "Custom" : match.stage;
 export const matchesFilter = (match, filter) => filter === "all" ||
-  (filter === "friendly" ? isFriendly(match) : match.tournamentId === filter);
-export const matchCategory = (match, tournament) => isFriendly(match) ? "Friendly" : tournament?.name;
+  (["custom", "friendly"].includes(filter) ? isCustomGame(match) : match.tournamentId === filter);
+export const matchCategory = (match, tournament) => isCustomGame(match) ? "Custom" : tournament?.name;
 
 // Fixture order is for browsing only; any ready game can start.
 export const canStart = (match) =>

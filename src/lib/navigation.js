@@ -8,7 +8,7 @@ export function readRoute(location = { pathname: "/", search: "" }) {
   const page = Object.keys(PAGE_PATHS).find(page => PAGE_PATHS[page] === path) || "Not found";
   const params = new URLSearchParams(location.search);
   return {
-    page, filter: params.get("tournament") || "all",
+    page, filter: params.get("tournament") === "friendly" ? "custom" : params.get("tournament") || "all",
     teamQuery: page === "Teams & players" ? params.get("q") || "" : "",
     matchQuery: ["Matches", "History"].includes(page) ? params.get("q") || "" : "",
     matchStatus: ["live", "upcoming", "completed"].includes(params.get("status")) ? params.get("status") : "all",

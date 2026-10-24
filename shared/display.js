@@ -1,7 +1,7 @@
 import { standings } from "./standings.js";
 import { hasLeagueDraw } from "./groups.js";
 import { PLAYOFF_STAGE, qualificationStatus, groupLabel } from "./format.js";
-import { isFriendly } from "./matches.js";
+import { isCustomGame } from "./matches.js";
 
 export function displayTournamentOptions(state) {
   const priority = (t) => {
@@ -115,7 +115,7 @@ export function resultScore(match) {
 // tournament panels selected in this browser's layout.
 export function liveDisplayMatches(state, preset) {
   const tournaments = new Set(state.tournaments.filter(t => !preset?.categories?.length || preset.categories.includes(t.id)).map(t => t.id));
-  return state.matches.filter(m => m.status === "live" && (tournaments.has(m.tournamentId) || (isFriendly(m) && !preset?.categories?.length)) &&
+  return state.matches.filter(m => m.status === "live" && (tournaments.has(m.tournamentId) || (isCustomGame(m) && !preset?.categories?.length)) &&
     (!preset?.courts?.length || preset.courts.includes(m.court)) && (!preset?.finals || m.stage === "Final"))
     .sort((a, b) => a.court - b.court);
 }

@@ -3,7 +3,7 @@ import { ArrowUpRight, Check } from "lucide-react";
 import { groupName, time } from "../utils.js";
 
 import { PLAYOFF_STAGE, pendingOpponent } from "../../shared/format.js";
-import { isFriendly, matchCategory } from "../../shared/matches.js";
+import { isCustomGame, matchCategory, matchStageLabel } from "../../shared/matches.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill } from "../components/common.jsx";
@@ -34,14 +34,14 @@ function MatchCard({ m, compact = false }) {
           ) : m.status === "completed" ? (
             m.bye ? "BYE" : "FINAL SCORE"
           ) : (
-            m.stage
+            matchStageLabel(m)
           )}
         </Pill>
       </div>
       <div className="match-sub">
         {m.stage === PLAYOFF_STAGE ? `${groupName(m.group)} · ${m.playoffRanks.join(" vs ")} → slot ${m.qualifyingSlot}` : m.status === "live"
-          ? `${matchCategory(m, t)} / ${isFriendly(m) ? (m.size === 1 ? "Singles" : "Doubles") : groupName(m.group) || m.stage}`
-          : groupName(m.group) || m.stage}
+          ? `${matchCategory(m, t)} / ${isCustomGame(m) ? (m.size === 1 ? "Singles" : "Doubles") : groupName(m.group) || m.stage}`
+          : groupName(m.group) || matchStageLabel(m)}
       </div>
       <div className="opponents">
         {[a, b].map((t, i) => (
@@ -60,7 +60,7 @@ function MatchCard({ m, compact = false }) {
               <strong>{t?.name || pendingOpponent(m, i === 0 ? "a" : "b")}</strong>
               {!compact && (
                 <small>
-                  {isFriendly(m) ? (m.size === 1 ? "Singles" : "Doubles") : t ? `Seed ${t.seed}` : "Winner of previous round"}
+                  {isCustomGame(m) ? (m.size === 1 ? "Singles" : "Doubles") : t ? `Seed ${t.seed}` : "Winner of previous round"}
                 </small>
               )}
             </div>

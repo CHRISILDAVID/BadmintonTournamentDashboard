@@ -28,7 +28,7 @@ import TournamentForm from "./forms/TournamentForm.jsx";
 import ScoringForm from "./forms/ScoringForm.jsx";
 import TeamForm from "./forms/TeamForm.jsx";
 import MatchForm from "./forms/MatchForm.jsx";
-import FriendlyForm from "./forms/FriendlyForm.jsx";
+import CustomGameForm from "./forms/CustomGameForm.jsx";
 import ConfirmForm from "./forms/ConfirmForm.jsx";
 import { cloudEnabled, currentSession } from "./cloud/storage.js";
 import Umpire from "./cloud/Umpire.jsx";
@@ -55,7 +55,7 @@ function App() {
     if (notice) { const timer = setTimeout(() => setNotice(""), 4500); return () => clearTimeout(timer); }
   }, [notice, setNotice]);
   useEffect(() => {
-    if (state && filter !== "all" && !(filter === "friendly" && ["Overview", "Matches", "History"].includes(page)) && !state.tournaments.some(t => t.id === filter)) setFilter("all", true);
+    if (state && filter !== "all" && !(filter === "custom" && ["Overview", "Matches", "History"].includes(page)) && !state.tournaments.some(t => t.id === filter)) setFilter("all", true);
   }, [state, page, filter, setFilter]);
   useEffect(() => { if (notice) toast.success(notice); }, [notice]);
   useEffect(() => {
@@ -85,7 +85,7 @@ function App() {
     Tournaments: "Set up categories, seed groups, and build the draw.",
     "Teams & players": "Register your players and manage team entries.",
     Matches: "Choose any ready game, assign a court, and record the result.",
-    History: "Completed tournament matches and friendly games.",
+    History: "Completed tournament matches and custom games.",
     Standings: "Group tables and the route to the final.",
     Settings: "Your venue, courts, and connected screens.",
     "Not found": "This address does not match a tournament desk page.",
@@ -130,7 +130,7 @@ function App() {
                 <p>{subtitles[page]}</p>
               </div>
               {admin && page === "Tournaments" && <div className="heading-actions"><Button onClick={() => open({ type: "tournament" })}><Plus size={17}/>New tournament</Button></div>}
-              {admin && ["Overview", "Matches"].includes(page) && <div className="heading-actions"><Button onClick={() => open({ type: "friendly" })}><Plus size={17}/>New friendly game</Button></div>}
+              {admin && ["Overview", "Matches"].includes(page) && <div className="heading-actions"><Button onClick={() => open({ type: "custom" })}><Plus size={17}/>New custom game</Button></div>}
             </div>
             {page === "Overview" ? (
               <Overview />
@@ -177,7 +177,7 @@ function App() {
                 team: modal.team ? "Edit team" : "Add a team",
                 import: "Import your teams",
                 match: "Match desk",
-                friendly: "Create a friendly game",
+                custom: "Create a custom game",
                 generate: "Ready to create fixtures?",
                 knockouts: "Create the knockout bracket",
                 resetFixtures: "Reset fixtures",
@@ -191,14 +191,14 @@ function App() {
                 scoring: "Correct tournament scoring",
               }[modal.type]
             }
-            wide={["tournament", "scoring", "import", "groups", "editKnockouts", "friendly"].includes(modal.type)}
+            wide={["tournament", "scoring", "import", "groups", "editKnockouts", "custom"].includes(modal.type)}
             close={() => {
               setModal(null);
               setError("");
             }}
           >
-            {modal.type === "friendly" ? (
-              <FriendlyForm />
+            {modal.type === "custom" ? (
+              <CustomGameForm />
             ) : modal.type === "tournament" ? (
               <TournamentForm />
             ) : modal.type === "scoring" ? (

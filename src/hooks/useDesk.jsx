@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import { organizerStore, tournamentStore } from "../stores/index.js";
-import { upcomingMatches, matchesFilter, isFriendly } from "../../shared/matches.js";
+import { upcomingMatches, matchesFilter, isCustomGame } from "../../shared/matches.js";
 import { NativeSelect } from "../components/ui/native-select.jsx";
 import { currentSession } from "../cloud/storage.js";
 
@@ -12,9 +12,9 @@ export function useDesk() {
   const { state } = data;
   const { setFilter } = ui;
   const umpire = currentSession()?.role === "umpire";
-  const friendlyFilter = ["Overview", "Matches", "History"].includes(ui.page);
-  const filter = umpire && !(friendlyFilter && ui.filter === "friendly") && !state?.tournaments.some(t => t.id === ui.filter)
-    ? state?.tournaments[0]?.id || (state?.matches.some(isFriendly) && friendlyFilter ? "friendly" : "all") : ui.filter;
+  const customFilter = ["Overview", "Matches", "History"].includes(ui.page);
+  const filter = umpire && !(customFilter && ui.filter === "custom") && !state?.tournaments.some(t => t.id === ui.filter)
+    ? state?.tournaments[0]?.id || (state?.matches.some(isCustomGame) && customFilter ? "custom" : "all") : ui.filter;
   useEffect(() => {
     if (umpire && filter !== ui.filter) setFilter(filter, true);
   }, [umpire, filter, ui.filter, setFilter]);
@@ -33,8 +33,8 @@ export function useDesk() {
     };
   }, [state, filter]);
   const categorySelect = <NativeSelect aria-label="Filter by tournament" className="category-select" value={filter} onChange={e => setFilter(e.target.value)}>
-    {!umpire && <option value="all">{friendlyFilter ? "All matches" : "All tournaments"}</option>}
-    {friendlyFilter && <option value="friendly">Friendly</option>}
+    {!umpire && <option value="all">{customFilter ? "All matches" : "All tournaments"}</option>}
+    {customFilter && <option value="custom">Custom</option>}
     {state?.tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
   </NativeSelect>;
   const admin = !display && (!currentSession() || ["owner", "organizer"].includes(currentSession().role));

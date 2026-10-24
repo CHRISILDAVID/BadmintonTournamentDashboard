@@ -4,7 +4,7 @@ import { scoringRules } from "../shared/format.js";
 import { newScore, reduceScore, publicScore } from "../shared/live-scoring.js";
 import { token, digest, json, check, cookie, sessionCookie, manager, readJson } from "./security.js";
 import { EventHistory } from "./history.js";
-import { isFriendly } from "../shared/matches.js";
+import { isCustomGame } from "../shared/matches.js";
 
 const DAY = 86400000;
 const encode = JSON.stringify;
@@ -29,6 +29,7 @@ export class TournamentEvent extends DurableObject {
       CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS documents (key TEXT NOT NULL, part INTEGER NOT NULL, value TEXT NOT NULL, PRIMARY KEY(key,part));
       CREATE TABLE IF NOT EXISTS profiles (id TEXT PRIMARY KEY, role TEXT NOT NULL, name TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS removed_profiles (profile TEXT PRIMARY KEY, removedAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, hash TEXT UNIQUE NOT NULL, profile TEXT NOT NULL, role TEXT NOT NULL, expires INTEGER NOT NULL, revoked INTEGER NOT NULL DEFAULT 0, preset TEXT);
       CREATE TABLE IF NOT EXISTS invitations (hash TEXT PRIMARY KEY, role TEXT NOT NULL, profile TEXT NOT NULL, expires INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, preset TEXT);
       CREATE TABLE IF NOT EXISTS assignments (match TEXT PRIMARY KEY, profile TEXT NOT NULL);
@@ -221,8 +222,8 @@ export class TournamentEvent extends DurableObject {
         if (path === "/api/features") return json({ cloud: true, testTools: this.testToolsEnabled(s) });
         manager(s);
         if (path === "/api/access") return json({
-          profiles: this.sql.exec("SELECT * FROM profiles").toArray(),
-          sessions: this.sql.exec("SELECT id,profile,role,expires,revoked,preset FROM sessions").toArray(),
+          profiles: this.sql.exec("SELECT * FROM profiles WHERE id NOT IN (SELECT profile FROM removed_profiles)").toArray(),
+          sessions: this.sql.exec("SELECT id,profile,role,expires,revoked,preset FROM sessions WHERE profile NOT IN (SELECT profile FROM removed_profiles)").toArray(),
           assignments: this.sql.exec("SELECT * FROM assignments").toArray(),
           presets: this.sql.exec("SELECT data FROM presets").toArray().map(r => JSON.parse(r.data)),
           invitations: this.sql.exec("SELECT rowid AS id,role,profile,expires,used FROM invitations").toArray(),
@@ -305,7 +306,7 @@ export class TournamentEvent extends DurableObject {
         }
         if (path === "/api/assign") {
           check(this.get("state").matches.some(m => m.id === body.matchId), "Match not found.");
-          check(this.sql.exec("SELECT id FROM profiles WHERE id=? AND role='umpire'", body.profile).toArray()[0], "Choose an umpire.");
+          check(this.sql.exec("SELECT id FROM profiles WHERE id=? AND role='umpire' AND id NOT IN (SELECT profile FROM removed_profiles)", body.profile).toArray()[0], "Choose an umpire.");
           const previous = this.sql.exec("SELECT profile FROM assignments WHERE match=?", body.matchId).toArray()[0];
           this.sql.exec("INSERT INTO assignments VALUES(?,?) ON CONFLICT(match) DO UPDATE SET profile=excluded.profile", body.matchId, body.profile);
           if (previous?.profile !== body.profile) this.transfer(body.matchId);
@@ -315,16 +316,35 @@ export class TournamentEvent extends DurableObject {
           this.transfer(body.matchId, body.reset === true);
           change = { type: "refresh", payload: {} }; return { ok: true };
         }
+        if (path === "/api/remove-access") {
+          check(typeof body.profile === "string", "Choose a staff member or display.");
+          const profile = this.sql.exec("SELECT * FROM profiles WHERE id=?", body.profile).toArray()[0];
+          check(profile, "Access entry not found.", 404);
+          check(profile.role !== "owner", "Primary organizer access must be managed from the maintainer page.", 403);
+          check(profile.id !== current.profile, "Use Sign out to end your own session.", 403);
+          this.sql.exec("UPDATE sessions SET revoked=1 WHERE profile=?", profile.id);
+          this.sql.exec("UPDATE invitations SET used=1 WHERE profile=?", profile.id);
+          this.invalidateProfile(profile.id, "Access entry removed");
+          this.sql.exec("DELETE FROM assignments WHERE profile=?", profile.id);
+          // Keep the identity and session/action evidence for scoring audits.
+          this.sql.exec("INSERT INTO removed_profiles(profile,removedAt) VALUES(?,?) ON CONFLICT(profile) DO NOTHING", profile.id, Date.now());
+          change = { type: "refresh", payload: {} }; return { ok: true };
+        }
         if (path === "/api/revoke") {
           if (body.sessionId) {
             const victim = this.sql.exec("SELECT * FROM sessions WHERE id=?", body.sessionId).toArray()[0];
             check(victim && (current.role === "owner" || victim.role !== "owner"), "Cannot revoke this session.", 403);
             this.sql.exec("UPDATE sessions SET revoked=1 WHERE id=?", victim.id);
+            for (const { data } of this.sql.exec("SELECT data FROM scores")) {
+              const record = JSON.parse(data);
+              if (record.controller === victim.id) this.transfer(record.matchId);
+            }
           } else {
             const profile = this.sql.exec("SELECT * FROM profiles WHERE id=?", body.profile).toArray()[0];
             check(profile && (current.role === "owner" || profile.role !== "owner"), "Cannot revoke this profile.", 403);
             this.sql.exec("UPDATE sessions SET revoked=1 WHERE profile=?", profile.id);
             this.sql.exec("UPDATE invitations SET used=1 WHERE profile=?", profile.id);
+            this.invalidateProfile(profile.id, "Access revoked");
           }
           change = { type: "refresh", payload: {} }; return { ok: true };
         }
@@ -364,7 +384,7 @@ export class TournamentEvent extends DurableObject {
         }
         check(false, "Unknown endpoint.", 404);
       });
-      if (path === "/api/revoke" || path === "/api/logout") this.closeRevoked();
+      if (["/api/revoke", "/api/remove-access", "/api/logout"].includes(path)) this.closeRevoked();
       if (change) this.broadcast(change.type, change.payload, change.matchId);
       return json(result, 200, path === "/api/logout" ? { "Set-Cookie": sessionCookie("", "", 0) } : {});
     } catch (error) {
@@ -512,21 +532,21 @@ export class TournamentEvent extends DurableObject {
     }
     const teams = new Set(s.teams.map(t => t.id)), categories = new Set(s.tournaments.map(t => t.id));
     for (const t of s.tournaments) applyAction(emptyState(), "tournament", t);
-    const friendlies = new Map(s.matches.filter(isFriendly).map(m => [m.id, m]));
+    const customGames = new Map(s.matches.filter(isCustomGame).map(m => [m.id, m]));
     for (const t of s.teams) check((categories.has(t.tournamentId) ||
-      (t.tournamentId === null && friendlies.has(t.friendlyMatchId) && [friendlies.get(t.friendlyMatchId).a, friendlies.get(t.friendlyMatchId).b].includes(t.id))) &&
+      (t.tournamentId === null && customGames.has(t.customMatchId || t.friendlyMatchId) && [customGames.get(t.customMatchId || t.friendlyMatchId).a, customGames.get(t.customMatchId || t.friendlyMatchId).b].includes(t.id))) &&
       Array.isArray(t.players) && t.players.every(p => typeof p === "string"), "Invalid team.");
     const courts = new Set(), players = new Set();
     for (const m of s.matches) {
-      if (isFriendly(m)) {
-        check(m.tournamentId === null && m.stage === "Friendly" && m.a && m.b && m.a !== m.b, "Invalid friendly game.");
+      if (isCustomGame(m)) {
+        check(m.tournamentId === null && ["Custom", "Friendly"].includes(m.stage) && m.a && m.b && m.a !== m.b, "Invalid custom game.");
         const entrants = [m.a, m.b].map(id => s.teams.find(t => t.id === id));
-        check(entrants.every(t => t?.friendlyMatchId === m.id), "Invalid friendly players.");
+        check(entrants.every(t => (t?.customMatchId || t?.friendlyMatchId) === m.id), "Invalid custom players.");
         // Reuse creation validation for format, rules and unique player names.
-        applyAction(emptyState(), "friendly", { size: m.size, scoring: m.scoring, sides: entrants.map(t => t.players) });
-        check(!m.bye && !m.aSource && !m.bSource, "Friendly games cannot have tournament feeders or byes.");
+        applyAction(emptyState(), "custom", { size: m.size, scoring: m.scoring, sides: entrants.map(t => t.players) });
+        check(!m.bye && !m.aSource && !m.bSource, "Custom games cannot have tournament feeders or byes.");
       }
-      check((isFriendly(m) ? m.tournamentId === null : categories.has(m.tournamentId)) && (!m.a || teams.has(m.a)) && (!m.b || teams.has(m.b)) &&
+      check((isCustomGame(m) ? m.tournamentId === null : categories.has(m.tournamentId)) && (!m.a || teams.has(m.a)) && (!m.b || teams.has(m.b)) &&
         [m.a, m.b].filter(Boolean).every(id => s.teams.find(t => t.id === id)?.tournamentId === m.tournamentId), "Invalid match references.");
       check(["upcoming", "live", "completed"].includes(m.status), "Invalid match status.");
       if (m.status === "completed" && !m.bye) {

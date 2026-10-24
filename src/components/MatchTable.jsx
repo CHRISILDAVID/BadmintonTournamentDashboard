@@ -3,7 +3,7 @@ import React from "react";
 import { groupName, time } from "../utils.js";
 
 import { pendingOpponent } from "../../shared/format.js";
-import { matchCategory } from "../../shared/matches.js";
+import { matchCategory, matchStageLabel } from "../../shared/matches.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
@@ -39,7 +39,7 @@ function MatchTable({ matches, history = false, onScore }) {
                 <small>{matchCategory(m, tournament(m.tournamentId))}</small>
               </TableCell>
               <TableCell>
-                {m.stage}
+                {matchStageLabel(m)}
                 <small>{groupName(m.group)}</small>
               </TableCell>
               <TableCell>
@@ -93,7 +93,7 @@ function MatchTable({ matches, history = false, onScore }) {
     <Empty title={history ? "No results yet" : "No matches here yet"}>
       {history
         ? "Completed matches will appear here automatically."
-        : admin ? "Create a friendly game, or add teams and generate fixtures from Tournaments." : "Matches will appear when the organizer creates games."}
+        : admin ? "Create a custom game, or add teams and generate fixtures from Tournaments." : "Matches will appear when the organizer creates games."}
     </Empty>
   );
 }
