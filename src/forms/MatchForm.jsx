@@ -6,6 +6,7 @@ import ScoreInput from "../ScoreInput.jsx";
 import { finalScores } from "../scores.js";
 
 import { pendingOpponent, scoringRules, scoringLabel } from "../../shared/format.js";
+import { isFriendly, matchCategory } from "../../shared/matches.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty, Field } from "../components/common.jsx";
@@ -51,7 +52,7 @@ function MatchEditor() {
   return (
     <>
       <div className="match-dialog-meta">
-        <Pill>{t.name}</Pill>
+        <Pill>{matchCategory(m, t)}</Pill>
         <span>
           {m.stage}{groupName(m.group) ? ` · ${groupName(m.group)}` : ""} · {scoringLabel(rules)}
         </span>
@@ -60,7 +61,7 @@ function MatchEditor() {
         {[m.a, m.b].map((tid, i) => (
           <div key={i}>
             <strong>{team(tid)?.name || pendingOpponent(m, i === 0 ? "a" : "b")}</strong>
-            <small>{team(tid) ? `Seed ${team(tid).seed}` : "Winner of previous round"}</small>
+            <small>{isFriendly(m) ? (m.size === 1 ? "Singles" : "Doubles") : team(tid) ? `Seed ${team(tid).seed}` : "Winner of previous round"}</small>
           </div>
         ))}
       </div>
@@ -127,11 +128,11 @@ function MatchEditor() {
           {m.status === "live" && <div className="return-match"><p>Players not ready and play has not begun?</p><Button variant="ghost" className="text-btn" disabled={busy} onClick={() => open({type:"returnMatch", matchId:m.id})}>Undo start and free court</Button></div>}
           <h3>{m.status === "completed" ? "Edit final result" : "Record the final result"}</h3>
           <p className="help-text">
-            Enter each completed game in opponent order above. Saving updates the result and standings.
+            Enter each completed game in opponent order above. {isFriendly(m) ? "Saving adds the result to friendly game history." : "Saving updates the result and standings."}
           </p>
           {m.status === "completed" && <label className="help-text">
             <Input type="checkbox" checked={confirmCorrection} onChange={e => setConfirmCorrection(e.target.checked)} />
-            I confirm this correction. Standings and the draw will update. Later games whose opponents change will return to upcoming, clearing their scores and freeing any occupied courts. Unaffected results stay saved.
+            {isFriendly(m) ? "I confirm this correction to the friendly game result." : "I confirm this correction. Standings and the draw will update. Later games whose opponents change will return to upcoming, clearing their scores and freeing any occupied courts. Unaffected results stay saved."}
           </label>}
           <div className="game-inputs">
             {scoreError && <p id="match-score-error" className="sr-only">{scoreError}</p>}
@@ -169,7 +170,7 @@ function MatchEditor() {
                   await act(
                     m.status === "completed" ? "correctResult" : "finish",
                     { matchId: m.id, games: completedGames },
-                    m.status === "completed" ? "Result corrected; standings and draw updated" : "Result recorded",
+                    m.status === "completed" ? (isFriendly(m) ? "Friendly result corrected" : "Result corrected; standings and draw updated") : "Result recorded",
                     resultRevision.current,
                   )
                 ) {

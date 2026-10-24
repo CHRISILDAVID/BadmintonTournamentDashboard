@@ -1,5 +1,10 @@
 import { hasLeagueDraw } from "./groups.js";
 
+export const isFriendly = match => match?.kind === "friendly";
+export const matchesFilter = (match, filter) => filter === "all" ||
+  (filter === "friendly" ? isFriendly(match) : match.tournamentId === filter);
+export const matchCategory = (match, tournament) => isFriendly(match) ? "Friendly" : tournament?.name;
+
 // Fixture order is for browsing only; any ready game can start.
 export const canStart = (match) =>
   match.status === "upcoming" && !!match.a && !!match.b;

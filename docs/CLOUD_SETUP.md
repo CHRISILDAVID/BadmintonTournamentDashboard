@@ -50,6 +50,8 @@ The browser remembers maintainer access for up to seven days using a separate Se
 
 **Lock this browser** revokes its maintainer session. **Lock all maintainer browsers** revokes every maintainer session without revoking event organizer/umpire sessions. Rotating `PROVISIONING_SECRET` through Wrangler invalidates existing maintainer sessions on their next request. Maintainer access authorizes the read-only **Event history** tab; it does not authorize event scoring or management through staff APIs.
 
+**Remove access** beside an existing organizer immediately signs out that event's primary organizer and co-organizers, invalidates their outstanding setup, recovery and organizer invitation links, and releases any scoring control they held while keeping accepted scores. The event and its data stay saved; umpire/display access and other organizers' events stay active. The identifier stays in the directory so **Restore access** can issue a fresh primary-organizer link for the same event. Co-organizers need new invitations after restoration.
+
 ### Event history
 
 Choose **Event history** to browse all organizers' events and their sub-tournaments, including winners and runners-up from completed finals. Open a sub-tournament to view its recorded matches, scores and entries. Events and sub-tournaments load ten at a time; matches and entries load twenty at a time. Sub-tournaments removed after this update retain their last recorded results in maintainer history. Previously deleted records cannot be recovered. See [Maintainer event history](MAINTAINER_HISTORY.md) for retention, pagination and validation details.

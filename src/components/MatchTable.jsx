@@ -3,6 +3,7 @@ import React from "react";
 import { groupName, time } from "../utils.js";
 
 import { pendingOpponent } from "../../shared/format.js";
+import { matchCategory } from "../../shared/matches.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
@@ -35,7 +36,7 @@ function MatchTable({ matches, history = false, onScore }) {
                   <span className="versus">vs</span>{" "}
                   <span>{team(m.b)?.name || pendingOpponent(m, "b")}</span>
                 </strong>
-                <small>{tournament(m.tournamentId)?.name}</small>
+                <small>{matchCategory(m, tournament(m.tournamentId))}</small>
               </TableCell>
               <TableCell>
                 {m.stage}
@@ -92,7 +93,7 @@ function MatchTable({ matches, history = false, onScore }) {
     <Empty title={history ? "No results yet" : "No matches here yet"}>
       {history
         ? "Completed matches will appear here automatically."
-        : admin ? "Add teams and generate fixtures from Tournaments." : "Matches will appear when the organizer creates fixtures."}
+        : admin ? "Create a friendly game, or add teams and generate fixtures from Tournaments." : "Matches will appear when the organizer creates games."}
     </Empty>
   );
 }

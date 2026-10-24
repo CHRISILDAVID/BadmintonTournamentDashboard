@@ -20,6 +20,7 @@ import SharedLiveScores from "./components/SharedLiveScores.jsx";
 import { cleanLiveScoreLayout } from "./lib/venue-widgets.js";
 import { selectionKey } from "./lib/venue-layout.js";
 import { directPlaces, isPlayoffFormat } from "../shared/format.js";
+import { isFriendly } from "../shared/matches.js";
 import logo from "../assets/logo.jpg";
 import LiveScores from "./cloud/LiveScores.jsx";
 import { liveStore } from "./cloud/connection.js";
@@ -220,6 +221,7 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
     () => selection.ids.map((id) => tournamentDisplayData(state, id)),
     [state, selection],
   );
+  const sharedLiveScores = liveLayout.position === "top" || liveMatches.some(isFriendly) || !panels.length;
   useEffect(() => {
     if (
       selection.count !== preferences.count ||
@@ -322,8 +324,8 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
         </Button>
         </div>
       </div>
-      {liveLayout.position === "top" && <SharedLiveScores matches={liveMatches} teams={teams} tournaments={tournaments} flow={liveLayout.flow}/>}
-      <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} sharedLiveScores={liveLayout.position === "top"} upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}/>} />
+      {sharedLiveScores && <SharedLiveScores matches={liveMatches} teams={teams} tournaments={tournaments} flow={liveLayout.flow}/>}
+      <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} sharedLiveScores={sharedLiveScores} upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}/>} />
 
       {error && (
         <div className="toast error" role="alert">

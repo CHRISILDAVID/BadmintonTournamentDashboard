@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { groupName } from "../utils.js";
+import { matchCategory } from "../../shared/matches.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Empty, MapPinIcon } from "../components/common.jsx";
@@ -56,7 +57,7 @@ function Overview() {
       <div className="score-strip">
         {[
           ["Categories", state.tournaments.length],
-          ["Teams entered", state.teams.length],
+          ["Teams entered", state.teams.filter(t => t.tournamentId).length],
           ["On court", allLive.length],
           ["Matches finished", allDone.length],
         ].map(([label, value]) => (
@@ -168,7 +169,7 @@ function Overview() {
                       {team(m.b)?.name || "Awaiting qualifier"}
                     </strong>
                     <small>
-                      {tournament(m.tournamentId)?.name} <span>/</span>{" "}
+                      {matchCategory(m, tournament(m.tournamentId))} <span>/</span>{" "}
                       {groupName(m.group) || m.stage}
                     </small>
                   </span>
@@ -200,7 +201,7 @@ function Overview() {
             completed.slice(0, 3).map((m) => (
               <div className="result-slip" key={m.id}>
                 <div className="recent-meta">
-                  <span>{tournament(m.tournamentId)?.name}</span>
+                  <span>{matchCategory(m, tournament(m.tournamentId))}</span>
                   <span>FINAL</span>
                 </div>
                 {[m.a, m.b].map((tid, i) => (

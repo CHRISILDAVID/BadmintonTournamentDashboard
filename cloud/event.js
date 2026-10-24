@@ -4,6 +4,7 @@ import { scoringRules } from "../shared/format.js";
 import { newScore, reduceScore, publicScore } from "../shared/live-scoring.js";
 import { token, digest, json, check, cookie, sessionCookie, manager, readJson } from "./security.js";
 import { EventHistory } from "./history.js";
+import { isFriendly } from "../shared/matches.js";
 
 const DAY = 86400000;
 const encode = JSON.stringify;
@@ -81,6 +82,19 @@ export class TournamentEvent extends DurableObject {
       this.sql.exec("UPDATE invitations SET used=1 WHERE profile=? AND role IN ('owner','recovery')", owner.id);
       this.sql.exec("INSERT INTO invitations(hash,role,profile,expires) VALUES(?,?,?,?)", hash, "recovery", owner.id, Date.now() + DAY);
     });
+  }
+  maintainerRevoke() {
+    this.ctx.storage.transactionSync(() => {
+      const sessions = new Set(this.sql.exec("SELECT id FROM sessions WHERE role IN ('owner','organizer')").toArray().map(s => s.id));
+      this.sql.exec("UPDATE sessions SET revoked=1 WHERE role IN ('owner','organizer')");
+      this.sql.exec("UPDATE invitations SET used=1 WHERE role IN ('owner','recovery','organizer')");
+      for (const { data } of this.sql.exec("SELECT data FROM scores")) {
+        const record = JSON.parse(data);
+        if (sessions.has(record.controller)) this.transfer(record.matchId);
+      }
+    });
+    this.closeRevoked();
+    this.broadcast("refresh", {});
   }
   historySummary() { return this.history.summary(); }
   historyPage(options) { return this.history.page(options); }
@@ -498,10 +512,21 @@ export class TournamentEvent extends DurableObject {
     }
     const teams = new Set(s.teams.map(t => t.id)), categories = new Set(s.tournaments.map(t => t.id));
     for (const t of s.tournaments) applyAction(emptyState(), "tournament", t);
-    for (const t of s.teams) check(categories.has(t.tournamentId) && Array.isArray(t.players) && t.players.every(p => typeof p === "string"), "Invalid team.");
+    const friendlies = new Map(s.matches.filter(isFriendly).map(m => [m.id, m]));
+    for (const t of s.teams) check((categories.has(t.tournamentId) ||
+      (t.tournamentId === null && friendlies.has(t.friendlyMatchId) && [friendlies.get(t.friendlyMatchId).a, friendlies.get(t.friendlyMatchId).b].includes(t.id))) &&
+      Array.isArray(t.players) && t.players.every(p => typeof p === "string"), "Invalid team.");
     const courts = new Set(), players = new Set();
     for (const m of s.matches) {
-      check(categories.has(m.tournamentId) && (!m.a || teams.has(m.a)) && (!m.b || teams.has(m.b)) &&
+      if (isFriendly(m)) {
+        check(m.tournamentId === null && m.stage === "Friendly" && m.a && m.b && m.a !== m.b, "Invalid friendly game.");
+        const entrants = [m.a, m.b].map(id => s.teams.find(t => t.id === id));
+        check(entrants.every(t => t?.friendlyMatchId === m.id), "Invalid friendly players.");
+        // Reuse creation validation for format, rules and unique player names.
+        applyAction(emptyState(), "friendly", { size: m.size, scoring: m.scoring, sides: entrants.map(t => t.players) });
+        check(!m.bye && !m.aSource && !m.bSource, "Friendly games cannot have tournament feeders or byes.");
+      }
+      check((isFriendly(m) ? m.tournamentId === null : categories.has(m.tournamentId)) && (!m.a || teams.has(m.a)) && (!m.b || teams.has(m.b)) &&
         [m.a, m.b].filter(Boolean).every(id => s.teams.find(t => t.id === id)?.tournamentId === m.tournamentId), "Invalid match references.");
       check(["upcoming", "live", "completed"].includes(m.status), "Invalid match status.");
       if (m.status === "completed" && !m.bye) {

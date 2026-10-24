@@ -20,7 +20,7 @@ function Teams() {
   const groupLock = selectedTournament ? groupEditLockReason(state, filter) : "";
   const teams = state.teams.filter(
     (t) =>
-      (filter === "all" || t.tournamentId === filter) &&
+      t.tournamentId && (filter === "all" || t.tournamentId === filter) &&
       `${t.name} ${t.players.join(" ")}`
         .toLowerCase()
         .includes(query.toLowerCase()),
@@ -55,7 +55,7 @@ function Teams() {
           </>
         )}
       </div>
-      <div className="results-summary"><span role="status">{teams.length} of {state.teams.filter(t => filter === "all" || t.tournamentId === filter).length} teams{query && <> · Search: “{query}”</>}</span>{(query || filter !== "all") && <Button variant="ghost" onClick={() => setPage("Teams & players", { filter: "all", teamQuery: "" })}>Reset filters</Button>}</div>
+      <div className="results-summary"><span role="status">{teams.length} of {state.teams.filter(t => t.tournamentId && (filter === "all" || t.tournamentId === filter)).length} teams{query && <> · Search: “{query}”</>}</span>{(query || filter !== "all") && <Button variant="ghost" onClick={() => setPage("Teams & players", { filter: "all", teamQuery: "" })}>Reset filters</Button>}</div>
       {selectedTournament?.groups > 1 && <p className="group-edit-hint">
         {groupLock || "Select teams in Edit groups to move or swap them. Editing locks after the first completed match."}
       </p>}

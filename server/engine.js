@@ -2,7 +2,7 @@ import { standings } from "../shared/standings.js";
 export { standings } from "../shared/standings.js";
 import { randomUUID } from "node:crypto";
 import { playerLabel } from "../shared/players.js";
-import { removeLegacyCalls } from "../shared/matches.js";
+import { removeLegacyCalls, isFriendly } from "../shared/matches.js";
 import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "../shared/groups.js";
 import { randomGames } from "./random-scores.js";
 import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams } from "../shared/knockouts.js";
@@ -334,6 +334,24 @@ export function applyAction(previous, action, payload = {}) {
       courts,
       announcement: clean(payload.announcement, 250),
     };
+  } else if (action === "friendly") {
+    const size = integer(payload.size, 1, 2, "Players per side");
+    const scoring = validateScoring(payload.scoring, "Friendly");
+    if (!Array.isArray(payload.sides) || payload.sides.length !== 2)
+      fail("Enter both sides for the friendly game.");
+    const sides = payload.sides.map(players => {
+      if (!Array.isArray(players) || players.length !== size || players.some(p => typeof p !== "string" || !p.trim() || p.trim().length > 80))
+        fail(`Each side needs exactly ${size} player(s), with names up to 80 characters.`);
+      return players.map(p => p.trim());
+    });
+    if (new Set(sides.flat().map(p => p.toLowerCase())).size !== size * 2)
+      fail("Each player can appear only once in a friendly game.");
+    const matchId = id();
+    const entrants = sides.map(players => ({ id: id(), tournamentId: null, friendlyMatchId: matchId,
+      name: playerLabel(players), players, seed: null, group: null }));
+    s.teams.push(...entrants);
+    s.matches.push({ ...match(null, entrants[0].id, entrants[1].id, "Friendly", null, 0, 0),
+      id: matchId, kind: "friendly", size, scoring });
   } else if (action === "tournament") {
     if (t && hasLeagueDraw(s, t.id))
       fail("Format is locked after fixtures are generated.");
@@ -669,8 +687,8 @@ export function applyAction(previous, action, payload = {}) {
         fail("Some matches are missing opponents or feeder fixtures. No random results were saved.");
       const changed = new Set();
       for (const fixture of ready) {
-        const games = randomGames(scoringRules(configs.get(fixture.tournamentId), fixture.stage));
-        const winner = validateGames(games, scoringRules(configs.get(fixture.tournamentId), fixture.stage));
+        const games = randomGames(scoringRules(configs.get(fixture.tournamentId), fixture.stage, fixture));
+        const winner = validateGames(games, scoringRules(configs.get(fixture.tournamentId), fixture.stage, fixture));
         fixture.games = games;
         fixture.winner = winner === 0 ? fixture.a : fixture.b;
         fixture.status = "completed";
@@ -678,7 +696,7 @@ export function applyAction(previous, action, payload = {}) {
         fixture.court = null;
         changed.add(fixture.tournamentId);
       }
-      for (const tournamentId of changed) reconcileDraw(s, configs.get(tournamentId));
+      for (const tournamentId of changed) if (configs.has(tournamentId)) reconcileDraw(s, configs.get(tournamentId));
     }
   } else if (action === "returnMatch") {
     if (!m) fail("Match not found.");
@@ -734,7 +752,7 @@ export function applyAction(previous, action, payload = {}) {
       m.status = "completed";
       if (correcting) m.correctedAt = new Date().toISOString();
       else m.completedAt = new Date().toISOString();
-      reconcileDraw(s, config, correcting && m.stage === "League");
+      if (!isFriendly(m)) reconcileDraw(s, config, correcting && m.stage === "League");
     }
   } else fail("Unknown operation.");
   s.revision++;

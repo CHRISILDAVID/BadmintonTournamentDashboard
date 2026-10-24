@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import { organizerStore, tournamentStore } from "../stores/index.js";
-import { upcomingMatches } from "../../shared/matches.js";
+import { upcomingMatches, matchesFilter, isFriendly } from "../../shared/matches.js";
 import { NativeSelect } from "../components/ui/native-select.jsx";
 import { currentSession } from "../cloud/storage.js";
 
@@ -12,27 +12,29 @@ export function useDesk() {
   const { state } = data;
   const { setFilter } = ui;
   const umpire = currentSession()?.role === "umpire";
-  const filter = umpire && !state?.tournaments.some(t => t.id === ui.filter)
-    ? state?.tournaments[0]?.id || "all" : ui.filter;
+  const friendlyFilter = ["Overview", "Matches", "History"].includes(ui.page);
+  const filter = umpire && !(friendlyFilter && ui.filter === "friendly") && !state?.tournaments.some(t => t.id === ui.filter)
+    ? state?.tournaments[0]?.id || (state?.matches.some(isFriendly) && friendlyFilter ? "friendly" : "all") : ui.filter;
   useEffect(() => {
     if (umpire && filter !== ui.filter) setFilter(filter, true);
   }, [umpire, filter, ui.filter, setFilter]);
   const display = ui.page === "Display";
   const derived = useMemo(() => {
-    const selected = state?.matches.filter(m => filter === "all" || m.tournamentId === filter) || [];
+    const selected = state?.matches.filter(m => matchesFilter(m, filter)) || [];
     const readyMatches = upcomingMatches(state);
     const teams = new Map(state?.teams.map(t => [t.id, t]));
     const tournaments = new Map(state?.tournaments.map(t => [t.id, t]));
     return {
       selected, readyMatches,
       live: selected.filter(m => m.status === "live").sort((a, b) => a.court - b.court),
-      upcoming: readyMatches.filter(m => filter === "all" || m.tournamentId === filter),
+      upcoming: readyMatches.filter(m => matchesFilter(m, filter)),
       completed: selected.filter(m => m.status === "completed").sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")),
       team: id => teams.get(id), tournament: id => tournaments.get(id),
     };
   }, [state, filter]);
   const categorySelect = <NativeSelect aria-label="Filter by tournament" className="category-select" value={filter} onChange={e => setFilter(e.target.value)}>
-    {!umpire && <option value="all">All tournaments</option>}
+    {!umpire && <option value="all">{friendlyFilter ? "All matches" : "All tournaments"}</option>}
+    {friendlyFilter && <option value="friendly">Friendly</option>}
     {state?.tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
   </NativeSelect>;
   const admin = !display && (!currentSession() || ["owner", "organizer"].includes(currentSession().role));

@@ -4,6 +4,7 @@ import { currentSession, namespace, read, write, api } from "./storage.js";
 import { liveStore, subscribeCloud, contact } from "./connection.js";
 import { reduceScore, elapsedSeconds } from "../../shared/live-scoring.js";
 import { scoringRules, scoringLabel } from "../../shared/format.js";
+import { matchCategory } from "../../shared/matches.js";
 
 export default function Scorer({ match, teams, category, onClose, returnLabel = "Matches" }) {
   const session = currentSession(), key = `${namespace(session)}:match:${match.id}`;
@@ -127,7 +128,7 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
   };
   const s = record?.optimistic, pending = record?.pending.length || 0, elapsed = s ? elapsedSeconds(s) : 0;
   return <section className="scorer" aria-label="Point by point scorer">
-    <header><button onClick={onClose}>← {returnLabel}</button><span>Court {match.court} · {category.name}</span><small>Match {match.id.slice(0, 8)}</small></header>
+    <header><button onClick={onClose}>← {returnLabel}</button><span>Court {match.court} · {matchCategory(match, category)}</span><small>Match {match.id.slice(0, 8)}</small></header>
     <div className={`score-status ${!connected || pending ? "pending" : ""}`} role="status">
       <span><small>Connection</small>{!connected ? "OFFLINE / CONNECTION UNAVAILABLE" : "Connected"}</span>
       <span><small>Saved work</small>{pending} pending</span>

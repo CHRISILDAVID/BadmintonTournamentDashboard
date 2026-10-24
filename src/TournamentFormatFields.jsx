@@ -12,7 +12,7 @@ import {
 import { Button } from "./components/ui/button.jsx";
 import "./tournament-format.css";
 
-function RuleFields({ title, value, change }) {
+export function RuleFields({ title, value, change }) {
   const update = (key, input) => {
     const next = { ...value, [key]: input };
     if (next.goldenPoint) next.cap = next.points;

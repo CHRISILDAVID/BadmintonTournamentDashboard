@@ -16,9 +16,9 @@ export default function SharedLiveScores({ matches, teams, tournaments, flow }) 
     return () => observer.disconnect();
   }, [flow, matches]);
   const move = direction => scroll.current?.scrollBy({ left: direction * scroll.current.clientWidth * 0.8, behavior: "smooth" });
-  return <section className={`venue-shared-live ${flow}`} aria-label="Live scores across all tournaments">
+  return <section className={`venue-shared-live ${flow}`} aria-label="Live scores across all matches">
     <header className="venue-widget-heading">
-      <h3>Live scores <small>All tournaments · {matches.length} on court</small></h3>
+      <h3>Live scores <small>All matches · {matches.length} on court</small></h3>
       {flow === "horizontal" && <div className="flex gap-1">
         <Button variant="ghost" size="icon-sm" aria-label="Previous live matches" disabled={!edges.previous} onClick={() => move(-1)}><ChevronLeft/></Button>
         <Button variant="ghost" size="icon-sm" aria-label="Next live matches" disabled={!edges.next} onClick={() => move(1)}><ChevronRight/></Button>

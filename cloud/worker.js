@@ -74,6 +74,13 @@ export class OwnerDirectory extends DurableObject {
     await this.env.EVENTS.getByName(row.event).maintainerRecovery(await digest(secret));
     return { eventId: row.event, token: secret };
   }
+  async revoke(owner) {
+    check(typeof owner === "string" && /^[a-zA-Z0-9_-]{3,100}$/.test(owner), "Invalid organizer identifier.");
+    const row = this.ctx.storage.sql.exec("SELECT event FROM owners WHERE owner=?", owner).toArray()[0];
+    check(row, "Organizer identity not found.", 404);
+    await this.env.EVENTS.getByName(row.event).maintainerRevoke();
+    return { ok: true };
+  }
 }
 export default {
   async fetch(request, env) {
@@ -106,6 +113,11 @@ export default {
         if (url.pathname === "/api/maintainer/owners") {
           check(request.method === "GET", "GET required.", 405);
           return json(await directory.listOwners(url.searchParams.get("after") || ""));
+        }
+        if (url.pathname === "/api/maintainer/revoke") {
+          check(request.method === "POST", "POST required.", 405); sameOrigin(request, url);
+          const body = await readJson(request);
+          return json(await directory.revoke(body.owner));
         }
         if (url.pathname === "/api/maintainer/history") {
           check(request.method === "GET", "GET required.", 405);

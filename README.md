@@ -68,6 +68,12 @@ Layouts are saved per selection of tournament IDs. Panel layouts adapt to deskto
 
 Each widget has one scrolling surface, with thin scrollbars. The full screen and tournament panel containers only scroll manually. Automatic scrolling pauses during editing and for eight seconds after touch, wheel, or keyboard interaction. Use the **pause/play icon** beside the pencil to stop/resume automatic scrolling for the current view. Large brackets retain readable text and scroll vertically/horizontally instead of shrinking the entire draw into tiny cards. Brackets remeasure when resized. Fullscreen and live connection indicators remain available.
 
+## Friendly games
+
+Organizers can choose **New friendly game** from Overview or Matches, enter singles or doubles players, and set best-of, points and finish rules. Start the game on a free court, then score it through the umpire/organizer scorer or record its final result from the organizer match desk. Friendly games share court and player availability checks with tournament matches.
+
+Use the **Friendly** filter in Matches and Match history to find these games. They keep their own players and scoring rules, with no tournament category, group, standings or knockout draw. The venue display includes live friendlies even without any tournaments; screens restricted to specific tournament categories continue to show only those categories. Completed friendlies are retained in match history and included in event backups.
+
 ## Organizer navigation
 
 Organizer pages have real URLs: `/`, `/tournaments`, `/teams`, `/matches`, `/matches/history`, `/standings`, and `/settings`. Navigation links support opening in another tab. Browser Back/Forward and refresh restore the page and URL filters. Tournament selection uses `?tournament=...`; team/match search uses `q`, with `status` and `stage` for matches. Typing replaces the current history entry so Back does not step through every keystroke. Background score updates retain searches and filters. Category-specific actions navigate to the relevant page in one history step. Unknown paths show a recovery link to the overview.

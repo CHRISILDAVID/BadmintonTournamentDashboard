@@ -55,6 +55,14 @@ export default function Maintainer() {
     if (all && !window.confirm("Lock maintainer tools on every browser? Organizer and umpire sessions will stay active.")) return;
     await run(async () => { await request(all ? "maintainer/logout-all" : "maintainer/logout", {}); lock(); });
   }
+  async function revoke(identifier) {
+    if (!window.confirm(`Remove organizer access for ${identifier}? This signs out the primary organizer and their co-organizers, and invalidates their setup, invitation and recovery links. Event data stays saved. Use Restore access to grant access again.`)) return;
+    await run(async () => {
+      await request("maintainer/revoke", { owner: identifier });
+      setGrant(current => current?.owner === identifier ? null : current);
+      setNotice(`Organizer access removed for ${identifier}. Event data is preserved.`);
+    });
+  }
   if (session === undefined) return <StartupLoading/>;
   return <main className="maintainer-page">
     <header><a className="maintainer-brand" href="/">ShuttleHub</a><span>Maintainer tools</span></header>
@@ -93,8 +101,8 @@ export default function Maintainer() {
       </section>}
       <section className="maintainer-card">
         <div className="maintainer-heading"><h2>Existing organizers</h2><button disabled={busy} onClick={() => run(() => load())}>Refresh directory</button></div>
-        <p>These identifiers already have a private event. Restoring access keeps their event and tournament data.</p>
-        {!directory ? <p>Loading organizers…</p> : !directory.owners.length ? <p>No organizers on this page.</p> : <ul className="maintainer-owners">{directory.owners.map(row => <li key={row.owner}><strong>{row.owner}</strong><button disabled={busy} aria-label={`Restore access for ${row.owner}`} onClick={() => issue(row.owner, true)}>Restore access</button></li>)}</ul>}
+        <p>These identifiers already have a private event. Remove organizer access to sign out its organizers and invalidate their links. Event data is preserved and access can be restored.</p>
+        {!directory ? <p>Loading organizers…</p> : !directory.owners.length ? <p>No organizers on this page.</p> : <ul className="maintainer-owners">{directory.owners.map(row => <li key={row.owner}><strong>{row.owner}</strong><div className="maintainer-controls"><button disabled={busy} aria-label={`Restore access for ${row.owner}`} onClick={() => issue(row.owner, true)}>Restore access</button><button className="maintainer-remove" disabled={busy} aria-label={`Remove access for ${row.owner}`} onClick={() => revoke(row.owner)}>Remove access</button></div></li>)}</ul>}
         <div className="maintainer-controls">{directory?.nextCursor && <button disabled={busy} onClick={() => run(() => load(directory.nextCursor))}>Next 100 organizers</button>}<button disabled={busy} onClick={() => run(() => load())}>First page</button></div>
       </section>
       </>}

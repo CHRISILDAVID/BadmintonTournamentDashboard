@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { origin, request, owner, redeem, importFixture } from "./helpers.js";
+import { origin, request, owner, redeem, importFixture, invitation, envelope } from "./helpers.js";
+import { WebSocket } from "ws";
 
 const unlock = () => request("maintainer/session", { secret: "local-test-secret" });
 
@@ -67,4 +68,46 @@ test("maintainer logout and lock-all revoke remembered sessions without revoking
   for (const cookie of [a.cookie, b.cookie, c.cookie])
     assert.equal((await request("maintainer/session", undefined, cookie)).status, 401);
   assert.equal((await request("me", undefined, organizer.cookie)).status, 200);
+});
+
+test("maintainer removal revokes organizer sessions and links immediately, retains data and allows restoration", async () => {
+  const maintainer = await unlock(), identity = `remove-${crypto.randomUUID()}`;
+  const o = await owner(identity), other = await owner(), state = await importFixture(o);
+  const co = await redeem((await invitation(o, "organizer")).url);
+  const pendingCo = await invitation(o, "organizer");
+  const umpire = await redeem((await invitation(o, "umpire")).url);
+  const m = state.matches.find(m => m.status === "live");
+  const record = (await request("claim", { matchId: m.id, device: crypto.randomUUID() }, co.cookie)).data;
+  assert.equal((await request("score", envelope(co, record, "point", m.a), co.cookie)).data.accepted, true);
+  for (const cookie of ["", o.cookie, co.cookie])
+    assert.equal((await request("maintainer/revoke", { owner: identity }, cookie)).status, 401);
+  assert.equal((await request("maintainer/revoke", { owner: identity }, maintainer.cookie, { Origin: "https://evil.example" })).status, 403);
+  assert.equal((await request("maintainer/revoke", undefined, maintainer.cookie)).status, 405);
+  assert.equal((await request("maintainer/revoke", { owner: "missing-owner" }, maintainer.cookie)).status, 404);
+  const pendingRecovery = await request("maintainer-recovery", { owner: identity }, maintainer.cookie);
+  const socket = new WebSocket(origin.replace(/^http/, "ws") + "/api/socket", { headers: { Cookie: o.cookie, Origin: origin } });
+  try {
+    await new Promise((resolve, reject) => { socket.once("message", resolve); socket.once("error", reject); });
+    const closed = new Promise(resolve => socket.once("close", resolve));
+    assert.equal((await request("maintainer/revoke", { owner: identity }, maintainer.cookie)).status, 200);
+    assert.equal(await closed, 4001);
+    for (const cookie of [o.cookie, co.cookie]) {
+      assert.equal((await request("state", undefined, cookie)).status, 401);
+      assert.equal((await request("score", envelope(co, record, "point", m.a), cookie)).status, 401);
+    }
+    for (const url of [o.recovery, pendingCo.url, pendingRecovery.data.setupUrl]) await assert.rejects(redeem(url));
+    assert.equal((await request("state", undefined, other.cookie)).status, 200);
+    assert.equal((await request("state", undefined, umpire.cookie)).status, 200);
+    assert.deepEqual((await request("state", undefined, umpire.cookie)).data, state);
+    // The revoked organizer's control is released, retaining accepted points.
+    const replacement = await request("claim", { matchId: m.id, device: crypto.randomUUID() }, umpire.cookie);
+    assert.equal(replacement.status, 200);
+    assert.deepEqual(replacement.data.score.points, [1, 0]);
+    assert.equal((await request("provision", { owner: identity }, maintainer.cookie)).status, 409);
+    const restoration = await request("maintainer-recovery", { owner: identity }, maintainer.cookie);
+    const restored = await redeem(restoration.data.setupUrl);
+    assert.equal(restored.eventId, o.eventId);
+    assert.deepEqual((await request("state", undefined, restored.cookie)).data, state);
+    assert.equal((await request("state", undefined, co.cookie)).status, 401);
+  } finally { socket.close(); await request("maintainer/logout", {}, maintainer.cookie); }
 });
