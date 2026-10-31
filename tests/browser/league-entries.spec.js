@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { owner, importFixture, fixture, origin, request } from "../cloud/helpers.js";
-import { applyAction } from "../../server/engine.js";
+import { applyAction } from "../../shared/tournament.js";
 
 test("organizer adds late teams and a new group, then removes a team and its results during league", async ({ browser }) => {
   const o = await owner();

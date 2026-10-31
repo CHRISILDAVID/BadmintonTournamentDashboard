@@ -47,10 +47,9 @@ self.addEventListener("fetch", e => {
 ` });
   },
 };
-export default defineConfig(({ mode }) => ({
-  define: { __SHUTTLE_CLOUD__: mode === "cloud" },
-  plugins: [react(), tailwindcss(), excelBrowserAsset, ...(mode === "cloud" ? [offlineShell] : [])],
+export default defineConfig({
+  plugins: [react(), tailwindcss(), excelBrowserAsset, offlineShell],
   // Keep assets needed by organizer/display tabs that are still running an older build.
   build: { emptyOutDir: false },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-}));
+});

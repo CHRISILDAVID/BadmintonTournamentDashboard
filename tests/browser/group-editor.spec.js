@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { owner, importFixture, request, origin } from "../cloud/helpers.js";
-import { applyAction, emptyState } from "../../server/engine.js";
+import { applyAction, emptyState } from "../../shared/tournament.js";
 
 test("group cards select teams for one-way moves and swaps on desktop and mobile", async ({ browser }) => {
   const o = await owner();

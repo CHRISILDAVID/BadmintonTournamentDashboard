@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { emptyState, applyAction, validateGames } from "../server/engine.js";
+import { emptyState, applyAction, validateGames } from "../shared/tournament.js";
 import { scoringRules } from "../shared/format.js";
 import { newScore, reduceScore, publicScore } from "../shared/live-scoring.js";
 import { token, digest, json, check, cookie, sessionCookie, manager, readJson } from "./security.js";
@@ -262,6 +262,25 @@ export class TournamentEvent extends DurableObject {
           if (out.accepted) change = out.finalized ? { type: "refresh", payload: {} } :
             { type: "score", payload: { record: publicScore(out.record) }, matchId: body.matchId };
           return out;
+        }
+        if (path === "/api/release") {
+          check(this.canScore(current), "Scoring access required.", 403);
+          const state = this.get("state"), match = state.matches.find(m => m.id === body.matchId);
+          check(match?.status === "live", "Only an on-court match can be released.", 409);
+          const record = this.score(match.id);
+          check(record?.controller === current.id, "Only the controlling umpire can release this match.", 403);
+          check(!record.invalidated && record.generation === body.generation && record.revision === body.revision,
+            "Scoring control or the score changed. Reopen the scorer before releasing this match.", 409);
+          if (body.returnToUpcoming === true) {
+            const next = applyAction(state, "returnMatch", { matchId: match.id });
+            this.invalidateChanged(state, next);
+            this.put("state", next, state);
+            change = { type: "refresh", payload: {} };
+          } else {
+            this.transfer(match.id);
+            change = { type: "score", payload: {}, matchId: match.id };
+          }
+          return { ok: true };
         }
         if (path === "/api/logout") {
           this.sql.exec("UPDATE sessions SET revoked=1 WHERE id=?", current.id);
@@ -536,6 +555,8 @@ export class TournamentEvent extends DurableObject {
     for (const t of s.teams) check((categories.has(t.tournamentId) ||
       (t.tournamentId === null && customGames.has(t.customMatchId || t.friendlyMatchId) && [customGames.get(t.customMatchId || t.friendlyMatchId).a, customGames.get(t.customMatchId || t.friendlyMatchId).b].includes(t.id))) &&
       Array.isArray(t.players) && t.players.every(p => typeof p === "string"), "Invalid team.");
+    for (const t of s.teams) check(t.arrivedAt == null ||
+      (typeof t.arrivedAt === "string" && Number.isFinite(Date.parse(t.arrivedAt))), "Invalid team arrival time.");
     const courts = new Set(), players = new Set();
     for (const m of s.matches) {
       if (isCustomGame(m)) {

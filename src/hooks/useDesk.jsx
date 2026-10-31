@@ -4,6 +4,7 @@ import { organizerStore, tournamentStore } from "../stores/index.js";
 import { upcomingMatches, matchesFilter, isCustomGame } from "../../shared/matches.js";
 import { NativeSelect } from "../components/ui/native-select.jsx";
 import { currentSession } from "../cloud/storage.js";
+import { matchArrivals } from "../../shared/arrivals.js";
 
 // Page-level adapter; small components can subscribe directly to either store.
 export function useDesk() {
@@ -25,7 +26,7 @@ export function useDesk() {
     const teams = new Map(state?.teams.map(t => [t.id, t]));
     const tournaments = new Map(state?.tournaments.map(t => [t.id, t]));
     return {
-      selected, readyMatches,
+      selected, readyMatches, arrivalByMatch: state ? matchArrivals(state) : new Map(),
       live: selected.filter(m => m.status === "live").sort((a, b) => a.court - b.court),
       upcoming: readyMatches.filter(m => matchesFilter(m, filter)),
       completed: selected.filter(m => m.status === "completed").sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")),
@@ -37,7 +38,7 @@ export function useDesk() {
     {customFilter && <option value="custom">Custom</option>}
     {state?.tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
   </NativeSelect>;
-  const admin = !display && (!currentSession() || ["owner", "organizer"].includes(currentSession().role));
+  const admin = !display && ["owner", "organizer"].includes(currentSession()?.role);
   return { ...data, ...ui, ...derived, filter, display, admin, umpire,
     canManageMatches: !display && (admin || currentSession()?.role === "umpire"), categorySelect };
 }

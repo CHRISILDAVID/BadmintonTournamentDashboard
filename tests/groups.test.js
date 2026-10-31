@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { emptyState, applyAction } from "../server/engine.js";
+import { emptyState, applyAction } from "../shared/tournament.js";
 import { playoffPreset } from "../shared/format.js";
 import { groupEditLockReason } from "../shared/groups.js";
 

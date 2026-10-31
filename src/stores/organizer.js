@@ -13,6 +13,8 @@ export function createOrganizerStore(browser = globalThis.window) {
     };
     return {
   ...readRoute(browser?.location), modal: null, error: "", notice: "",
+  matchOrder: "arrival",
+  setMatchOrder: matchOrder => set({ matchOrder }),
   connectNavigation() {
     const sync = () => set({ ...readRoute(browser.location), modal: null, error: "" });
     browser?.addEventListener("popstate", sync);

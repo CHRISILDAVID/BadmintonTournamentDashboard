@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyAction } from "../../server/engine.js";
+import { applyAction } from "../../shared/tournament.js";
 import { origin, request, owner, fixture, importFixture, invitation, redeem } from "./helpers.js";
 
 // Another security test deliberately revokes all maintainer sessions. Obtain a

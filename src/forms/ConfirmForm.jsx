@@ -22,8 +22,6 @@ function ConfirmForm() {
       "Remove the unplayed fixtures for this category and reopen team registration? Your teams will be kept.",
     deleteTeam: `Remove ${modal.team?.name} from this category? All ${state.matches.filter(m => m.tournamentId === t?.id && [m.a, m.b].includes(modal.team?.id)).length} matches involving this team, including completed results and scheduled or live matches, will be deleted. Any occupied court will be freed. Standings and qualification will be recalculated from the remaining results. This cannot be undone.`,
     deleteTournament: `Delete "${t?.name}"? This permanently removes ${state.teams.filter(x => x.tournamentId === t?.id).length} teams, ${state.matches.filter(m => m.tournamentId === t?.id).length} fixtures, and ${state.matches.filter(m => m.tournamentId === t?.id && m.status === "completed").length} completed results. This cannot be undone. Other tournaments are kept.`,
-    clearDemo:
-      "Clear the entire sample event, including any edits you made to it, and start with an empty tournament desk?",
   };
   return (
     <>
@@ -54,9 +52,6 @@ function ConfirmForm() {
               setModal(null);
               if (type === "knockouts" || type === "generate") {
                 setPage("Matches", { filter: t.id, matchQuery: "", matchStatus: "all", matchStage: type === "knockouts" ? "postseason" : "all" });
-              }
-              if (type === "clearDemo") {
-                setPage("Overview", { filter: "all" });
               }
             }
           }}

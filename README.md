@@ -1,33 +1,40 @@
 # ShuttleHub Tournament Desk
 
-ShuttleHub now includes a Cloudflare deployment with one isolated event per organizer identity, role invitations, mobile point scoring with a persistent offline queue, and independent live displays.
+This repository contains one application: the website and API deployed as the Cloudflare Worker **shuttlehub**. Organizers, umpires, maintainers, and venue displays use the same application with different permissions.
 
-Start with [Cloud setup and migration](docs/CLOUD_SETUP.md), [Tournament-day guide](docs/STAFF_GUIDE.md), and [validation/capacity results](docs/CLOUD_VALIDATION.md). Cloud use requires internet for synchronization. Staff need only a browser and their role link.
+The former Express/LAN application and laptop SQLite database are removed. Production events live in Cloudflare's SQLite-backed Durable Objects. Browser storage remains necessary for pending offline scores, sessions, and display preferences.
 
-Maintainers can open `/maintainer` on the deployed cloud website to create primary-organizer setup links/QRs and restore existing organizer access through a form. Unlock it with the private provisioning secret; organizers only need their individual link.
+See [Cloud setup](docs/CLOUD_SETUP.md), the [tournament-day guide](docs/STAFF_GUIDE.md), and [testing instructions](TESTING.md).
 
-The original Express/SQLite server remains available for local-data backup and regression testing. The instructions below describe that **legacy local mode**, which has unrestricted local organizer access and must not be exposed as the cloud application.
+## Development
 
-## Start
-
-Requires Node.js **24 LTS** (uses built-in SQLite). Internet is needed once to install dependencies, then normal operation is offline.
+Requires Node.js 24 and npm:
 
 ```powershell
 npm ci
-npm run build
-npm start
+npm run dev
 ```
 
-Or run `./Start-ShuttleHub.ps1` from PowerShell. The host listens on port 3000. Keep the terminal open and prevent the host laptop from sleeping.
+This builds the production frontend and previews the same Worker through Wrangler, normally at http://localhost:8787. Local preview uses isolated development storage under the ignored `.wrangler/` directory. Rebuild/restart after source changes. See [isolated testing](TESTING.md) for provisioning local test access.
 
-1. Open **http://localhost:3000** on the host laptop. The organizer controls are available immediately; there are no accounts, passwords, or sign-in steps.
-2. Open **Club settings** to set the scoreboard title, venue, number of courts, and announcement. It also lists LAN links for other devices.
-3. Organizers on the same network open `http://HOST-LAN-IP:3000`. The venue screen opens `http://HOST-LAN-IP:3000/display` for the read-only scoreboard.
-4. Use the fullscreen button on the display, or the browser's fullscreen shortcut. If another device cannot connect, allow Node.js on **Private networks** in Windows Firewall and check that router client/AP isolation is disabled. No port forwarding is needed.
+`npm start` runs the same Cloudflare preview. The `dev:cloud`, `build:cloud`, and `deploy:cloud` commands are aliases retained for existing deployment settings.
 
-The desk is reusable: there is no event date or calendar setup. Match schedules use an optional start time only. New tournaments can be added whenever needed, and completed results remain in history. The app is intended for your organizing team's local network; any device that opens the organizer URL can make changes. The display route hides editing controls, but it is not an account permission boundary.
+## Build and deployment
 
-Match updates reconnect automatically; a disconnected display explicitly shows that match information may be stale. Updates use server-sent events and revision checks to avoid overwriting another organizer's changes.
+```powershell
+npm run build
+npm run deploy
+```
+
+`wrangler.jsonc` selects `cloud/worker.js`, frontend assets in `dist/`, and the `OwnerDirectory` / `TournamentEvent` Durable Object bindings. Both build commands produce the authenticated cloud app and offline scoring shell.
+
+GitHub stores source, tests, examples, and documentation. Cloudflare packages the Worker dependency graph and built frontend assets. The Git integration configured in Cloudflare handles pushes to `main`; this repository has no GitHub Actions deployment workflow. Existing commands such as `npm run build:cloud` and `npm run deploy:cloud` continue to work. Tracked files are not separate deployed apps.
+
+## Storage and backups
+
+Use **Settings > Download event and scoring audit backup** in the cloud app. Restore a saved JSON backup only into an empty destination event. There is no laptop database or local SQLite backup command.
+
+Wrangler may create local databases for development; these and their journals are ignored by Git. Stop the preview before removing `.wrangler/state/` to reset development data. Preserve production Durable Object bindings, class names, and migration history. The browser's offline scoring queue remains part of the production app.
 
 ## Tournament workflow
 
@@ -86,83 +93,23 @@ New tournaments use **Direct qualification**. Set the group count and qualifiers
 
 The venue Knockouts widget is a pannable, zoomable board. It starts with the entire draw fitted to the widget, including large draws. Drag to pan, scroll or pinch to zoom around a point, or use the minus/plus controls. **100%** centres the nearest match at actual size; **Fit** restores the whole draw. Focus the board and use arrow keys to pan, **+ / -** to zoom, and **0** or **Home** to fit. Each tournament has its own view; score updates keep the current view. While fitted, resizing the widget fits the draw again; after manual navigation, resizing preserves the point at the centre.
 
-## Practice tournaments
-
-For testing, **Matches → Testing: complete unfinished matches** fills all unfinished fixtures with valid random scores. Select a tournament first to limit it to that category, or choose **All tournaments**. The confirmation covers every stage, including on-court games and later rounds waiting for winners; search, status, and stage filters do not limit this action. Completed results stay saved, courts are freed, and standings and advancement update. It completes existing fixtures only: create playoffs/knockouts normally, then use the testing action again to finish that draw. Generate fixtures first for draft categories.
-
-This temporary feature is enabled by default. Before a real event, set `$env:DISABLE_TEST_TOOLS="1"` in PowerShell and start the server with `npm start`; this hides the button and blocks its API operation. Restart the server after changing this setting. This feature will be removed for production.
-
-Choose **Tournaments > Load practice tournaments** to append five clearly named practice categories to an existing desk. This preserves existing tournaments and club settings. The pack contains 30 entries, 41 fixtures, five completed results, and up to three on-court matches (subject to court availability and player conflicts). It includes men's doubles, women's singles, mixed doubles, a ready-made semifinal/final rehearsal, and an unused draft for deletion testing. The knockout rehearsal is best-of-one for quick testing.
-
-Delete each practice category when finished. A second pack cannot load while any practice category remains. The practice pack does not enable point-by-point scoring.
-
-See [TESTING.md](TESTING.md) for the organizer/venue walkthrough, screenshots, and expected results. Sample CSV files are in [examples](examples).
-
-## Sample data
-
-From an empty desk, choose **Explore a sample event**. Sample data is visibly marked and includes three categories, live matches, and results. **Clear sample & start your event** removes the entire sample event, including edits to it. Clear it before entering real tournament data.
-
-## Storage and backups
-
-Tournament data is stored in `data/shuttlehub.sqlite` on the host. SQLite commits each change before broadcasting it and uses WAL journaling. Refreshing a page or restarting the server retains the event. Do not delete `data/`.
-
-**Event settings → Export event data** downloads a readable JSON snapshot of tournament data. JSON re-import is not included. For a restorable backup, stop the server with Ctrl+C, then copy the entire `data` directory to another location. To restore, stop the server, retain a copy of the existing directory, and replace it with the backup before starting. Do not copy only the `.sqlite` file while the server is running, because recent writes may be in its WAL file.
-
-## Reset the database
-
-Use this after a rehearsal run to wipe all tournament data and start a clean slate for the real event.
-
-> [!CAUTION]
-> This permanently deletes **all** tournaments, teams, fixtures, results, and settings. Back up the `data/` folder first if you want to keep anything.
+## Verification and code layout
 
 ```powershell
-# 1. Stop the server (Ctrl+C in the server terminal), then run:
-Remove-Item -Recurse -Force data
-npm start
-```
-
-The server recreates a fresh `data/` directory and an empty database on next start. Club settings (venue name, courts, announcement) will also be reset to defaults.
-
-Accounts are intentionally omitted. Walkovers/withdrawals, print exports, and player ID matching beyond normalized names are not included in this version.
-
-## Development and verification
-
-```powershell
-npm run dev
 npm test
 npm run build
+npx wrangler deploy --dry-run
 ```
 
-Disable with $env:DISABLE_TEST_TOOLS="1" before starting the server.
-
-`npm run dev` uses the same server and data directory with Vite middleware. `PORT` changes the listener port; `DATA_DIR` selects a separate database directory (use this for QA). `server/engine.js` holds validated tournament operations; `shared/standings.js` is shared by client and server. Tests cover fixtures, scores, progression, court/player conflicts, atomic registration, CSV, and actual XLSX import.
-
-Excel imports load a locally served reader at `/vendor/exceljs.min.js`, emitted by the Vite build and served by the development middleware. Failed reader loads can be retried by selecting the same file again; CSV imports work independently of that reader. Builds preserve previous hashed assets so already-open organizer/display tabs can finish loading them. Refresh tabs after updating the app; restart the server after backend changes. Missing asset requests return 404 rather than the application HTML.
-
-### Frontend organization
-
-The frontend uses **React + JSX, React Grid Layout, Zustand, Tailwind CSS 4, and shadcn/ui**. JavaScript remains the project language (`components.json` sets `tsx: false`). Express, SQLite, REST endpoints, and server-sent events are unchanged by this migration. All assets and dependencies are served locally after building; no hosted UI service, font service, or database SDK is required.
+See [TESTING.md](TESTING.md) for cloud API, browser, and runtime checks. Sample CSV files are in [examples](examples). Sample generators live only under `tests/fixtures/`; production has no local sample/practice mode.
 
 | Location | Responsibility |
 | --- | --- |
-| `src/App.jsx` | Organizer shell, navigation, modal routing; lazy-loaded venue screen |
-| `src/pages/` | Overview, tournaments, teams, matches, standings, settings |
-| `src/forms/` | Tournament setup, registration/import, match editing, confirmations; unsaved inputs stay local |
-| `src/components/ui/` | Locally owned shadcn buttons, inputs, labels, selects, tables, dialogs, badges, Sonner notifications |
-| `src/components/` | Shared match cards/tables, stage actions, modal helpers, venue grid/editor |
-| `src/stores/tournament.js` | Snapshots, monotonic revisions, actions, loading state, one shared SSE lifecycle per app tab |
-| `src/stores/organizer.js` | Navigation, category/search/stage/status filters, dialogs, notifications |
-| `src/stores/venue.js` | Versioned browser persistence for selection and committed layouts; transient editor drafts |
-| `src/lib/venue-layout.js`, `src/lib/venue-widgets.js` | Panel/widget defaults, visibility, responsive bounds recovery, keyboard ordering |
-| `src/lib/navigation.js`, `src/components/PageLink.jsx` | URL parsing, filter serialization, browser navigation |
-| `src/VenueBoard.jsx`, `src/VenueBracket.jsx` | Read-only tournament panels and measured bracket rendering |
+| `cloud/` | Worker routing, access checks, event storage, scoring, history |
+| `shared/tournament.js` | Validated tournament operations used by the Worker and tests |
+| `shared/` | Scoring, standings, draws, teams, and display rules |
+| `src/cloud/` | Authentication, WebSocket transport, offline queue, scoring, maintainer tools |
+| `src/stores/` | Tournament snapshots, navigation, and venue preferences |
+| `src/pages/`, `src/forms/`, `src/components/` | Organizer pages, forms, venue widgets, and shared UI |
 
-`src/hooks/useDesk.jsx` adapts the focused stores for organizer pages. Forms keep their original revision while editing; a conflicting save refreshes the snapshot and asks the organizer to review/retry without replacing typed values. The connection store cleans up listeners and ignores responses from a closed subscription. Only venue preferences are persisted client-side.
-
-### Theme and component customization
-
-Change the green/navy palette, system font, radii, and semantic colors in **`src/theme.css`**. Tailwind runs through `@tailwindcss/vite` in `vite.config.js`; `@/` aliases `src/`. Use Tailwind utilities in JSX and edit the owned components under `src/components/ui/` to change shared control behavior. `components.json` configures the shadcn CLI for future JavaScript components. Dialogs use Radix focus trapping and keyboard dismissal, while score numerals use tabular figures.
-
-`src/styles/organizer.css` consolidates the former overlapping organizer styles into a component layer so Tailwind utilities can override them. Scoped venue/bracket, grid, group-editor, and score-input CSS retains the specialized geometry and scrolling. The logo remains `assets/logo.jpg`. No runtime internet connection is needed for these styles or components.
-
-The UI uses the actual `assets/logo.jpg` throughout and as its browser icon. Court numbers, scoreboards, and the match queue lead the layout, with navy and green taken from the ShuttleHub branding. Existing saved data is migrated automatically: event dates and unused password records are removed, previous scheduled dates retain their time of day, and all teams, fixtures, final scores, and results are preserved. Existing entry labels are rebuilt from their player names without changing team IDs or fixtures. Unused point-by-point scores from older versions are removed; final game scores are retained. Internal result timestamps remain for ordering the match history; calendar dates are not shown in the interface.
+The frontend uses React/JSX, Zustand, React Grid Layout, Tailwind CSS, and shadcn/ui. Customize colors and component tokens in `src/theme.css`; edit owned UI components under `src/components/ui/`. Excel imports use the bundled reader at `/vendor/exceljs.min.js`. Builds retain previous hashed assets for already-open tabs.

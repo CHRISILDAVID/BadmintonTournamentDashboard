@@ -1,4 +1,4 @@
-import { applyAction, emptyState } from "../../server/engine.js";
+import { applyAction, emptyState } from "../../shared/tournament.js";
 export const origin = process.env.CLOUD_TEST_ORIGIN || "http://127.0.0.1:8799";
 export async function request(path, body, cookie = "", extra = {}) {
   const response = await fetch(`${origin}/api/${path}`, {

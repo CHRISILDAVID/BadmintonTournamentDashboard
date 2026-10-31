@@ -1,4 +1,4 @@
-import { emptyState, applyAction } from "./engine.js";
+import { emptyState, applyAction } from "../../shared/tournament.js";
 export function demoState() {
   let s = emptyState();
   s.event = {

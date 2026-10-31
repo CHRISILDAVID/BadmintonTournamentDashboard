@@ -5,7 +5,7 @@ import {
   applyAction,
   validateGames,
   standings,
-} from "../server/engine.js";
+} from "../shared/tournament.js";
 import {
   PLAYOFF_STAGE,
   playoffPreset,

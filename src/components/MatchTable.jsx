@@ -4,17 +4,23 @@ import { groupName, time } from "../utils.js";
 
 import { pendingOpponent } from "../../shared/format.js";
 import { matchCategory, matchStageLabel } from "../../shared/matches.js";
+import { arrivalLabel } from "../../shared/arrivals.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
-import { cloudEnabled } from "../cloud/storage.js";
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
 function MatchTable({ matches, history = false, onScore }) {
-  const { canManageMatches, admin, team, tournament, open } = useDesk();
+  const { canManageMatches, admin, team, tournament, open, arrivalByMatch } = useDesk();
+  const [, tick] = React.useState(0);
+  React.useEffect(() => {
+    if (history) return;
+    const timer = setInterval(() => tick(n => n + 1), 60000);
+    return () => clearInterval(timer);
+  }, [history]);
   return matches.length ? (
     <div className="table-scroll">
       <Table className="match-table" aria-label={history ? "Completed matches" : "Event matches"}>
@@ -52,9 +58,10 @@ function MatchTable({ matches, history = false, onScore }) {
                   </>
                 ) : (
                   <>
-                    <strong>{m.status === "upcoming" ? (m.a && m.b ? "Ready to start" : "Awaiting opponents") : `Court ${m.court}`}</strong>
+                    <strong>{m.status === "upcoming" ? (m.a && m.b ? (arrivalByMatch.has(m.id) && !arrivalByMatch.get(m.id).ready ? "Upcoming" : "Ready to start") : "Awaiting opponents") : `Court ${m.court}`}</strong>
                     {m.scheduled && <small>Planned {time(m.scheduled)}</small>}
                     {m.status === "upcoming" && <small>Court assigned at start</small>}
+                    {m.status === "upcoming" && <small className={arrivalByMatch.get(m.id)?.ready ? "arrival-ready" : ""}>{arrivalLabel(arrivalByMatch.get(m.id))}</small>}
                   </>
                 )}
               </TableCell>
@@ -70,7 +77,7 @@ function MatchTable({ matches, history = false, onScore }) {
               {canManageMatches && (
                 <TableCell className="match-actions-cell">
                   <div className="match-action-buttons">
-                  {cloudEnabled() && m.status === "live" && <Button variant="default" className="btn primary"
+                  {m.status === "live" && <Button variant="default" className="btn primary"
                     aria-label={`Open scorer: ${team(m.a)?.name} vs ${team(m.b)?.name}`}
                     onClick={() => onScore ? onScore(m) : open({ type: "scorer", matchId: m.id })}>Open scorer</Button>}
                   {(admin || m.status === "upcoming") && <Button variant={m.status === "upcoming" ? "default" : "outline"}

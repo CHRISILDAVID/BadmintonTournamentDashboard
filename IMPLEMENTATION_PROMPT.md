@@ -1,5 +1,7 @@
 # Implementation prompt: ShuttleHub cloud hosting, isolated organizers, and live umpire scoring
 
+> Historical implementation handoff. Use [README.md](README.md) and [Cloud setup](docs/CLOUD_SETUP.md) for the current app. The laptop server and backup utility are removed.
+
 Implement the following in the existing ShuttleHub Tournament Dashboard repository. This is an implementation handoff for the selected cloud architecture. Preserve existing tournament behavior and build the features below. Do not replace the application with a generic tournament starter.
 
 ## 1. Selected architecture and scope

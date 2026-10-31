@@ -9,7 +9,6 @@ import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
-import { cloudEnabled } from "../cloud/storage.js";
 import LiveMatchSummary from "./LiveMatchSummary.jsx";
 
 function MatchCard({ m, compact = false }) {
@@ -77,7 +76,7 @@ function MatchCard({ m, compact = false }) {
           </div>
         ))}
       </div>
-      {cloudEnabled() && m.status === "live" && <LiveMatchSummary matchId={m.id}/>}
+      {m.status === "live" && <LiveMatchSummary matchId={m.id}/>}
       <div className="match-foot">
         <span>
           <span className="tiny-court" />
@@ -90,7 +89,7 @@ function MatchCard({ m, compact = false }) {
                 : m.a && m.b ? "Ready to start" : "Awaiting opponents"}
         </span>
         {canManageMatches && <div className="match-action-buttons">
-          {cloudEnabled() && m.status === "live" && <Button variant="ghost" className="text-btn"
+          {m.status === "live" && <Button variant="ghost" className="text-btn"
             aria-label={`Open scorer: ${a?.name} vs ${b?.name}`}
             onClick={() => open({ type: "scorer", matchId: m.id })}>Open scorer<ArrowUpRight size={15}/></Button>}
           {(admin || m.status === "upcoming") && <Button variant="ghost"

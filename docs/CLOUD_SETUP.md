@@ -1,6 +1,6 @@
-# Cloud setup and migration
+# Cloud setup
 
-The cloud code is implemented and tested locally. Deploy changes from this checkout before expecting new features on the live website. The primary-organizer setup page was added on 21 October 2026; this update has not itself been deployed. No production credentials, local tournament database, or billing settings were changed by this update.
+This repository contains the Cloudflare application only. The Worker entry point is `cloud/worker.js`; both build commands produce its frontend. Production events are stored in Cloudflare Durable Objects.
 
 ## One-time maintainer setup
 
@@ -38,7 +38,7 @@ Choose a permanent identity label, for example `venue-a-primary`. Keep your priv
 
 ### Recommended: use the maintainer page
 
-After deploying this update, primary organizers can be provisioned without terminal commands:
+Primary organizers can be provisioned through the deployed website:
 
 1. Open your live website with `/maintainer` at the end, for example `https://shuttlehub.your-subdomain.workers.dev/maintainer`.
 2. Unlock it with the existing `PROVISIONING_SECRET` saved in your password manager. This is maintainer access, separate from organizer invitations and sessions. Do not share that secret with organizers.
@@ -87,24 +87,11 @@ npm.cmd run provision -- https://shuttlehub.your-subdomain.workers.dev venue-a-p
 
 This creates a short-lived recovery link to the **existing event**. It does not create another event. The maintainer must verify the recipient. The system cannot establish that two independently provisioned identities belong to the same physical person.
 
-## Migrate existing local data
+## Import a saved event backup
 
-No working data is imported automatically.
+Open the intended owner's empty event. In **Club settings > Import event backup**, confirm the destination Event ID and select a saved JSON export. Both legacy snapshots (`shuttlehub-v1`) and cloud backups (`shuttlehub-cloud-v1`) remain supported. The laptop server and SQLite backup utility are removed.
 
-1. Preserve the source with `npm.cmd run backup:local`. This uses SQLite's backup API, including committed WAL changes, and writes a SQLite copy plus `event.json` into a timestamped `output/backups/` directory. The source database is opened read-only.
-2. Open the intended owner's cloud event. In **Club settings → Import existing local event**, confirm the displayed destination Event ID.
-3. Select the saved `event.json`. The server requires an empty destination and validates identifiers, references, scoring, results, occupied courts, and player conflicts. It never silently overwrites an existing event.
-4. Compare categories, team/match IDs, completed results, current court assignments, and scoring settings. Keep the original SQLite backup and JSON export after migration.
-
-An explicit source/destination folder is also supported:
-
-```powershell
-npm.cmd run backup:local -- "E:\path\shuttlehub.sqlite" "E:\path\private-backup"
-```
-
-The destination must be a new directory. The command refuses existing directories and the source location, so repeating it cannot overwrite a previous backup. JSON is read from the completed SQLite copy to keep the two exports consistent.
-
-The cloud import request limit is 8 MiB, including its JSON envelope. A 200-team, 19,900-match single-group draw was tested. Larger payloads fail explicitly; they are not partially imported. Large snapshots are stored in chunks below SQLite's row-size limit. Importing existing legacy `match.live` fields does not alter the separate cloud scoring tables.
+The importer validates IDs, references, scoring, results, courts, and player conflicts; it never overwrites a populated event. Compare the imported records and keep the original JSON backup. The request limit is 8 MiB including its envelope. Large snapshots are chunked below SQLite's row-size limit; oversized requests fail without partial imports.
 
 ## Backups, restore, and updates
 
@@ -136,7 +123,7 @@ npm.cmd run deploy:cloud
 
 ## Local cloud development and tests
 
-The cloud runtime is independent of `data/shuttlehub.sqlite`. To run isolated tests:
+Wrangler runs the production app with isolated local Durable Object storage. To run isolated tests:
 
 ```powershell
 npm.cmd run build:cloud
@@ -154,15 +141,15 @@ npm.cmd run test:browser
 npm.cmd run test:load
 ```
 
-If Microsoft Edge is already installed on Windows, use `$env:PW_CHANNEL='msedge'` instead of downloading Chromium. Runtime persistence/expiry tests create their own temporary database and start a separate Worker on port 8801. Cloud integration/browser/load tests create isolated event identities on port 8799. They do not use the working local event.
+If Microsoft Edge is already installed on Windows, use `$env:PW_CHANNEL='msedge'` instead of downloading Chromium. Runtime persistence/expiry tests create their own temporary database, start a separate Worker on port 8801, and remove that database after shutdown. Cloud integration/browser/load tests create isolated event identities on port 8799. They do not use production data.
 
-`npm.cmd run dev:cloud` is the general cloud preview command. `npm.cmd run dev` and `npm.cmd start` retain the legacy local server for compatibility and maintenance.
+`npm.cmd run dev`, `npm.cmd start`, and `npm.cmd run dev:cloud` all preview the same Cloudflare app. Stop Wrangler before removing `.wrangler/state/` or `output/cloud-test-state/` to reset local storage.
 
 ## Architecture and operational boundaries
 
 - The Worker validates origins, routes authenticated event access, and restricts maintainer provisioning.
 - A singleton SQLite directory owns the unique primary-identity/event mapping. Each event has its own SQLite Durable Object, membership/session records, assignments, presets, tournament snapshot, and scoring audit.
-- The tournament engine remains `server/engine.js`; point scoring uses a pure shared reducer. Final confirmation invokes the existing result-processing engine inside the same SQL transaction as the accepted action.
+- The tournament engine remains `shared/tournament.js`; point scoring uses a pure shared reducer. Final confirmation invokes the existing result-processing engine inside the same SQL transaction as the accepted action.
 - Each match has a controller generation, action sequence, and scoring revision. Controller transfer, rule/status/opponent/result changes revoke the previous generation. Retries deduplicate by immutable action ID and envelope.
 - Hibernating WebSockets deliver confirmed changes and scoped snapshots. No server timer writes every second. Foreground controller contact updates freshness without SQL heartbeat writes.
 - IndexedDB stores phone work by event and session. Web Locks prevent competing tabs. The service worker caches only public application assets, never API responses. Cached private snapshots live under the event/session namespace.

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { currentSession, namespace, read, write, api } from "./storage.js";
-import { liveStore, subscribeCloud, contact } from "./connection.js";
+import { currentSession, namespace, read, write, remove, api } from "./storage.js";
+import { liveStore, subscribeCloud, contact, refreshLive } from "./connection.js";
 import { reduceScore, elapsedSeconds } from "../../shared/live-scoring.js";
 import { scoringRules, scoringLabel } from "../../shared/format.js";
 import { matchCategory, matchStageLabel } from "../../shared/matches.js";
@@ -19,13 +19,14 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
   const [record, setRecord] = useState(null), [error, setError] = useState(""), [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false), [, tick] = useState(0);
   const [offlineReady, setOfflineReady] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const { connected } = useStore(liveStore);
   const remote = useStore(liveStore, state => state.records[match.id]);
   const controlledElsewhere = remote?.control === "other";
   const ref = useRef(null), syncing = useRef(false), editing = useRef(false), alive = useRef(true);
   const commit = async value => { await write(key, value); ref.current = value; if (alive.current) setRecord(value); };
   const flush = async () => {
-    if (!alive.current || currentSession()?.sessionId !== session.sessionId || syncing.current || editing.current || !ref.current?.pending.length || !navigator.onLine || ref.current.conflict) return;
+    if (!alive.current || currentSession()?.sessionId !== session.sessionId || syncing.current || editing.current || releasing || !ref.current?.pending.length || !navigator.onLine || ref.current.conflict) return;
     syncing.current = true;
     try {
       while (alive.current && currentSession()?.sessionId === session.sessionId && ref.current.pending.length && !editing.current) {
@@ -69,10 +70,10 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
     navigator.locks.request(key, { ifAvailable: true }, async lock => {
       if (!lock) { setError("This match is already open in another tab. Close that scorer first."); return; }
       if (!alive.current) return;
-      setLocked(true);
       try {
         const stored = await read(key);
         if (stored) { ref.current = stored; setRecord(stored); await flush(); }
+        if (alive.current) setLocked(true);
       } catch (e) { setError(e.message); }
       await new Promise(resolve => { release = resolve; if (!alive.current) resolve(); });
     });
@@ -113,7 +114,7 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   const tap = async (type, teamId) => {
-    if (!ref.current || editing.current || ref.current.conflict) return;
+    if (!ref.current || editing.current || releasing || ref.current.conflict) return;
     editing.current = true; setBusy(true);
     try {
       const r = ref.current;
@@ -126,7 +127,26 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
     } catch (e) { setError(e.message); }
     finally { editing.current = false; setBusy(false); flush(); }
   };
+  const releaseMatch = async (returnToUpcoming = false) => {
+    if (busy || syncing.current || editing.current || ref.current?.pending.length) {
+      setError("Wait for all saved points to synchronize before releasing this match."); return;
+    }
+    if (!confirm(returnToUpcoming
+      ? "Undo this start and free the court? Live scoring will be reset. Another umpire can start this match on any free court."
+      : "Release scoring control? Accepted points will stay saved and another umpire can continue this match.")) return;
+    setBusy(true); setReleasing(true); setError("");
+    try {
+      const base = ref.current?.base || remote;
+      await api("release", { matchId: match.id, generation: base.generation, revision: base.revision, returnToUpcoming });
+      await remove(key);
+      ref.current = null; setRecord(null);
+      await refreshLive();
+      onClose();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); setReleasing(false); }
+  };
   const s = record?.optimistic, pending = record?.pending.length || 0, elapsed = s ? elapsedSeconds(s) : 0;
+  const canRelease = remote?.control === "yours" && !remote.invalidated && !s?.confirmed && (!record || record.base.generation === remote.generation);
   return <section className="scorer" aria-label="Point by point scorer">
     <header><button onClick={onClose}>← {returnLabel}</button><span>Court {match.court} · {matchCategory(match, category)}</span><small>Match {match.id.slice(0, 8)}</small></header>
     <div className={`score-status ${!connected || pending ? "pending" : ""}`} role="status">
@@ -151,5 +171,10 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `pending-${match.id}.json`; a.click(); URL.revokeObjectURL(a.href);
       }}>Export unresolved work</button><button disabled={busy} onClick={pending ? archiveAndClaim : claim}>{pending ? "Archive reviewed work & claim current score" : "Claim transferred control"}</button></>}
     </>}
+    {canRelease && <div className="score-controls">
+      <button disabled={busy || !locked || !connected || pending > 0 || !!record?.conflict} onClick={() => releaseMatch()}>Release scoring control</button>
+      <button disabled={busy || !locked || !connected || pending > 0 || !!record?.conflict} onClick={() => releaseMatch(true)}>Undo start and free court</button>
+      <span>{s ? "Release control to keep accepted points, or undo the start to reset scoring and move courts." : "Started by mistake? Return this game to Upcoming so another umpire can start it on a free court."}</span>
+    </div>}
   </section>;
 }

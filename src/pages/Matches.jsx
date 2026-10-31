@@ -12,13 +12,20 @@ import SearchField from "../components/SearchField.jsx";
 import { NativeSelect } from "../components/ui/native-select.jsx";
 import PageLink from "../components/PageLink.jsx";
 import { Empty } from "../components/common.jsx";
-import { cloudEnabled, currentSession } from "../cloud/storage.js";
+import { currentSession } from "../cloud/storage.js";
 import { isCustomGame } from "../../shared/matches.js";
+import { groupName } from "../utils.js";
+import { sortByArrival } from "../../shared/arrivals.js";
 
 function Matches({ history = false, onScore }) {
-  const { state, filter, busy, admin, umpire, selected, live, upcoming, completed, categorySelect, team, tournament, open, setPage,
+  const { state, filter, busy, admin, umpire, selected, live, upcoming, completed, categorySelect, team, tournament, open, setPage, arrivalByMatch, matchOrder, setMatchOrder,
     matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage: stage, setMatchStage: setStage } = useDesk();
   const [testTools, setTestTools] = useState(false);
+  const [groupSelection, setGroupSelection] = useState({ category: filter, value: "all" });
+  const groups = Array.from({ length: tournament(filter)?.groups || 0 }, (_, i) => i);
+  const group = groupSelection.category === filter && groups.includes(Number(groupSelection.value)) && groupSelection.value !== "all" ? groupSelection.value : "all";
+  const inGroup = m => group === "all" || m.group === Number(group);
+  const scoringMatches = live.filter(inGroup);
   const openScorer = match => onScore ? onScore(match) : open({ type: "scorer", matchId: match.id });
   useEffect(() => {
     const controller = new AbortController();
@@ -30,17 +37,20 @@ function Matches({ history = false, onScore }) {
   }, []);
   const unfinishedCount = selected.filter(m => m.status !== "completed" && !m.bye).length;
   const waiting = selected.filter(m => m.status === "upcoming" && (!m.a || !m.b));
-  const matches = (history ? completed : [...live, ...upcoming, ...waiting, ...completed]).filter(
+  const nextMatches = matchOrder === "arrival" ? sortByArrival([...upcoming, ...waiting], arrivalByMatch) : [...upcoming, ...waiting];
+  const matches = (history ? completed : [...live, ...nextMatches, ...completed]).filter(
     (m) =>
+      inGroup(m) &&
       (history || status === "all" || m.status === status) &&
       (history || stage === "all" || (stage === "postseason" ? m.stage !== "League" && !isCustomGame(m) : m.stage === stage)) &&
       `${team(m.a)?.name} ${team(m.b)?.name}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
-  const filtered = !!query || (!umpire && filter !== "all") || (!history && (status !== "all" || stage !== "all"));
+  const filtered = !!query || group !== "all" || (!umpire && filter !== "all") || (!history && (status !== "all" || stage !== "all"));
   const hasRecords = state.matches.some(m => !history || m.status === "completed");
   const reset = () => {
+    setGroupSelection({ category: filter, value: "all" });
     setPage(history ? "History" : "Matches", { filter: umpire ? filter : "all", matchQuery: "", ...(history ? {} : { matchStatus: "all", matchStage: "all" }) });
     requestAnimationFrame(() => document.querySelector("#match-filters input")?.focus());
   };
@@ -49,6 +59,11 @@ function Matches({ history = false, onScore }) {
       <div className="toolbar match-filters" id="match-filters" tabIndex={-1}>
         <SearchField label="Search players" placeholder="Type a player or team name…" value={query} onChange={setQuery}/>
         <label className="filter-control"><span className="control-label">Tournament</span>{categorySelect}</label>
+        {groups.length > 0 && <label className="filter-control"><span className="control-label">Group</span><NativeSelect
+          aria-label="Filter by group" value={group} onChange={e => setGroupSelection({ category: filter, value: e.target.value })}>
+          <option value="all">All groups</option>
+          {groups.map(g => <option key={g} value={g}>{groupName(g)}</option>)}
+        </NativeSelect></label>}
         {!history && (
           <label className="filter-control"><span className="control-label">Status</span><NativeSelect
             aria-label="Match status"
@@ -65,6 +80,9 @@ function Matches({ history = false, onScore }) {
           <option value="all">All stages</option><option value="League">League</option>
           <option value="postseason">Playoffs & knockouts</option>
         </NativeSelect></label>}
+        {!history && <label className="filter-control"><span className="control-label">Sort</span><NativeSelect aria-label="Match order" value={matchOrder} onChange={e => setMatchOrder(e.target.value)}>
+          <option value="arrival">Arrival priority</option><option value="fixture">Fixture order</option>
+        </NativeSelect></label>}
       </div>
       <div className="results-summary">
         <span role="status" aria-live="polite" aria-atomic="true"><strong>{matches.length}</strong> of {history ? completed.length : selected.length} {history ? "results" : "matches"}{filter !== "all" ? ` · ${filter === "custom" ? "Custom" : tournament(filter)?.name}` : " · All matches"}{query && <> · Search: “{query}”</>}</span>
@@ -80,10 +98,11 @@ function Matches({ history = false, onScore }) {
         </Button>}
       </div>
       {!history && <StageActions />}
-      {cloudEnabled() && !history && live.length > 0 && <details className="point-scoring-disclosure">
-        <summary>{live.length} on court · Quick scoring access</summary>
-        <p>All on-court matches in the selected tournament, independent of search, status and stage filters.</p>
-        <div className="point-scoring-toolbar" aria-label="Point scoring">{live.map(m => <Button key={m.id} variant="outline" className="point-scoring-match" aria-label={`Open scorer: ${team(m.a)?.name} vs ${team(m.b)?.name}`} onClick={() => openScorer(m)}>
+      {!history && matchOrder === "arrival" && <p className="help-text">Ready matches come first when both teams have arrived and their players are free. The longest-waiting team gets priority; each team's wait restarts after a completed match. Umpires can still choose any eligible game.</p>}
+      {!history && scoringMatches.length > 0 && <details className="point-scoring-disclosure">
+        <summary>{scoringMatches.length} on court · Quick scoring access</summary>
+        <p>All on-court matches in the selected tournament{group !== "all" ? ` and ${groupName(Number(group))}` : ""}, independent of search, status and stage filters.</p>
+        <div className="point-scoring-toolbar" aria-label="Point scoring">{scoringMatches.map(m => <Button key={m.id} variant="outline" className="point-scoring-match" aria-label={`Open scorer: ${team(m.a)?.name} vs ${team(m.b)?.name}`} onClick={() => openScorer(m)}>
           <strong>{team(m.a)?.name} vs {team(m.b)?.name}</strong><small>Court {m.court} · Open scorer</small>
         </Button>)}</div>
       </details>}

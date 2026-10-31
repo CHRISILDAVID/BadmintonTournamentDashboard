@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { scoreText, stepScore, finalScores } from "../src/scores.js";
-import { validateGames } from "../server/engine.js";
+import { validateGames } from "../shared/tournament.js";
 
 test("score entry stays blank after clearing and does not bake in leading zeros", () => {
   assert.equal(scoreText(""), "");

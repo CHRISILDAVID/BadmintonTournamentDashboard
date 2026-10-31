@@ -9,7 +9,6 @@ import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
-import { cloudEnabled } from "../cloud/storage.js";
 
 function Tournaments() {
   const { state, admin, busy, act, team, open, setPage } = useDesk();
@@ -25,12 +24,6 @@ function Tournaments() {
           </span>
         </div>
       </div>
-      {admin && !cloudEnabled() && !state.demo && <div className="practice-banner">
-        <div><strong>Rehearse match day</strong><p>Add five practice categories with teams and fixtures to try the tournament workflows.</p></div>
-        <Button variant="outline" disabled={busy || state.tournaments.some(t => t.practice)} onClick={() => act("practice", {}, "Practice tournaments loaded")}>
-          Load practice tournaments
-        </Button>
-      </div>}
       {!state.tournaments.length ? (
         <Empty
           title="Your first tournament starts here"

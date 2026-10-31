@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyAction, emptyState } from "../../server/engine.js";
+import { applyAction, emptyState } from "../../shared/tournament.js";
 import { owner, request, importFixture } from "./helpers.js";
 
 test("200-team single-group draw persists beyond SQLite's individual row limit with IDs/results intact", async () => {

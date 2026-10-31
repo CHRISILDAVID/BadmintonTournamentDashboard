@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { owner, request, redeem, importFixture, invitation, envelope, fixture } from "./helpers.js";
-import { applyAction } from "../../server/engine.js";
+import { applyAction } from "../../shared/tournament.js";
 
 test("persistent owner uniqueness, single-use invitations, event isolation and role restrictions", async () => {
   const identity = crypto.randomUUID();

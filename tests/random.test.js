@@ -1,14 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { once } from "node:events";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
-import { randomGames } from "../server/random-scores.js";
-import { applyAction, emptyState, validateGames } from "../server/engine.js";
+import { randomGames } from "../shared/random-scores.js";
+import { applyAction, emptyState, validateGames } from "../shared/tournament.js";
 import { playoffPreset, scoringRules } from "../shared/format.js";
-import { practiceState } from "../server/demo.js";
+import { practiceState } from "./fixtures/events.js";
 import { tournamentDisplayData } from "../shared/display.js";
 
 test("random scores respect golden point, deuce, caps and best-of match endings", () => {
@@ -86,55 +81,4 @@ test("missing feeders fail atomically instead of silently completing only some m
   const before = structuredClone(s);
   assert.throws(() => applyAction(s, "randomComplete"), /missing opponents or feeder/);
   assert.deepEqual(s, before);
-});
-
-test("HTTP testing toggle, revision checks, and random results persist across restart", { timeout: 30000 }, async () => {
-  const baseDir = resolve(tmpdir()), dataDir = mkdtempSync(join(baseDir, "shuttlehub-random-test-"));
-  let child, base;
-  async function start(disabled) {
-    child = spawn(process.execPath, ["server/index.js"], {
-      env: { ...process.env, PORT: "0", DATA_DIR: dataDir, DISABLE_TEST_TOOLS: disabled ? "1" : "0" },
-      stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
-    });
-    base = await new Promise((resolve, reject) => {
-      let output = "";
-      const timer = setTimeout(() => reject(new Error("Server startup timed out")), 8000);
-      child.on("error", err => { clearTimeout(timer); reject(err); });
-      child.on("exit", code => { clearTimeout(timer); reject(new Error(`Server exited: ${code}`)); });
-      child.stdout.on("data", chunk => {
-        output += chunk;
-        const match = output.match(/ShuttleHub is ready: (http:\/\/localhost:\d+)/);
-        if (match) { clearTimeout(timer); resolve(match[1]); }
-      });
-    });
-  }
-  async function stop() {
-    if (child && child.exitCode === null) {
-      const closed = once(child, "exit");
-      child.kill();
-      await closed;
-    }
-  }
-  const post = body => fetch(base + "/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  try {
-    await start(false);
-    assert.deepEqual(await (await fetch(base + "/api/features")).json(), { testTools: true });
-    const loaded = await (await post({ revision: 0, action: "practice" })).json();
-    const response = await post({ revision: loaded.revision, action: "randomComplete" });
-    assert.equal(response.status, 200);
-    const completed = await response.json();
-    assert.ok(completed.matches.every(m => m.status === "completed"));
-    assert.equal((await post({ revision: loaded.revision, action: "randomComplete" })).status, 409);
-    await stop();
-    await start(true);
-    assert.deepEqual(await (await fetch(base + "/api/features")).json(), { testTools: false });
-    assert.deepEqual(await (await fetch(base + "/api/state")).json(), completed);
-    assert.equal((await post({ revision: completed.revision, action: "randomComplete" })).status, 403);
-    assert.deepEqual(await (await fetch(base + "/api/state")).json(), completed);
-  } finally {
-    await stop();
-    const resolved = resolve(dataDir);
-    if (resolved.startsWith(baseDir + sep) && resolved.split(sep).at(-1).startsWith("shuttlehub-random-test-"))
-      rmSync(resolved, { recursive: true, force: true });
-  }
 });

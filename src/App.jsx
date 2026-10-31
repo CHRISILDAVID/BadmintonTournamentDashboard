@@ -1,7 +1,7 @@
 import { Toaster } from "./components/ui/sonner.jsx";
 import { toast } from "sonner";
 import React, { Suspense, lazy, useEffect, useRef } from "react";
-import { ArrowUpRight, ArrowRight, Plus, ChevronRight } from "lucide-react";
+import { Plus, ChevronRight } from "lucide-react";
 
 const VenueBoard = lazy(() => import("./VenueBoard.jsx"));
 
@@ -30,7 +30,7 @@ import TeamForm from "./forms/TeamForm.jsx";
 import MatchForm from "./forms/MatchForm.jsx";
 import CustomGameForm from "./forms/CustomGameForm.jsx";
 import ConfirmForm from "./forms/ConfirmForm.jsx";
-import { cloudEnabled, currentSession } from "./cloud/storage.js";
+import { currentSession } from "./cloud/storage.js";
 import Umpire from "./cloud/Umpire.jsx";
 import Scorer from "./cloud/Scorer.jsx";
 
@@ -65,7 +65,7 @@ function App() {
   if (!state && !error) return <StartupLoading/>;
   if (!state) return <div className="loading"><Logo/><p role="alert">{error}</p><Button variant="ghost" onClick={() => location.reload()}>Reconnect</Button></div>;
   if (display) return <Suspense fallback={<StartupLoading/>}><VenueBoard state={state} upcoming={readyMatches} connected={connected}/></Suspense>;
-  if (cloudEnabled() && modal?.type === "scorer") {
+  if (modal?.type === "scorer") {
     const match = state.matches.find(m => m.id === modal.matchId);
     if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} returnLabel={page === "History" ? "Match history" : page} onClose={() => setModal(null)}/>;
   }
@@ -104,7 +104,7 @@ function App() {
             <div>
               <span className={`connection ${connected ? "" : "disconnected"}`}>
                 <i className="dot" />
-                {connected ? cloudEnabled() ? "Connected to cloud" : "Connected locally" : "Reconnecting…"}
+                {connected ? "Connected to cloud" : "Reconnecting…"}
               </span>
               <span className="topbar-courts">
                 <span className="tiny-court" />
@@ -116,12 +116,6 @@ function App() {
             {state.demo && (
               <div className="demo-strip">
                 You’re exploring a sample event.
-                {admin && !cloudEnabled() && (
-                  <Button variant="ghost" onClick={() => open({ type: "clearDemo" })}>
-                    Clear sample & start your event
-                    <ArrowRight size={14} />
-                  </Button>
-                )}
               </div>
             )}
             <div className="page-heading">
@@ -145,19 +139,6 @@ function App() {
             ) : page === "Settings" && admin ? (
               <SettingsPage />
             ) : <div className="panel p-6"><p className="mb-4">Use the navigation to continue, or return to the overview.</p><Button asChild><PageLink page="Overview">Go to overview</PageLink></Button></div>}
-            {admin && !cloudEnabled() && !state.tournaments.length && (
-              <div className="sample-offer">
-                <span>Want to see how match day looks?</span>
-                <Button variant="ghost"
-                  className="text-btn"
-                  disabled={busy}
-                  onClick={() => act("demo", {}, "Sample tournament loaded")}
-                >
-                  Explore a sample event
-                  <ArrowUpRight size={15} />
-                </Button>
-              </div>
-            )}
             <footer className="app-footer">
               <span>SHUTTLEHUB.IN / COURTSIDE CONTROL</span>
               <span>
@@ -186,7 +167,6 @@ function App() {
                 deleteTeam: "Remove team",
                 deleteTournament: "Delete tournament",
                 returnMatch: "Return this match to waiting?",
-                clearDemo: "Start your own event",
                 randomComplete: "Complete unfinished matches with random scores?",
                 scoring: "Correct tournament scoring",
               }[modal.type]

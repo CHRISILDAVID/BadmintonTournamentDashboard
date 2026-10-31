@@ -68,7 +68,7 @@ This is **not a finding that every phone screen overflows**. The examined pages 
 | Reused operations | `src/components/{SearchField,MatchTable,MatchCard,StageActions,common}.jsx`, `src/forms/*` | Fix shared presentation once, then verify both role shells |
 | Cloud surfaces | `src/cloud/{CloudGate,Umpire,Scorer,AccessPanel,Maintainer}.jsx` | Apply the same tokens without merging authorization or scorer state machines |
 | Venue | `src/VenueBoard.jsx`, `src/VenueBracket.jsx`, `src/components/VenueGrid.jsx`, venue CSS/stores | Preserve the specialized grid, measured bracket and saved layout contracts |
-| Protected logic | `server/engine.js`, `shared/*`, `cloud/{worker,event,security}.js`, cloud storage/connection modules | No planned edits to rules, reducer, authorization, persistence or API payloads |
+| Protected logic | `shared/tournament.js`, `shared/*`, `cloud/{worker,event,security}.js`, cloud storage/connection modules | No planned edits to rules, reducer, authorization, persistence or API payloads |
 
 No `AGENTS.md` was found in the repository or its workspace parent. Setup followed `docs/CLOUD_SETUP.md`; existing Node 24 and installed dependencies were used. The cloud build succeeded. Wrangler ran locally on port 8799 with all bindings local and fresh persistence at `output/ux-audit/runtime`. Existing `.env` contents were not printed or included in artifacts; no deployment or real-record changes were made.
 
@@ -211,7 +211,7 @@ Effort is a planning estimate for one frontend engineer with design review, not 
 
 Proposed shared presentation components: `DeskBrand`, `PageHeader`, `RoleNavigation`, `ConnectionStatus`, `FilterBar`, `FilterSummary`, `MatchStatusBadge`, `ResponsiveMatchList`, `FormActions`, `EmptyState`. Create only where at least two surfaces need the same behavior; avoid replacing every existing component. Prefer evolving `SearchField`, `MatchTable`, `MatchCard`, `Modal` and `Pill` first.
 
-**Hard boundaries:** do not edit `server/engine.js`, `shared/standings.js`, `shared/live-scoring.js`, API handlers, authorization checks, cloud score storage/flush/claim logic, event/session namespace, invitation semantics or request payloads. UI-only state such as whether a filter drawer is expanded belongs in component state. Existing navigation/filter stores remain the source of truth for their current values.
+**Hard boundaries:** do not edit `shared/tournament.js`, `shared/standings.js`, `shared/live-scoring.js`, API handlers, authorization checks, cloud score storage/flush/claim logic, event/session namespace, invitation semantics or request payloads. UI-only state such as whether a filter drawer is expanded belongs in component state. Existing navigation/filter stores remain the source of truth for their current values.
 
 **Explicitly excluded:** assignment UI/API, new searchable metadata, new sorting, automatic schedules/rest calculations, operational bulk actions, scoring simplification, permission narrowing, new dashboards/charts, tournament archive features, additional login methods and production deployment. Such work would be separate product changes, not this redesign.
 

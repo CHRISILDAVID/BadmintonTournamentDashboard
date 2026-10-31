@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { owner, request, importFixture, fixture, invitation, redeem, envelope } from "./helpers.js";
-import { applyAction, validateGames } from "../../server/engine.js";
+import { applyAction, validateGames } from "../../shared/tournament.js";
 import { scoringRules } from "../../shared/format.js";
 
 const enabled = process.env.CLOUD_TEST_TOOLS === "true";

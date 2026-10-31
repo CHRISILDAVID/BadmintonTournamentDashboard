@@ -1,6 +1,6 @@
 # Cloud validation and capacity
 
-Core cloud checks were recorded on 20 October 2026; maintainer provisioning checks were added on 21 October 2026. The user has deployed the base application and reported successful phone tests. The maintainer-page update was tested locally and has not itself been deployed. No paid plan or production-data migration was performed during this update.
+Core cloud checks were recorded on 20 October 2026; maintainer provisioning checks were added on 21 October 2026. The user has deployed the base application and reported successful phone tests. These are historical results, not a statement of the currently deployed revision. No paid plan or production-data migration was performed during this update.
 
 ## Recorded verification
 

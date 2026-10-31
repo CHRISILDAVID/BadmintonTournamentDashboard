@@ -26,6 +26,15 @@ export async function write(key, value) {
     tx.onerror = tx.onabort = () => reject(new Error("Device storage failed. This change was NOT recorded. Free storage before continuing."));
   });
 }
+export async function remove(key) {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("records", "readwrite", { durability: "strict" });
+    tx.objectStore("records").delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = tx.onabort = () => reject(new Error("Could not clear saved scoring work. Reopen the match while connected."));
+  });
+}
 export async function list(prefix) {
   const db = await database();
   return new Promise((resolve, reject) => {
@@ -41,7 +50,6 @@ export async function list(prefix) {
 }
 export const namespace = session => `${session.eventId}:${session.sessionId}`;
 export const currentSession = () => globalThis.__shuttleSession;
-export const cloudEnabled = () => !!currentSession()?.cloud;
 export function scopedFetch(url, options = {}) {
   const s = currentSession();
   return fetch(url, { ...options, headers: { ...options.headers, ...(s ? { "X-Shuttle-Event": s.eventId, "X-Shuttle-Session": s.sessionId } : {}) } }).then(response => {

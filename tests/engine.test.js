@@ -5,8 +5,8 @@ import {
   applyAction,
   standings,
   validateGames,
-} from "../server/engine.js";
-import { demoState, practiceState } from "../server/demo.js";
+} from "../shared/tournament.js";
+import { demoState, practiceState } from "./fixtures/events.js";
 import { parseCSV, importTeams } from "../src/utils.js";
 
 function setup(count = 8, groups = 2, qualify = 2) {

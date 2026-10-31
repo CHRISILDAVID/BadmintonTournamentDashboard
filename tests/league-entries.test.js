@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyAction, emptyState, standings } from "../server/engine.js";
+import { applyAction, emptyState, standings } from "../shared/tournament.js";
 import { playoffPreset, qualificationStatus, scoringRules } from "../shared/format.js";
 import { tournamentProgress } from "../shared/matches.js";
 import { tournamentDisplayData } from "../shared/display.js";

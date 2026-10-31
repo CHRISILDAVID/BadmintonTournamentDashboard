@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyAction, emptyState, standings } from "../server/engine.js";
+import { applyAction, emptyState, standings } from "../shared/tournament.js";
 import { scoringRules } from "../shared/format.js";
 import { matchesFilter, matchCategory, matchStageLabel } from "../shared/matches.js";
 import { readRoute, routeHref } from "../src/lib/navigation.js";

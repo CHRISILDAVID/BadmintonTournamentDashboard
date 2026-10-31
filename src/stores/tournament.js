@@ -2,7 +2,7 @@ import { createStore } from "zustand/vanilla";
 
 // Inject transport and notifications so lifecycle and revision rules can be tested.
 export function createTournamentStore({ fetcher = (...args) => fetch(...args),
-  eventSource = url => new EventSource(url), onError = () => {},
+  eventSource, onError = () => {},
   onNotice = () => {}, onConflict = () => {}, networkTarget = globalThis.window,
   isOnline = () => globalThis.navigator?.onLine !== false } = {}) {
   let source = null, consumers = 0, generation = 0;

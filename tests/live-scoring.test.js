@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newScore, reduceScore, elapsedSeconds } from "../shared/live-scoring.js";
-import { validateGames } from "../server/engine.js";
+import { validateGames } from "../shared/tournament.js";
 const match = { id: "match", a: "team-a", b: "team-b" };
 test("point reducer honors every engine scoring format, game transitions and undo across games", () => {
   for (const goldenPoint of [false, true]) for (const bestOf of [1, 3, 5]) {

@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { emptyState, applyAction, standings } from "../server/engine.js";
+import { emptyState, applyAction, standings } from "../shared/tournament.js";
 import {
   upcomingMatches,
   removeLegacyCalls,
   tournamentProgress,
 } from "../shared/matches.js";
-import { practiceState } from "../server/demo.js";
+import { practiceState } from "./fixtures/events.js";
 
 function setup() {
   let s = emptyState();

@@ -1,11 +1,11 @@
-import { standings } from "../shared/standings.js";
-export { standings } from "../shared/standings.js";
+import { standings } from "./standings.js";
+export { standings } from "./standings.js";
 import { randomUUID } from "node:crypto";
-import { playerLabel } from "../shared/players.js";
-import { removeLegacyCalls, isCustomGame } from "../shared/matches.js";
-import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "../shared/groups.js";
+import { playerLabel } from "./players.js";
+import { removeLegacyCalls, isCustomGame } from "./matches.js";
+import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "./groups.js";
 import { randomGames } from "./random-scores.js";
-import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams } from "../shared/knockouts.js";
+import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams } from "./knockouts.js";
 import {
   PLAYOFF_STAGE,
   qualificationFormats,
@@ -15,7 +15,7 @@ import {
   knockoutStage,
   drawSize,
   groupLabel,
-} from "../shared/format.js";
+} from "./format.js";
 export const id = () => randomUUID();
 export const emptyState = () => ({
   revision: 0,
@@ -514,6 +514,12 @@ export function applyAction(previous, action, payload = {}) {
           if (livePlayers.has(normalized)) fail("This name would put the same player on court more than once. Finish or undo the conflicting match first.");
           livePlayers.add(normalized);
         }
+  } else if (action === "teamArrival") {
+    const team = s.teams.find(x => x.id === payload.teamId && x.tournamentId === t?.id);
+    if (!t || !team) fail("Team not found in this tournament.");
+    if (typeof payload.arrived !== "boolean") fail("Choose whether this team has arrived.");
+    if (payload.arrived) team.arrivedAt ||= new Date().toISOString();
+    else delete team.arrivedAt;
   } else if (action === "deleteTeam") {
     const reason = leagueEntryLockReason(s, payload.tournamentId);
     if (reason) fail(reason);

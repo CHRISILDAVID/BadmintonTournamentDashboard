@@ -1,13 +1,13 @@
 import React from "react";
 import { Plus, Upload, Pencil } from "lucide-react";
-import { groupName } from "../utils.js";
+import { groupName, time } from "../utils.js";
 
 import { tournamentProgress } from "../../shared/matches.js";
 
 import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "../../shared/groups.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
-import { Empty } from "../components/common.jsx";
+import { Empty, Pill } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
 import SearchField from "../components/SearchField.jsx";
@@ -15,7 +15,7 @@ import SearchField from "../components/SearchField.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
 function Teams() {
-  const { state, filter, admin, categorySelect, tournament, open, setPage, teamQuery: query, setTeamQuery: setQuery } = useDesk();
+  const { state, filter, admin, busy, act, categorySelect, tournament, open, setPage, teamQuery: query, setTeamQuery: setQuery } = useDesk();
   const selectedTournament = state.tournaments.find((t) => t.id === filter);
   const groupLock = selectedTournament ? groupEditLockReason(state, filter) : "";
   const teams = state.teams.filter(
@@ -59,6 +59,7 @@ function Teams() {
       {selectedTournament?.groups > 1 && <p className="group-edit-hint">
         {groupLock || "Select teams in Edit groups to move or swap them. Editing locks after the first completed match."}
       </p>}
+      {admin && <p className="help-text">Mark a team arrived when all its players are present. Ready matches with the longest-waiting team appear first in Arrival priority order. {teams.filter(t => t.arrivedAt).length} of {teams.length} shown teams have arrived.</p>}
       {teams.length ? (
         <div className="table-scroll">
           <Table className="teams-table" aria-label="Teams and players">
@@ -68,6 +69,7 @@ function Teams() {
                 <TableHead>TEAM / PLAYER</TableHead>
                 <TableHead>TOURNAMENT</TableHead>
                 <TableHead>GROUP</TableHead>
+                <TableHead>ARRIVAL</TableHead>
                 {admin && <TableHead><span className="sr-only">Actions</span></TableHead>}
               </TableRow>
             </TableHeader>
@@ -82,6 +84,16 @@ function Teams() {
                   </TableCell>
                   <TableCell data-label="Tournament">{tournament(t.tournamentId)?.name}</TableCell>
                   <TableCell data-label="Group">{t.knockoutEntry ? "Knockout entry" : groupName(t.group) || "Not assigned"}</TableCell>
+                  <TableCell data-label="Arrival" className="team-arrival">
+                    <Pill tone={t.arrivedAt ? "green" : ""}>{t.arrivedAt ? "Arrived" : "Not arrived"}</Pill>
+                    {t.arrivedAt && <small>At {time(t.arrivedAt)}</small>}
+                    {admin && <Button variant="outline" disabled={busy}
+                      aria-label={`${t.arrivedAt ? "Undo arrival" : "Mark arrived"}: ${t.name} in ${tournament(t.tournamentId)?.name}`}
+                      onClick={() => act("teamArrival", { tournamentId: t.tournamentId, teamId: t.id, arrived: !t.arrivedAt },
+                        t.arrivedAt ? "Team arrival undone" : "Team marked arrived")}>
+                      {t.arrivedAt ? "Undo arrival" : "Mark arrived"}
+                    </Button>}
+                  </TableCell>
                   {admin && (
                     <TableCell>
                       {t.group != null ? (

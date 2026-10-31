@@ -1,10 +1,10 @@
 import { unstable_dev } from "wrangler";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import assert from "node:assert/strict";
 import { fixture } from "../tests/cloud/helpers.js";
-import { applyAction } from "../server/engine.js";
+import { applyAction } from "../shared/tournament.js";
 const directory = await mkdtemp(path.join(os.tmpdir(), "shuttlehub-runtime-"));
 const options = { config: "wrangler.jsonc", local: true, port: 8801, persist: true, persistTo: directory, logLevel: "error", vars: {
   PROVISIONING_SECRET: "runtime-check-secret", INVITATION_TTL_SECONDS: "1",
@@ -74,4 +74,11 @@ try {
   assert.equal((await call(historyPath, undefined, maintainer.cookie)).status, 401);
   assert.equal((await call("me", undefined, owner.cookie)).status, 200);
   console.log("PASS: invitation expiry, durable score/session/dedup persistence, owner uniqueness, archived podium/match/entry persistence, maintainer session persistence and revocation on secret rotation.");
-} finally { await worker?.stop(); }
+} finally {
+  try { await worker?.stop(); }
+  finally {
+    const resolved = path.resolve(directory), tempRoot = path.resolve(os.tmpdir());
+    if (path.dirname(resolved) === tempRoot && path.basename(resolved).startsWith("shuttlehub-runtime-"))
+      await rm(resolved, { recursive: true, force: true });
+  }
+}

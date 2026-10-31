@@ -16,7 +16,7 @@ Reviewed the actual repository, README, cloud setup and staff guide, routing/sta
 
 - Cloud build: `npm.cmd run build:cloud` succeeded; Vite reported its existing large-chunk advisory. No dependency change was made.
 - Runtime: documented `wrangler dev --local`, port 8799, isolated `output/ux-audit/runtime`; all bindings local. No production deployment, account provisioning or tournament mutation.
-- Initial rehearsal: 6 categories, 32 entries, 42 fixtures, 3 on-court games, 5 completed games. Based on `server/demo.js` practice pack, plus a two-player, 5-point singles category for a short complete scoring journey.
+- Initial rehearsal: 6 categories, 32 entries, 42 fixtures, 3 on-court games, 5 completed games. Based on `tests/fixtures/events.js` practice pack, plus a two-player, 5-point singles category for a short complete scoring journey.
 - A separate empty event was used for first-run/empty states and category creation → CSV preview/import → fixture generation. These writes occurred only in the new local runtime.
 - Owner, additional organizer, umpire and display sessions were created using existing test helpers and local invitation redemption. The browser also exercised maintainer unlock → setup-link generation → new owner redemption → recovery acknowledgement → empty desk. No camera/physical QR scan was attempted.
 - Screenshots cover 1440×1000 (or 900) desktop, 768×1024 tablet, 390×844 and 360×800 phone layouts. Some capture passes used height 900; measurements use their recorded viewport values. The initial overview screenshot was at the browser's default width before the systematic pass.
@@ -79,7 +79,7 @@ The implementation contains default focus styling and transition utilities. The 
 
 ## Source anchors
 
-- Product/setup: `README.md`, `docs/CLOUD_SETUP.md`, `docs/STAFF_GUIDE.md`, `server/demo.js`.
+- Product/setup: `README.md`, `docs/CLOUD_SETUP.md`, `docs/STAFF_GUIDE.md`, `tests/fixtures/events.js`.
 - Shell and role presentation: `src/App.jsx`, `src/cloud/Umpire.jsx`, `src/cloud/CloudGate.jsx`, `src/cloud/Maintainer.jsx`.
 - Search and ordering: `src/pages/Matches.jsx` (team-label predicate and shortcut scope), `src/hooks/useDesk.jsx` (derived lists), `shared/matches.js` (ready fixture order), `src/components/SearchField.jsx` (existing clear/focus).
 - URL state: `src/stores/organizer.js`, `src/lib/navigation.js`, `src/components/PageLink.jsx`.

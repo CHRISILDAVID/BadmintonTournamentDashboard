@@ -101,6 +101,9 @@
 .teams-table th:nth-child(2) { width: 27%; }
 .teams-table th:last-child { width: 28%; }
 .teams-table td:last-child button { margin: 2px; }
+.team-arrival small { display: block; margin: 6px 0; color: #52665f; }
+.team-arrival button { margin-top: 8px; }
+.match-table small.arrival-ready { color: #087c5c; font-weight: 650; }
 .teams-toolbar .filter-control { flex: 1 1 200px; }
 .section-jumps { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
 .section-jumps a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid #cbd7d1; border-radius: 8px; color: #075e46; background: white; text-decoration: none; font-size: 13px; font-weight: 600; }
