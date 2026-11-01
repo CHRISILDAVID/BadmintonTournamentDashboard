@@ -33,6 +33,7 @@ import ConfirmForm from "./forms/ConfirmForm.jsx";
 import { currentSession } from "./cloud/storage.js";
 import Umpire from "./cloud/Umpire.jsx";
 import Scorer from "./cloud/Scorer.jsx";
+import "./styles/match-day.css";
 
 function MatchScorer({ match, teams, category, onClose, returnLabel }) {
   // Keep the prepared fixture available through result confirmation.
@@ -71,7 +72,7 @@ function App() {
   }
   if (currentSession()?.role === "umpire") return <Umpire/>;
   const titles = {
-    Overview: "Courtside",
+    Overview: "Match day",
     Tournaments: "Your tournaments",
     "Teams & players": "Teams & players",
     Matches: "Match centre",
@@ -81,7 +82,7 @@ function App() {
     "Not found": "Page not found",
   };
   const subtitles = {
-    Overview: "On court. Upcoming games. Final results.",
+    Overview: "Keep the courts moving.",
     Tournaments: "Set up categories, seed groups, and build the draw.",
     "Teams & players": "Register your players and manage team entries.",
     Matches: "Choose any ready game, assign a court, and record the result.",
@@ -104,7 +105,7 @@ function App() {
             <div>
               <span className={`connection ${connected ? "" : "disconnected"}`}>
                 <i className="dot" />
-                {connected ? "Connected to cloud" : "Reconnecting…"}
+                {connected ? "Connected" : "Reconnecting…"}
               </span>
               <span className="topbar-courts">
                 <span className="tiny-court" />
@@ -124,7 +125,7 @@ function App() {
                 <p>{subtitles[page]}</p>
               </div>
               {admin && page === "Tournaments" && <div className="heading-actions"><Button onClick={() => open({ type: "tournament" })}><Plus size={17}/>New tournament</Button></div>}
-              {admin && ["Overview", "Matches"].includes(page) && <div className="heading-actions"><Button onClick={() => open({ type: "custom" })}><Plus size={17}/>New custom game</Button></div>}
+              {admin && ["Overview", "Matches"].includes(page) && <div className="heading-actions"><Button variant="outline" onClick={() => open({ type: "custom" })}><Plus size={17}/>New custom game</Button></div>}
             </div>
             {page === "Overview" ? (
               <Overview />
@@ -140,9 +141,9 @@ function App() {
               <SettingsPage />
             ) : <div className="panel p-6"><p className="mb-4">Use the navigation to continue, or return to the overview.</p><Button asChild><PageLink page="Overview">Go to overview</PageLink></Button></div>}
             <footer className="app-footer">
-              <span>SHUTTLEHUB.IN / COURTSIDE CONTROL</span>
+              <span>ShuttleHub · Tournament desk</span>
               <span>
-                ShuttleHub <span className="footer-dot">●</span> Tournament desk
+                {state.event.venue || state.event.name}
               </span>
             </footer>
           </div>

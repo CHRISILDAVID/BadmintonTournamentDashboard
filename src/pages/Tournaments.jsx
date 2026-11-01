@@ -1,5 +1,5 @@
 import React from "react";
-import { Trophy, Plus, ChevronRight, SlidersHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Trophy, Plus, ChevronRight, Pencil, Trash2 } from "lucide-react";
 
 import { groupEditLockReason, hasLeagueDraw } from "../../shared/groups.js";
 import { tournamentProgress } from "../../shared/matches.js";
@@ -9,21 +9,12 @@ import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
+import TournamentJourney from "../components/TournamentJourney.jsx";
 
 function Tournaments() {
-  const { state, admin, busy, act, team, open, setPage } = useDesk();
+  const { state, admin, busy, team, open, setPage } = useDesk();
   return (
     <>
-      <div className="info-banner">
-        <SlidersHorizontal size={20} />
-        <div>
-          <strong>A format that fits your tournament.</strong>
-          <span>
-            Start with a category. Add teams as they register. Generate fixtures
-            when you’re ready.
-          </span>
-        </div>
-      </div>
       {!state.tournaments.length ? (
         <Empty
           title="Your first tournament starts here"
@@ -43,7 +34,7 @@ function Tournaments() {
         </Empty>
       ) : (
         <div className="tournament-grid">
-          {state.tournaments.map((t, i) => {
+          {state.tournaments.map(t => {
             const drawn = hasLeagueDraw(state, t.id);
             const teams = state.teams.filter((x) => x.tournamentId === t.id),
               matches = state.matches.filter((m) => m.tournamentId === t.id),
@@ -52,9 +43,7 @@ function Tournaments() {
             return (
               <section className="panel tournament-card" key={t.id}>
                 <div className="tournament-top">
-                  <div className={`category-icon color-${i % 3}`}>
-                    <Trophy size={23} />
-                  </div>
+                  <span className="category-kind">{t.size === 1 ? "Singles" : `${t.size} players per team`}</span>
                   <Pill tone={champ ? "green" : ""}>
                     {champ
                       ? "Finished"
@@ -64,10 +53,7 @@ function Tournaments() {
                   </Pill>
                 </div>
                 <h2>{t.name}</h2>
-                <p>
-                  League + knockout ·{" "}
-                  {t.size === 1 ? "Singles" : `${t.size} players per team`}
-                </p>
+                <TournamentJourney state={state} tournament={t}/>
                 <div className="tournament-numbers">
                   <div>
                     <b>{teams.length}</b>
@@ -101,6 +87,7 @@ function Tournaments() {
                   </p>
                 )}
                 <div className="tournament-actions">
+                  {drawn && <Button variant="outline" onClick={() => setPage("Matches", { filter: t.id, matchQuery: "", matchStatus: "all", matchStage: tournamentProgress(state, t.id).postseason ? "postseason" : "all" })}>Manage games<ChevronRight size={15}/></Button>}
                   {admin && matches.length > 0 && <Button variant="outline" className="btn" onClick={() => open({ type: "scoring", tournament: t })}>Edit scoring</Button>}
                   {matches.length > 0 && t.groups > 1 && !matches.some(m => m.stage !== "League") && (
                     <Button variant="outline" className="btn" disabled={!!groupEditLockReason(state, t.id)}
@@ -143,7 +130,7 @@ function Tournaments() {
                           open({ type: "generate", tournament: t })
                         }
                       >
-                        Fixtures
+                        Generate fixtures
                       </Button>
                     ) : !matches.some((m) => m.stage !== "League") ? (
                       <Button variant="default"

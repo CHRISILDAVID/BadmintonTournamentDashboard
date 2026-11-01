@@ -1,0 +1,197 @@
+/* Match sheet: 232px navigation + 64px gutters + fluid 2:1 working columns.
+   At 1440px: 1144px content = 744px games + 28px gap + 372px side sheet. */
+.app-shell .topbar { background: var(--background); }
+.app-shell { font-variant-numeric: tabular-nums; }
+.app-shell .breadcrumb > span { color: var(--muted); }
+.app-shell .page-heading { margin-bottom: 24px; align-items: end; }
+.app-shell .page-heading p { margin-top: 4px; }
+.app-shell .page-title { text-transform: uppercase; }
+.app-shell .app-footer { color: var(--muted); letter-spacing: 0; text-transform: none; }
+.app-shell .app-footer > span { font-size: 12px; letter-spacing: 0; }
+.app-shell .panel { box-shadow: none; }
+.app-shell .eyebrow { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.app-shell .btn.primary { background: var(--primary); border-color: var(--primary); color: white; }
+.app-shell .btn:hover { box-shadow: none; }
+.app-shell .text-btn { color: var(--foreground); font-weight: 600; letter-spacing: 0; text-transform: none; gap: 8px; }
+.app-shell .count { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; padding: 2px 6px; margin-left: 5px; font: 500 12px/20px "Public Sans", sans-serif; border-radius: 4px; background: #e9ebe4; color: var(--muted); vertical-align: middle; }
+.app-shell .progress { height: 4px; background: #e5e8e0; border-radius: 2px; }
+.app-shell .progress > span { background: var(--green); }
+.app-shell .pill { background: #eeefea; color: #50584f; font-size: 12px; text-transform: none; letter-spacing: 0; }
+.app-shell .pill.green { background: #e6eee6; color: #315b46; }
+.app-shell .dot { background: #315b46; }
+.app-shell .connection.disconnected .dot { background: #a26a00; }
+.app-shell .desk-search:focus-within { box-shadow: none; outline: 2px solid var(--green); outline-offset: 2px; }
+.app-shell :is(input, select, textarea) { border-color: #a8aea5; }
+.app-shell :is(.match-table, .teams-table, .standing-table) th { text-transform: none; letter-spacing: 0; background: white; color: var(--muted); }
+.app-shell :is(.match-table, .teams-table) td { border-color: var(--border); }
+.app-shell .match-opponents .versus { color: var(--muted); }
+.app-shell .results-summary { background: #eeefea; }
+.app-shell .results-summary .btn { background: white; }
+.app-shell .matches-panel > .help-text { margin: 12px 20px; }
+.match-secondary-filters { display: contents; }
+.mobile-filter-toggle[data-slot="button"] { display: none; }
+.arrival-explainer { padding-inline: 20px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--border); }
+.arrival-explainer summary { display: list-item; cursor: pointer; padding-block: 12px; min-height: 44px; }
+.arrival-explainer p { padding-bottom: 12px; max-width: 75ch; line-height: 21px; }
+.test-tools-toolbar { border-top: 1px solid var(--border); background: #f5f5f2; }
+.app-shell .stage-actions { margin: 16px 0; }
+.app-shell .stage-action { background: #edf3ee; border-color: #c8d5c9; }
+.app-shell .stage-action p { color: #425e4c; }
+.app-shell .section-jumps a { color: var(--foreground); border-color: var(--border); }
+.app-shell .lock-reason { border-left-width: 1px; }
+
+/* Real court numbers are the anchor; state is always also written in text. */
+.court-board { border-block: 1px solid var(--foreground); padding: 16px 0 20px; }
+.court-board-heading, .match-sheet-heading, .sheet-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.app-shell .court-board h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.court-availability { display: inline-block; margin-left: 12px; font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+.court-board-heading p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.court-board-heading p > span { margin-left: 6px; padding-left: 12px; border-left: 1px solid #a8aea5; }
+.court-board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr)); gap: 10px; margin-top: 16px; }
+.court-tile { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 12px 14px; text-align: left; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--foreground); }
+.court-tile.occupied { background: #edf3ee; border-color: #c8d5c9; }
+.court-tile:hover { border-color: var(--green); background: #e5ede5; }
+.court-number { flex: 0 0 48px; white-space: nowrap; border-right: 1px solid #cbd2c8; padding-right: 12px; }
+.court-number > span { display: block; font-size: 12px; color: var(--muted); }
+.court-number b { display: block; font: 600 32px/34px var(--sport); font-variant-numeric: tabular-nums; }
+.court-tile-detail { flex: 1; min-width: 0; }
+.court-tile-detail strong { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
+.court-tile-detail small { display: block; margin-top: 4px; font-size: 12px; line-height: 16px; color: var(--muted); }
+.court-tile > svg { flex-shrink: 0; color: var(--muted); }
+.court-tile.available .dot { background: transparent; border: 1px solid #626861; width: 7px; height: 7px; }
+.match-sheet-heading { margin: 24px 0 12px; }
+.app-shell .match-sheet-heading > h2 { font: 600 24px/28px var(--sport); text-transform: uppercase; letter-spacing: .2px; }
+.sheet-filter { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--muted); font-size: 12px; }
+.sheet-filter [data-slot="native-select-wrapper"] { width: 230px; max-width: 100%; }
+.app-shell .sheet-filter select { background: white; width: 100%; max-width: none; box-shadow: none; }
+.match-totals { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+.match-totals > span { display: flex; align-items: baseline; gap: 7px; }
+.match-totals b { font: 600 24px/28px var(--sport); color: var(--foreground); font-variant-numeric: tabular-nums; }
+.sheet-progress { margin-left: auto; display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.sheet-progress progress { appearance: none; width: 100px; height: 4px; border: 0; border-radius: 0; background: #dce0d7; }
+.sheet-progress progress::-webkit-progress-bar { background: #dce0d7; }
+.sheet-progress progress::-webkit-progress-value { background: var(--green); }
+.sheet-progress progress::-moz-progress-bar { background: var(--green); }
+.match-day-columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 28px; margin-top: 16px; align-items: start; }
+.match-day-main, .match-day-aside { min-width: 0; }
+.sheet-section-heading { min-height: 44px; margin-bottom: 10px; }
+.app-shell .sheet-section-heading h2 { font-size: 16px; font-weight: 600; line-height: 24px; margin: 0; }
+.sheet-section-heading > span { color: var(--muted); font-size: 12px; }
+.sheet-section-heading .text-btn { padding-inline: 4px; font-size: 13px; }
+.match-day .live-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.app-shell .match-card { padding: 18px; border-radius: 8px; border: 1px solid var(--border); background: white; color: var(--foreground); box-shadow: none; }
+.app-shell .match-card.live { background: white; border-top: 3px solid var(--green); }
+.app-shell .match-card.live::before { content: none; }
+.app-shell .match-card .match-meta { margin: 0; }
+.app-shell .match-card .court-heading { color: var(--foreground); font: 600 24px/28px var(--sport); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.app-shell .match-card .match-sub { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.app-shell .match-card .opponents { margin: 12px 0 8px; gap: 0; }
+.app-shell .match-card .opponent { gap: 10px; padding: 8px 0; }
+.app-shell .match-card .opponent + .opponent { border-top: 1px solid var(--border); }
+.app-shell .match-card .opponent strong { font-size: 16px; line-height: 22px; font-weight: 600; }
+.app-shell .match-card .opponent small { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.app-shell .match-card .team-avatar { display: none; }
+.app-shell .match-card .match-foot { margin-top: 0; padding-top: 10px; border-top: 1px solid var(--border); gap: 8px; }
+.app-shell .match-card .match-foot > span { color: var(--muted); font-size: 12px; }
+.app-shell .match-card.live .match-foot > span { display: none; }
+.app-shell .match-card.live .match-foot { justify-content: stretch; }
+.app-shell .match-card .match-foot .text-btn { color: var(--foreground); font-size: 13px; }
+.app-shell .match-card .match-action-buttons { justify-content: space-between; gap: 4px; width: 100%; }
+.app-shell .match-card .match-action-buttons button { min-width: 0; padding: 8px; }
+.app-shell .match-card .live-match-summary { border-top: 1px solid var(--border); color: var(--foreground); font-size: 12px; padding: 10px 0; }
+.app-shell .match-card .live-match-summary small { color: var(--muted); font-size: 12px; }
+.app-shell .match-card .live-match-summary strong { font-size: 14px; }
+.upcoming-sheet, .results-sheet { margin-top: 22px; }
+.sheet-queue-row { display: flex; align-items: center; gap: 16px; width: 100%; padding: 16px 0; border-top: 1px solid var(--border); text-align: left; background: transparent; }
+.sheet-queue-row:hover { background: #eaece5; }
+.sheet-queue-row .queue-teams { flex: 1; }
+.sheet-queue-row strong { font-size: 14px; font-weight: 500; line-height: 21px; }
+.sheet-queue-row small { display: block; font-size: 12px; margin-top: 4px; color: var(--muted); }
+.sheet-queue-row em { font-style: normal; color: var(--muted); font-size: 12px; padding-inline: 4px; }
+.queue-action { display: flex; align-items: center; gap: 6px; flex-shrink: 0; font-size: 12px; font-weight: 600; }
+.category-sheet, .results-sheet { border-top: 1px solid var(--foreground); }
+.category-sheet-row { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
+.category-sheet-row h3, .category-sheet-row p { grid-column: 1; }
+.category-sheet-row .text-btn { grid-column: 2; grid-row: 1 / 3; }
+.category-sheet-row h3 { font-size: 14px; margin: 0; line-height: 22px; font-weight: 600; }
+.category-sheet-row p { font-size: 12px; margin: 4px 0; color: var(--muted); }
+.category-sheet-row .text-btn { min-height: 44px; padding: 8px 0; font-size: 13px; }
+.sheet-empty { padding: 16px 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; line-height: 21px; }
+.desk-empty-state { border: 1px solid var(--border); border-radius: 8px; padding: 24px; background: white; }
+.desk-empty-state h3 { font-size: 16px; margin: 0 0 8px; }
+.desk-empty-state p { color: var(--muted); font-size: 14px; line-height: 22px; max-width: 52ch; margin-bottom: 16px; }
+.match-day .result-slip { padding: 14px 0; border-top: 1px solid var(--border); }
+.match-day .recent-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 10px; text-transform: none; letter-spacing: 0; }
+.match-day .recent-meta > span:last-child { font-size: 12px; color: var(--muted); }
+.match-day .result-team { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); padding-block: 4px; }
+.match-day .result-team.winner { color: var(--foreground); font-weight: 600; }
+.match-day .result-team b { display: flex; flex-shrink: 0; gap: 12px; font: 600 20px/24px var(--sport); font-variant-numeric: tabular-nums; }
+
+/* A category's actual lifecycle, followed by its existing operations. */
+.app-shell .tournament-grid { gap: 20px; align-items: start; }
+.app-shell .tournament-card { padding: 22px; border-top: 3px solid var(--foreground); }
+.app-shell .tournament-card h2 { font: 600 24px/28px var(--sport); margin: 14px 0 20px; letter-spacing: 0; }
+.category-kind { font-size: 12px; color: var(--muted); }
+.tournament-journey { display: flex; list-style: none; padding: 0; margin: 0 0 20px; }
+.tournament-journey li { display: flex; align-items: center; flex: 1; gap: 5px; padding: 10px 0; border-top: 2px solid #dedfd8; font-size: 12px; color: var(--muted); }
+.tournament-journey li.current { color: var(--green); border-color: var(--green); font-weight: 600; }
+.tournament-journey li.done { border-color: #9db29c; }
+.journey-mark { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; font-size: 12px; }
+.app-shell .tournament-numbers { border-block: 1px solid var(--border); padding-block: 14px; margin-bottom: 18px; }
+.app-shell .tournament-numbers b { font: 600 28px/32px var(--sport); color: var(--foreground); }
+.app-shell .tournament-card > small { font-size: 12px; line-height: 20px; }
+.app-shell .tournament-actions { margin-top: 20px; }
+.app-shell .tournament-delete { margin-top: 16px; }
+.app-shell .tournament-delete .text-btn { font-size: 12px; color: #9b3737; }
+.app-shell .champion { color: var(--green); background: #edf3ee; }
+
+@media (max-width: 1250px) and (min-width: 1100px) {
+  .match-day-columns { grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr); gap: 20px; }
+  .court-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .match-day-columns { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .match-day-aside { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .match-day-aside .results-sheet { margin-top: 0; }
+  .sheet-progress { gap: 8px; }
+}
+@media (max-width: 700px) {
+  .toolbar.match-filters { gap: 10px; }
+  .match-filters > .filter-control:nth-child(2) { grid-column: auto; }
+  .match-secondary-filters { display: none; }
+  .match-secondary-filters.expanded { display: grid; grid-template-columns: 1fr 1fr; grid-column: 1 / -1; gap: 12px; }
+  .mobile-filter-toggle[data-slot="button"] { display: flex; grid-column: 1 / -1; width: 100%; justify-content: flex-start; padding: 8px 0; }
+  .mobile-filter-toggle > svg:last-child { margin-left: auto; }
+  .arrival-explainer { padding-inline: 16px; }
+  .app-shell .page-heading { align-items: center; }
+  .app-shell .page-title { font-size: 28px; line-height: 32px; }
+  .app-shell .heading-actions { width: auto; }
+  .app-shell .heading-actions button { font-size: 12px; padding-inline: 10px; }
+  .court-board { padding-top: 12px; padding-bottom: 14px; }
+  .court-board-heading { align-items: start; }
+  .court-board-heading > .text-btn { display: none; }
+  .court-board-heading p > span { display: none; }
+  .court-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .court-tile { padding: 10px; gap: 10px; align-items: center; }
+  .court-tile > svg { display: none; }
+  .court-number { flex-basis: 40px; padding-right: 8px; }
+  .court-number b { font-size: 28px; }
+  .court-tile-detail small { display: none; }
+  .court-tile-detail strong { font-size: 12px; gap: 5px; }
+  .match-sheet-heading { margin-top: 18px; }
+  .sheet-filter > span { display: none; }
+  .sheet-filter { max-width: 58%; }
+  .sheet-filter select { font-size: 14px; }
+  .match-totals { gap: 8px 18px; font-size: 12px; }
+  .sheet-progress { width: 100%; justify-content: space-between; }
+  .sheet-progress progress { flex: 1; max-width: 110px; }
+  .match-day-columns { margin-top: 8px; }
+  .match-day-aside { display: block; }
+  .match-day-aside .results-sheet { margin-top: 24px; }
+  .sheet-section-heading > span { font-size: 12px; }
+  .sheet-queue-row { gap: 10px; }
+  .queue-action { font-size: 12px; flex-direction: column; gap: 4px; }
+  .app-shell .match-card .match-action-buttons button { font-size: 13px; }
+  .app-shell .tournament-card { padding: 18px; }
+  .tournament-journey li { font-size: 12px; gap: 3px; }
+}

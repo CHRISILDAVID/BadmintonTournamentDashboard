@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("/fonts/public-sans.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/barlow-condensed.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/barlow-condensed-1.woff2") format("woff2"); }
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -10,16 +14,16 @@
   --color-popover-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: #ffffff;
-  --color-secondary: #edf4f0;
+  --color-secondary: #eeefea;
   --color-secondary-foreground: var(--foreground);
-  --color-muted: #f0f4f2;
-  --color-muted-foreground: #52665f;
-  --color-accent: #e3f3eb;
-  --color-accent-foreground: #124c3c;
+  --color-muted: #eeefea;
+  --color-muted-foreground: #626861;
+  --color-accent: #edf3ee;
+  --color-accent-foreground: #315b46;
   --color-destructive: #b33e3e;
   --color-border: var(--border);
   --color-input: var(--border);
-  --color-ring: #229c78;
+  --color-ring: #315b46;
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
@@ -27,19 +31,19 @@
 }
 
 :root {
-  --background: #f3f6f4;
-  --foreground: #102f3e;
+  --background: #f5f5f2;
+  --foreground: #242a27;
   --card: #ffffff;
-  --primary: #087c5c;
-  --border: #cbd7d1;
-  --radius: 0.75rem;
-  --green: var(--primary);
-  --navy: #102f3e;
-  --deep: #102f3e;
-  --muted: #52665f;
+  --primary: #292f2b;
+  --border: #dedfd8;
+  --radius: 0.5rem;
+  --green: #315b46;
+  --navy: #242a27;
+  --deep: #242a27;
+  --muted: #626861;
   --line: var(--border);
-  --sport: "Segoe UI", Arial, sans-serif;
-  font-family: "Segoe UI", Arial, sans-serif;
+  --sport: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-family: "Public Sans", "Segoe UI", sans-serif;
   font-synthesis: none;
   font-size: 14px;
   color: var(--foreground);
@@ -58,6 +62,9 @@
   h3 { @apply text-base; }
   button:disabled { @apply cursor-not-allowed opacity-50; }
   input, select, textarea { max-width: 100%; }
+  input, textarea { caret-color: var(--green); }
+  ::selection { background: #d9e7dc; color: #242a27; }
+  * { scrollbar-color: #b4bab1 transparent; scrollbar-width: thin; }
   small { font-size: .8em; }
 }
 

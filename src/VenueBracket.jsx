@@ -64,7 +64,6 @@ export default function VenueBracket({ tournament, rounds, teams, slotProps }) {
     <p className="venue-widget-note">{matches.filter(m => m.status === "completed").length} / {matches.length} played</p>
     <div className="vb-bracket-tree vb-scroll" data-auto-scroll="" tabIndex={0} role="region" aria-label={`${tournament.name} knockout bracket`}>
       {rounds.map((round, index) => <section key={round.round} className={`vb-bracket-round ${index === 0 ? "vb-first-round" : ""} ${index === rounds.length - 1 ? "vb-last-round" : ""}`} aria-label={`${tournament.name} ${round.stage} round`}>
-        <h4>{round.stage}</h4>
         <div className="vb-bracket-row-scroll vb-scroll" data-auto-scroll="" data-scroll-axis="x" tabIndex={0} role="region" aria-label={`${round.stage} matches, scroll horizontally for all teams`}>
           <div className="vb-bracket-matches" style={{ "--round-matches": round.matches.length }}>
             {round.matches.map(match => <div key={match.id} className={`vb-bracket-cell ${match.index % 2 === 0 ? "vb-branch-upper" : "vb-branch-lower"} ${match.winner ? "vb-branch-decided" : ""}`}>

@@ -11,7 +11,7 @@ export default function useAutoScroll(rootRef, enabled = true) {
     let frame;
     let lastFrame = 0;
     let pausedUntil = 0;
-    const edgePause = 3500;
+    const edgePause = 2000;
     const collect = () => {
       areas = [...root.querySelectorAll("[data-auto-scroll]")];
       for (const node of positions.keys()) {
@@ -29,7 +29,6 @@ export default function useAutoScroll(rootRef, enabled = true) {
     const tick = (now) => {
       frame = requestAnimationFrame(tick);
       if (document.hidden) return;
-      if (lastFrame && now - lastFrame < 32) return;
       const seconds = lastFrame ? Math.min(now - lastFrame, 100) / 1000 : 0;
       lastFrame = now;
       for (const node of areas) {
@@ -78,7 +77,7 @@ export default function useAutoScroll(rootRef, enabled = true) {
           state.waitUntil = now + edgePause;
           continue;
         }
-        const speed = Number(node.dataset.scrollSpeed) || 18;
+        const speed = Number(node.dataset.scrollSpeed) || 36;
         state.position = Math.min(max, state.position + speed * seconds);
         node[axis] = state.position;
         if (state.position >= max) {

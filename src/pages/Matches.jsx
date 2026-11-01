@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, SlidersHorizontal, ChevronDown } from "lucide-react";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 
@@ -21,6 +21,7 @@ function Matches({ history = false, onScore }) {
   const { state, filter, busy, admin, umpire, selected, live, upcoming, completed, categorySelect, team, tournament, open, setPage, arrivalByMatch, matchOrder, setMatchOrder,
     matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage: stage, setMatchStage: setStage } = useDesk();
   const [testTools, setTestTools] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [groupSelection, setGroupSelection] = useState({ category: filter, value: "all" });
   const groups = Array.from({ length: tournament(filter)?.groups || 0 }, (_, i) => i);
   const group = groupSelection.category === filter && groups.includes(Number(groupSelection.value)) && groupSelection.value !== "all" ? groupSelection.value : "all";
@@ -59,11 +60,6 @@ function Matches({ history = false, onScore }) {
       <div className="toolbar match-filters" id="match-filters" tabIndex={-1}>
         <SearchField label="Search players" placeholder="Type a player or team name…" value={query} onChange={setQuery}/>
         <label className="filter-control"><span className="control-label">Tournament</span>{categorySelect}</label>
-        {groups.length > 0 && <label className="filter-control"><span className="control-label">Group</span><NativeSelect
-          aria-label="Filter by group" value={group} onChange={e => setGroupSelection({ category: filter, value: e.target.value })}>
-          <option value="all">All groups</option>
-          {groups.map(g => <option key={g} value={g}>{groupName(g)}</option>)}
-        </NativeSelect></label>}
         {!history && (
           <label className="filter-control"><span className="control-label">Status</span><NativeSelect
             aria-label="Match status"
@@ -76,6 +72,13 @@ function Matches({ history = false, onScore }) {
             <option value="completed">Completed</option>
           </NativeSelect></label>
         )}
+        {(!history || groups.length > 0) && <Button variant="ghost" className="mobile-filter-toggle" aria-expanded={filtersOpen} aria-controls="match-secondary-filters" onClick={() => setFiltersOpen(value => !value)}><SlidersHorizontal size={16}/>{filtersOpen ? "Fewer filters" : "More filters"}{(group !== "all" || (!history && stage !== "all")) && " · active"}<ChevronDown size={16}/></Button>}
+        <div id="match-secondary-filters" className={`match-secondary-filters ${filtersOpen ? "expanded" : ""}`}>
+        {groups.length > 0 && <label className="filter-control"><span className="control-label">Group</span><NativeSelect
+          aria-label="Filter by group" value={group} onChange={e => setGroupSelection({ category: filter, value: e.target.value })}>
+          <option value="all">All groups</option>
+          {groups.map(g => <option key={g} value={g}>{groupName(g)}</option>)}
+        </NativeSelect></label>}
         {!history && <label className="filter-control"><span className="control-label">Stage</span><NativeSelect aria-label="Match stage" value={stage} onChange={e => setStage(e.target.value)}>
           <option value="all">All stages</option><option value="League">League</option>
           <option value="postseason">Playoffs & knockouts</option>
@@ -83,6 +86,7 @@ function Matches({ history = false, onScore }) {
         {!history && <label className="filter-control"><span className="control-label">Sort</span><NativeSelect aria-label="Match order" value={matchOrder} onChange={e => setMatchOrder(e.target.value)}>
           <option value="arrival">Arrival priority</option><option value="fixture">Fixture order</option>
         </NativeSelect></label>}
+        </div>
       </div>
       <div className="results-summary">
         <span role="status" aria-live="polite" aria-atomic="true"><strong>{matches.length}</strong> of {history ? completed.length : selected.length} {history ? "results" : "matches"}{filter !== "all" ? ` · ${filter === "custom" ? "Custom" : tournament(filter)?.name}` : " · All matches"}{query && <> · Search: “{query}”</>}</span>
@@ -98,7 +102,7 @@ function Matches({ history = false, onScore }) {
         </Button>}
       </div>
       {!history && <StageActions />}
-      {!history && matchOrder === "arrival" && <p className="help-text">Ready matches come first when both teams have arrived and their players are free. The longest-waiting team gets priority; each team's wait restarts after a completed match. Umpires can still choose any eligible game.</p>}
+      {!history && matchOrder === "arrival" && <details className="arrival-explainer"><summary>How arrival priority works</summary><p>Ready matches come first when both teams have arrived and their players are free. The longest-waiting team gets priority; each team's wait restarts after a completed match. Umpires can still choose any eligible game.</p></details>}
       {!history && scoringMatches.length > 0 && <details className="point-scoring-disclosure">
         <summary>{scoringMatches.length} on court · Quick scoring access</summary>
         <p>All on-court matches in the selected tournament{group !== "all" ? ` and ${groupName(Number(group))}` : ""}, independent of search, status and stage filters.</p>
@@ -106,14 +110,14 @@ function Matches({ history = false, onScore }) {
           <strong>{team(m.a)?.name} vs {team(m.b)?.name}</strong><small>Court {m.court} · Open scorer</small>
         </Button>)}</div>
       </details>}
-      {!history && admin && testTools && filter !== "custom" && <div className="toolbar">
+      {!matches.length && filtered && hasRecords ? <Empty title="No matches found" action={<Button variant="outline" onClick={reset}>Reset filters</Button>}>Try another player name or reset your filters to see {history ? "completed" : "all"} matches.</Empty> : <MatchTable matches={matches} history={history} onScore={openScorer} />}
+      {!history && admin && testTools && filter !== "custom" && <div className="toolbar test-tools-toolbar">
         <Button variant="destructive" className="btn danger" disabled={busy || !unfinishedCount}
           onClick={() => open({ type: "randomComplete", tournament: filter === "all" ? undefined : tournament(filter) })}>
           Testing: complete unfinished matches
         </Button>
         <span className="help-text">{unfinishedCount} unfinished games in {filter === "all" ? "all tournaments" : tournament(filter)?.name}, across every stage. Uses random scores.</span>
       </div>}
-      {!matches.length && filtered && hasRecords ? <Empty title="No matches found" action={<Button variant="outline" onClick={reset}>Reset filters</Button>}>Try another player name or reset your filters to see {history ? "completed" : "all"} matches.</Empty> : <MatchTable matches={matches} history={history} onScore={openScorer} />}
     </section>
   );
 }

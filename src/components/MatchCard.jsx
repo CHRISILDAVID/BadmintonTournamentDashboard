@@ -21,17 +21,17 @@ function MatchCard({ m, compact = false }) {
       <div className="match-meta">
         <span className="court-heading">
           {m.status === "live"
-            ? `COURT ${String(m.court).padStart(2, "0")}`
+            ? `Court ${String(m.court).padStart(2, "0")}`
             : matchCategory(m, t)}
         </span>
         <Pill tone={m.status === "live" ? "green" : ""}>
           {m.status === "live" ? (
             <>
               <i className="dot" />
-              ON COURT
+              In play
             </>
           ) : m.status === "completed" ? (
-            m.bye ? "BYE" : "FINAL SCORE"
+            m.bye ? "Bye" : "Final score"
           ) : (
             matchStageLabel(m)
           )}
