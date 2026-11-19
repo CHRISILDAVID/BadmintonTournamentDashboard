@@ -14,16 +14,20 @@ import PageLink from "../components/PageLink.jsx";
 import { Empty } from "../components/common.jsx";
 import { currentSession } from "../cloud/storage.js";
 import { isCustomGame } from "../../shared/matches.js";
+import { isKnockoutOnly } from "../../shared/format.js";
 import { groupName } from "../utils.js";
 import { sortByArrival } from "../../shared/arrivals.js";
 
 function Matches({ history = false, onScore }) {
   const { state, filter, busy, admin, umpire, selected, live, upcoming, completed, categorySelect, team, tournament, open, setPage, arrivalByMatch, matchOrder, setMatchOrder,
-    matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage: stage, setMatchStage: setStage } = useDesk();
+    matchStatus: status, setMatchStatus: setStatus, matchQuery: query, setMatchQuery: setQuery, matchStage, setMatchStage: setStage } = useDesk();
   const [testTools, setTestTools] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [groupSelection, setGroupSelection] = useState({ category: filter, value: "all" });
-  const groups = Array.from({ length: tournament(filter)?.groups || 0 }, (_, i) => i);
+  const category = tournament(filter);
+  const knockoutOnly = isKnockoutOnly(category);
+  const stage = knockoutOnly ? "all" : matchStage;
+  const groups = Array.from({ length: knockoutOnly ? 0 : category?.groups || 0 }, (_, i) => i);
   const group = groupSelection.category === filter && groups.includes(Number(groupSelection.value)) && groupSelection.value !== "all" ? groupSelection.value : "all";
   const inGroup = m => group === "all" || m.group === Number(group);
   const scoringMatches = live.filter(inGroup);
@@ -79,7 +83,7 @@ function Matches({ history = false, onScore }) {
           <option value="all">All groups</option>
           {groups.map(g => <option key={g} value={g}>{groupName(g)}</option>)}
         </NativeSelect></label>}
-        {!history && <label className="filter-control"><span className="control-label">Stage</span><NativeSelect aria-label="Match stage" value={stage} onChange={e => setStage(e.target.value)}>
+        {!history && !knockoutOnly && <label className="filter-control"><span className="control-label">Stage</span><NativeSelect aria-label="Match stage" value={stage} onChange={e => setStage(e.target.value)}>
           <option value="all">All stages</option><option value="League">League</option>
           <option value="postseason">Playoffs & knockouts</option>
         </NativeSelect></label>}

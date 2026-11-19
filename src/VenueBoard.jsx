@@ -19,7 +19,7 @@ import VenueWidgets from "./components/VenueWidgets.jsx";
 import SharedLiveScores from "./components/SharedLiveScores.jsx";
 import { cleanLiveScoreLayout } from "./lib/venue-widgets.js";
 import { selectionKey } from "./lib/venue-layout.js";
-import { directPlaces, isPlayoffFormat } from "../shared/format.js";
+import { directPlaces, isKnockoutOnly, isPlayoffFormat } from "../shared/format.js";
 import { isCustomGame } from "../shared/matches.js";
 import logo from "../assets/logo.jpg";
 import LiveScores from "./cloud/LiveScores.jsx";
@@ -161,7 +161,7 @@ function ResultGroup({ group, teams }) {
 
 function TournamentPanel({ data, upcoming, teams, sharedLiveScores }) {
   const { tournament: t, groups, onCourt, knockoutRounds, playoffs, hasKnockouts, champion } = data;
-  const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: "Playoffs & knockouts", results: data.knockoutResults }] : [])];
+  const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: isKnockoutOnly(t) ? "Knockouts" : "Playoffs & knockouts", results: data.knockoutResults }] : [])];
   const scroll = (label, children) => <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${t.name} ${label}`}>{children}</div>;
   const renderWidget = widget => {
     if (widget === "live") return scroll("live scores", <LiveScores matches={onCourt} teams={teams} tournament={t}/>);

@@ -4,7 +4,8 @@ import { groupName, time } from "../utils.js";
 
 import { tournamentProgress } from "../../shared/matches.js";
 
-import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "../../shared/groups.js";
+import { groupEditLockReason, hasLeagueDraw, teamEntryLockReason } from "../../shared/groups.js";
+import { isKnockoutOnly } from "../../shared/format.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Empty, Pill } from "../components/common.jsx";
@@ -17,6 +18,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 function Teams() {
   const { state, filter, admin, busy, act, categorySelect, tournament, open, setPage, teamQuery: query, setTeamQuery: setQuery } = useDesk();
   const selectedTournament = state.tournaments.find((t) => t.id === filter);
+  const showGroups = selectedTournament ? !isKnockoutOnly(selectedTournament) : state.tournaments.some(t => !isKnockoutOnly(t));
   const groupLock = selectedTournament ? groupEditLockReason(state, filter) : "";
   const teams = state.teams.filter(
     (t) =>
@@ -30,7 +32,7 @@ function Teams() {
       <div className="toolbar teams-toolbar">
         <SearchField placeholder="Search teams or players…" value={query} onChange={setQuery}/>
         <label className="filter-control"><span className="control-label">Tournament</span>{categorySelect}</label>
-        {selectedTournament?.groups > 1 && (
+        {showGroups && selectedTournament?.groups > 1 && (
           <Button variant="outline" className="btn" disabled={!!groupLock} title={groupLock || "Move or swap teams between groups"}
             onClick={() => open({ type: "groups", tournament: selectedTournament })}>
             <Pencil size={16} />Edit groups
@@ -42,7 +44,7 @@ function Teams() {
               <Upload size={16} />
               Import teams
             </Button>
-            {selectedTournament && hasLeagueDraw(state, filter) && !leagueEntryLockReason(state, filter) && <Button variant="outline" className="btn" onClick={() => open({ type: "import", newGroup: true })}>
+            {selectedTournament && hasLeagueDraw(state, filter) && !teamEntryLockReason(state, filter) && <Button variant="outline" className="btn" onClick={() => open({ type: "import", newGroup: true })}>
               <Plus size={16}/>New group
             </Button>}
             <Button variant="default"
@@ -56,7 +58,7 @@ function Teams() {
         )}
       </div>
       <div className="results-summary"><span role="status">{teams.length} of {state.teams.filter(t => t.tournamentId && (filter === "all" || t.tournamentId === filter)).length} teams{query && <> · Search: “{query}”</>}</span>{(query || filter !== "all") && <Button variant="ghost" onClick={() => setPage("Teams & players", { filter: "all", teamQuery: "" })}>Reset filters</Button>}</div>
-      {selectedTournament?.groups > 1 && <p className="group-edit-hint">
+      {showGroups && selectedTournament?.groups > 1 && <p className="group-edit-hint">
         {groupLock || "Select teams in Edit groups to move or swap them. Editing locks after the first completed match."}
       </p>}
       {admin && <p className="help-text">Mark a team arrived when all its players are present. Ready matches with the longest-waiting team appear first in Arrival priority order. {teams.filter(t => t.arrivedAt).length} of {teams.length} shown teams have arrived.</p>}
@@ -68,13 +70,17 @@ function Teams() {
                 <TableHead>SEED</TableHead>
                 <TableHead>TEAM / PLAYER</TableHead>
                 <TableHead>TOURNAMENT</TableHead>
-                <TableHead>GROUP</TableHead>
+                {showGroups && <TableHead>GROUP</TableHead>}
                 <TableHead>ARRIVAL</TableHead>
                 {admin && <TableHead><span className="sr-only">Actions</span></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {teams.map((t) => (
+              {teams.map((t) => {
+                const category = tournament(t.tournamentId);
+                const groupLock = isKnockoutOnly(category) ? "" : groupEditLockReason(state, t.tournamentId);
+                const namesLocked = !!tournamentProgress(state, t.tournamentId).champion;
+                return (
                 <TableRow key={t.id}>
                   <TableCell data-label="Seed">
                     <span className="seed">{t.seed}</span>
@@ -82,8 +88,8 @@ function Teams() {
                   <TableCell>
                     <strong>{t.name}</strong>
                   </TableCell>
-                  <TableCell data-label="Tournament">{tournament(t.tournamentId)?.name}</TableCell>
-                  <TableCell data-label="Group">{t.knockoutEntry ? "Knockout entry" : groupName(t.group) || "Not assigned"}</TableCell>
+                  <TableCell data-label="Tournament">{category?.name}</TableCell>
+                  {showGroups && <TableCell data-label="Group">{isKnockoutOnly(category) || t.knockoutEntry ? "Knockout entry" : groupName(t.group) || "Not assigned"}</TableCell>}
                   <TableCell data-label="Arrival" className="team-arrival">
                     <Pill tone={t.arrivedAt ? "green" : ""}>{t.arrivedAt ? "Arrived" : "Not arrived"}</Pill>
                     {t.arrivedAt && <small>At {time(t.arrivedAt)}</small>}
@@ -100,8 +106,8 @@ function Teams() {
                         <Button variant="ghost"
                           className="text-btn"
                           aria-label={`Change group for ${t.name} in ${tournament(t.tournamentId)?.name}`}
-                          disabled={!!groupEditLockReason(state, t.tournamentId)}
-                          title={groupEditLockReason(state, t.tournamentId) || "Move this team or swap with a team in another group"}
+                          disabled={!!groupLock}
+                          title={groupLock || "Move this team or swap with a team in another group"}
                           onClick={() => open({ type: "groups", tournament: tournament(t.tournamentId), team: t })}
                         >
                           <Pencil size={14} />Change group
@@ -110,18 +116,19 @@ function Teams() {
                       <Button variant="ghost"
                         className="text-btn"
                         aria-label={`Edit ${t.name}`}
-                        disabled={!!tournamentProgress(state, t.tournamentId).champion}
-                        title={tournamentProgress(state, t.tournamentId).champion ? "Player names are locked after the tournament ends" : "Edit player names"}
+                        disabled={namesLocked}
+                        title={namesLocked ? "Player names are locked after the tournament ends" : "Edit player names"}
                         onClick={() => open({ type: "team", team: t })}
                       >
                         <Pencil size={16} /> Edit players
                       </Button>
-                      {groupEditLockReason(state, t.tournamentId) && <small className="lock-reason">{groupEditLockReason(state, t.tournamentId)}</small>}
-                      {tournamentProgress(state, t.tournamentId).champion && <small className="lock-reason">Player names are locked after the tournament ends.</small>}
+                      {groupLock && <small className="lock-reason">{groupLock}</small>}
+                      {namesLocked && <small className="lock-reason">Player names are locked after the tournament ends.</small>}
                     </TableCell>
                   )}
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>

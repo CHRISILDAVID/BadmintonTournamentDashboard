@@ -3,7 +3,7 @@ import { ArrowRight, ChevronRight, ChevronLeft } from "lucide-react";
 
 import TournamentFormatFields from "../TournamentFormatFields.jsx";
 
-import { scoringRules } from "../../shared/format.js";
+import { isPlayoffFormat, PLAYOFF_STAGE, scoringRules } from "../../shared/format.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Field } from "../components/common.jsx";
@@ -21,7 +21,16 @@ function TournamentForm() {
   const existing = modal.tournament;
   const [form, setForm] = useState(() => {
     const initial = existing || defaults;
-    return { ...initial, qualification: "direct", scoring: initial.scoring || { league: scoringRules(initial), knockout: scoringRules(initial, "Final") } };
+    return {
+      ...defaults,
+      ...initial,
+      format: initial.format ?? "league",
+      scoring: {
+        league: scoringRules(initial),
+        knockout: scoringRules(initial, "Final"),
+        ...(isPlayoffFormat(initial) && { playoff: scoringRules(initial, PLAYOFF_STAGE) }),
+      },
+    };
   }),
     [step, setStep] = useState(1);
   const change = (key, value) => setForm({ ...form, [key]: value });
@@ -72,7 +81,6 @@ function TournamentForm() {
                     ...form,
                     name: name === "Custom" ? "" : name,
                     size,
-                    qualification: "direct",
                   })
                 }
               >
@@ -101,15 +109,7 @@ function TournamentForm() {
             />
           </Field>
         </>
-      ) : (
-        <>
-          <p className="form-intro">
-            Teams play everyone in their group once. Qualifiers advance to a
-            single-elimination bracket.
-          </p>
-          <TournamentFormatFields form={form} setForm={setForm}/>
-        </>
-      )}
+      ) : <TournamentFormatFields form={form} setForm={setForm}/>}
       <div className="modal-actions">
         {step === 2 ? (
           <Button variant="outline" className="btn" type="button" onClick={() => setStep(1)}>

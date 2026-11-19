@@ -1,4 +1,5 @@
 import { normalizeLayout, reorderPanel } from "./venue-layout.js";
+import { isKnockoutOnly } from "../../shared/format.js";
 
 export const WIDGETS = {
   live: "Live scores",
@@ -10,6 +11,8 @@ export const WIDGET_COLUMNS = { desktop: 12, tablet: 6, phone: 1 };
 export const WIDGET_ROW = 16;
 export const WIDGET_GAP = 12;
 export const widgetBreakpoint = width => width >= 900 ? "desktop" : width >= 560 ? "tablet" : "phone";
+export const availableWidgets = data => Object.keys(WIDGETS).filter(id =>
+  !isKnockoutOnly(data.tournament) || !["standings", "playoffs"].includes(id));
 export function cleanLiveScoreLayout(value) {
   return { position: value?.position === "top" ? "top" : "tournament", flow: value?.flow === "wrap" ? "wrap" : "horizontal" };
 }
@@ -22,7 +25,7 @@ export function visibleWidgets(data, preferences = {}) {
     playoffs: data.playoffs.some(match => match.status !== "completed"),
     knockouts: data.hasKnockouts,
   };
-  return Object.keys(WIDGETS).filter(id => preferences.visibility?.[id] === "show" ||
+  return availableWidgets(data).filter(id => preferences.visibility?.[id] === "show" ||
     (preferences.visibility?.[id] !== "hide" && automatic[id]));
 }
 export function cleanWidgetPreferences(value) {

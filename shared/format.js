@@ -1,5 +1,12 @@
 export const PLAYOFF_STAGE = "Qualification playoff";
 
+export const tournamentFormats = {
+  league: "League cum knockouts",
+  knockouts: "Knockouts",
+};
+export const isKnockoutOnly = (t) => t?.format === "knockouts";
+export const minimumTeamsForDraw = (t) => isKnockoutOnly(t) ? 2 : t.groups * Math.max(t.qualify, 2);
+
 export const qualificationFormats = {
   direct: { label: "Direct qualification" },
   // Retired from tournament setup; retained to read and score saved tournaments.
@@ -21,7 +28,7 @@ export const qualificationFormats = {
 };
 
 export const qualificationFormat = (t) =>
-  qualificationFormats[t?.qualification || "direct"];
+  isKnockoutOnly(t) ? undefined : qualificationFormats[t?.qualification || "direct"];
 export const isPlayoffFormat = (t) => !!qualificationFormat(t)?.pairs;
 export const directPlaces = (t) => qualificationFormat(t)?.direct ?? t.qualify;
 
@@ -78,7 +85,7 @@ export function playoffPreset(mode, groups = 2) {
 
 export function pendingOpponent(match, side) {
   if (match.bye && !match[side] && !match[`${side}Source`]) return "Bye";
-  return match[`${side}Source`]?.label || "Awaiting qualifier";
+  return match[`${side}Source`]?.label || (match.round > 1 ? "Awaiting winner" : "Awaiting qualifier");
 }
 
 // Playoffs do not alter the league ranking: winners earn named draw slots.

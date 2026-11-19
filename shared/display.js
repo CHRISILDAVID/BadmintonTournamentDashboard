@@ -1,6 +1,6 @@
 import { standings } from "./standings.js";
 import { hasLeagueDraw } from "./groups.js";
-import { PLAYOFF_STAGE, qualificationStatus, groupLabel } from "./format.js";
+import { PLAYOFF_STAGE, qualificationStatus, groupLabel, isKnockoutOnly } from "./format.js";
 import { isCustomGame } from "./matches.js";
 
 export function displayTournamentOptions(state) {
@@ -39,7 +39,8 @@ export function tournamentDisplayData(state, tournamentId) {
   const completed = matches
     .filter((m) => m.status === "completed" && !m.bye)
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
-  const groups = hasLeague
+  const knockoutOnly = isKnockoutOnly(tournament);
+  const groups = knockoutOnly ? [] : hasLeague
     ? Array.from({ length: tournament.groups }, (_, group) => ({
         key: `group-${group}`,
         label: `Group ${groupLabel(group)}`,
@@ -90,9 +91,10 @@ export function tournamentDisplayData(state, tournamentId) {
     playoffs,
     knockoutRounds,
     hasKnockouts: knockoutRounds.length > 0,
-    showLeagueStandings:
+    showLeagueStandings: !knockoutOnly && (
       knockoutRounds.length === 0 ||
-      playoffs.some((m) => m.status !== "completed"),
+      playoffs.some((m) => m.status !== "completed")
+    ),
     hasLeague,
     completed: completed.length,
     total: matches.filter(m => !m.bye).length,

@@ -1,9 +1,10 @@
 import React from "react";
 import { Trophy, Plus, ChevronRight, Pencil, Trash2 } from "lucide-react";
 
-import { groupEditLockReason, hasLeagueDraw } from "../../shared/groups.js";
-import { tournamentProgress } from "../../shared/matches.js";
-import { PLAYOFF_STAGE, isPlayoffFormat, scoringRules, scoringLabel } from "../../shared/format.js";
+import { groupEditLockReason } from "../../shared/groups.js";
+import { canResetFixtures, tournamentProgress } from "../../shared/matches.js";
+import { PLAYOFF_STAGE, drawSize, isKnockoutOnly, isPlayoffFormat, scoringRules, scoringLabel, tournamentFormats } from "../../shared/format.js";
+import { isKnockout } from "../../shared/knockouts.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
@@ -35,20 +36,25 @@ function Tournaments() {
       ) : (
         <div className="tournament-grid">
           {state.tournaments.map(t => {
-            const drawn = hasLeagueDraw(state, t.id);
+            const { hasFixtures: drawn, champion: champ, postseason, canCreateKnockouts } = tournamentProgress(state, t.id);
+            const knockoutOnly = isKnockoutOnly(t);
             const teams = state.teams.filter((x) => x.tournamentId === t.id),
               matches = state.matches.filter((m) => m.tournamentId === t.id),
-              done = matches.filter((m) => m.status === "completed").length,
-              champ = matches.find((m) => m.stage === "Final" && m.winner);
+              playable = matches.filter(m => !m.bye),
+              done = playable.filter(m => m.status === "completed").length;
+            const slots = teams.length >= 2 ? drawSize(teams.length) : 0;
+            const byes = drawn ? matches.filter(m => m.bye).length : slots ? slots - teams.length : 0;
+            const canEditGroups = !knockoutOnly && matches.length > 0 && t.groups > 1 && !postseason;
+            const groupLock = canEditGroups ? groupEditLockReason(state, t.id) : "";
             return (
               <section className="panel tournament-card" key={t.id}>
                 <div className="tournament-top">
-                  <span className="category-kind">{t.size === 1 ? "Singles" : `${t.size} players per team`}</span>
+                  <span className="category-kind">{t.size === 1 ? "Singles" : `${t.size} players per team`} · {tournamentFormats[t.format ?? "league"]}</span>
                   <Pill tone={champ ? "green" : ""}>
                     {champ
                       ? "Finished"
                       : drawn
-                        ? (matches.some(m => m.status !== "upcoming") ? "In progress" : "Ready")
+                        ? (playable.some(m => m.status !== "upcoming") ? "In progress" : "Ready")
                         : "Registration"}
                   </Pill>
                 </div>
@@ -60,24 +66,25 @@ function Tournaments() {
                     <span>Teams</span>
                   </div>
                   <div>
-                    <b>{t.groups}</b>
-                    <span>Groups</span>
+                    <b>{knockoutOnly ? slots || "–" : t.groups}</b>
+                    <span>{knockoutOnly ? "Bracket slots" : "Groups"}</span>
                   </div>
                   <div>
-                    <b>{t.groups * t.qualify}</b>
-                    <span>Qualifiers</span>
+                    <b>{knockoutOnly ? slots ? byes : "–" : t.groups * t.qualify}</b>
+                    <span>{knockoutOnly ? "Byes" : "Qualifiers"}</span>
                   </div>
                 </div>
                 <div className="progress">
                   <span
                     style={{
-                      width: `${matches.length ? (done / matches.length) * 100 : 0}%`,
+                      width: `${playable.length ? (done / playable.length) * 100 : 0}%`,
                     }}
                   />
                 </div>
                 <small>
-                  {matches.filter(m => m.status === "completed" && !m.bye).length} of {matches.filter(m => !m.bye).length} matches completed · League: {scoringLabel(scoringRules(t))}
-                  {t.scoring && <><br/>Main knockout: {scoringLabel(scoringRules(t, "Final"))}</>}
+                  {done} of {playable.length} matches completed
+                  {!knockoutOnly && <> · League: {scoringLabel(scoringRules(t))}</>}
+                  {(knockoutOnly || t.scoring) && <><br/>{knockoutOnly ? "Knockout" : "Main knockout"}: {scoringLabel(scoringRules(t, "Final"))}</>}
                   {isPlayoffFormat(t) && <><br/>Playoffs: {scoringLabel(scoringRules(t, PLAYOFF_STAGE))}</>}
                 </small>
                 {champ && (
@@ -87,16 +94,16 @@ function Tournaments() {
                   </p>
                 )}
                 <div className="tournament-actions">
-                  {drawn && <Button variant="outline" onClick={() => setPage("Matches", { filter: t.id, matchQuery: "", matchStatus: "all", matchStage: tournamentProgress(state, t.id).postseason ? "postseason" : "all" })}>Manage games<ChevronRight size={15}/></Button>}
+                  {drawn && <Button variant="outline" onClick={() => setPage("Matches", { filter: t.id, matchQuery: "", matchStatus: "all", matchStage: postseason && !knockoutOnly ? "postseason" : "all" })}>Manage games<ChevronRight size={15}/></Button>}
                   {admin && matches.length > 0 && <Button variant="outline" className="btn" onClick={() => open({ type: "scoring", tournament: t })}>Edit scoring</Button>}
-                  {matches.length > 0 && t.groups > 1 && !matches.some(m => m.stage !== "League") && (
-                    <Button variant="outline" className="btn" disabled={!!groupEditLockReason(state, t.id)}
-                      title={groupEditLockReason(state, t.id) || "Move or swap teams between groups"}
+                  {canEditGroups && (
+                    <Button variant="outline" className="btn" disabled={!!groupLock}
+                      title={groupLock || "Move or swap teams between groups"}
                       onClick={() => open({ type: "groups", tournament: t })}>
                       Edit groups
                     </Button>
                   )}
-                  {admin && matches.some(m => m.stage !== "League" && m.stage !== PLAYOFF_STAGE) && (
+                  {admin && matches.some(isKnockout) && (
                     <Button variant="outline" className="btn" disabled={busy}
                       onClick={() => open({ type: "editKnockouts", tournament: t })}>
                       Edit knockouts
@@ -130,12 +137,12 @@ function Tournaments() {
                           open({ type: "generate", tournament: t })
                         }
                       >
-                        Generate fixtures
+                        {knockoutOnly ? "Generate bracket" : "Generate fixtures"}
                       </Button>
-                    ) : !matches.some((m) => m.stage !== "League") ? (
+                    ) : !postseason ? (
                       <Button variant="default"
                         className="btn primary"
-                        disabled={!tournamentProgress(state, t.id).canCreateKnockouts}
+                        disabled={!canCreateKnockouts}
                         onClick={() =>
                           open({ type: "knockouts", tournament: t })
                         }
@@ -153,12 +160,11 @@ function Tournaments() {
                       </Button>
                     ))}
                 </div>
-                {matches.length > 0 && t.groups > 1 && !matches.some(m => m.stage !== "League") && groupEditLockReason(state, t.id) && <p className="lock-reason">Groups: {groupEditLockReason(state, t.id)}</p>}
-                {drawn && !matches.some(m => m.stage !== "League") && !tournamentProgress(state, t.id).canCreateKnockouts && <p className="lock-reason">Complete all league matches before creating the knockout draw.</p>}
+                {groupLock && <p className="lock-reason">Groups: {groupLock}</p>}
+                {drawn && !postseason && !canCreateKnockouts && <p className="lock-reason">Complete all league matches before creating the knockout draw.</p>}
                 {admin &&
                   drawn &&
-                  done === 0 &&
-                  !matches.some((m) => m.status === "live") && (
+                  canResetFixtures(matches) && (
                     <Button variant="ghost"
                       className="text-btn reset-link"
                       onClick={() =>

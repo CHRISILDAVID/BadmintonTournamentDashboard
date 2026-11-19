@@ -8,6 +8,9 @@ import {
   drawSize,
   PLAYOFF_STAGE,
   scoringLabel,
+  isKnockoutOnly,
+  qualificationFormats,
+  tournamentFormats,
 } from "../shared/format.js";
 import { Button } from "./components/ui/button.jsx";
 import "./tournament-format.css";
@@ -85,29 +88,43 @@ export function RuleFields({ title, value, change }) {
 }
 
 export function StageScoringFields({ form, setForm }) {
-  const stages = [["league", "League", "League"], ...(isPlayoffFormat(form) ? [["playoff", "Qualification playoff", PLAYOFF_STAGE]] : []), ["knockout", "Main knockout", "Final"]];
+  const knockoutOnly = isKnockoutOnly(form);
+  const stages = [
+    ...(!knockoutOnly ? [["league", "League", "League"]] : []),
+    ...(isPlayoffFormat(form) ? [["playoff", "Qualification playoff", PLAYOFF_STAGE]] : []),
+    ["knockout", knockoutOnly ? "Knockout" : "Main knockout", "Final"],
+  ];
   const scoring = Object.fromEntries(stages.map(([key, , stage]) => [key, scoringRules(form, stage)]));
   return <>
-    <div className="format-preview"><div><strong>Scoring by stage</strong><span>Each stage has its own rules. Changing League points does not change {isPlayoffFormat(form) ? "playoffs or main knockouts" : "main knockouts"}.</span></div></div>
-    <Button type="button" variant="outline" onClick={() => setForm(current => ({ ...current, scoring: Object.fromEntries(stages.map(([key]) => [key, { ...scoringRules(current) }])) }))}>Use league rules for every stage</Button>
+    {!knockoutOnly && <>
+      <div className="format-preview"><div><strong>Scoring by stage</strong><span>Each stage has its own rules. Changing League points does not change {isPlayoffFormat(form) ? "playoffs or main knockouts" : "main knockouts"}.</span></div></div>
+      <Button type="button" variant="outline" onClick={() => setForm(current => ({ ...current, scoring: Object.fromEntries(stages.map(([key]) => [key, { ...scoringRules(current) }])) }))}>Use league rules for every stage</Button>
+    </>}
     {stages.map(([key, title]) => <RuleFields key={key} title={title} value={scoring[key]} change={value => setForm(current => ({ ...current, scoring: { ...scoring, ...current.scoring, [key]: value } }))}/>)}
     <div className="format-preview" aria-label="Scoring summary"><div><strong>Review scoring</strong>{stages.map(([key, title]) => <span key={key}>{title}: {scoringLabel(scoring[key])}</span>)}</div></div>
   </>;
 }
 
 export default function TournamentFormatFields({ form, setForm }) {
+  const knockoutOnly = isKnockoutOnly(form);
   const change = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
   return (
     <>
       <label className="field">
+        <span>Tournament format</span>
+        <NativeSelect value={form.format} onChange={(e) => change("format", e.target.value)}>
+          {Object.entries(tournamentFormats).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </NativeSelect>
+      </label>
+      {knockoutOnly ? (
+        <p className="help-text">Add at least two teams. All entries go into a seeded, single-elimination bracket. Empty places become automatic byes.</p>
+      ) : <>
+      <p className="help-text">Teams play everyone in their group once. Qualifiers advance to a single-elimination bracket.</p>
+      <label className="field">
         <span>Qualification format</span>
-        <NativeSelect
-          aria-label="Qualification format"
-          value="direct"
-          disabled
-        >
-          <option value="direct">Direct qualification</option>
+        <NativeSelect value={form.qualification} disabled>
+          <option value={form.qualification}>{qualificationFormats[form.qualification]?.label}</option>
         </NativeSelect>
       </label>
       <label className="field">
@@ -125,13 +142,14 @@ export default function TournamentFormatFields({ form, setForm }) {
         </label>
       </div>
       <p className="help-text">
-        {form.groups * form.qualify} knockout places; starts at {knockoutStage(drawSize(form.groups * form.qualify))} with {drawSize(form.groups * form.qualify) - form.groups * form.qualify} automatic byes.
+        {form.groups * form.qualify} knockout places. Starts at {knockoutStage(drawSize(form.groups * form.qualify))} with {drawSize(form.groups * form.qualify) - form.groups * form.qualify} automatic byes.
         {" "}Add at least {form.groups * Math.max(2, form.qualify)} teams. Groups are balanced automatically; qualifiers are seeded by league place, then group order. At least two knockout places are required.
       </p>
+      </>}
       <StageScoringFields form={form} setForm={setForm}/>
       <p className="help-text">
-        Standings use wins, game difference, point difference, then seed. Format
-        locks when fixtures are generated. Scoring can be corrected later for unfinished matches.
+        {!knockoutOnly && "Standings use wins, game difference, point difference, then seed. "}
+        Format locks when fixtures are generated. Scoring can be corrected later for unfinished matches.
       </p>
     </>
   );

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { applyAction, emptyState } from "../shared/tournament.js";
 import { eligibleKnockoutTeams, knockoutSlotLockReason } from "../shared/knockouts.js";
 import { PLAYOFF_STAGE, playoffPreset, scoringRules } from "../shared/format.js";
+import { tournamentProgress } from "../shared/matches.js";
+import { tournamentDisplayData } from "../shared/display.js";
 
 function finish(state, match) {
   const t = state.tournaments.find(t => t.id === match.tournamentId);
@@ -33,6 +35,81 @@ const swap = (state, a, side, b, otherSide) => applyAction(state, "swapKnockouts
 });
 const fill = (state, bye, extra = {}) => applyAction(state, "fillKnockoutBye", {
   tournamentId: bye.tournamentId, matchId: bye.id, side: bye.a || bye.aSource ? "b" : "a", players: ["Late entrant"], ...extra,
+});
+
+const knockoutRules = { points: 5, cap: 5, bestOf: 1, goldenPoint: true };
+const knockoutConfig = {
+  name: "Singles knockout",
+  size: 1,
+  format: "knockouts",
+  scoring: { knockout: knockoutRules },
+};
+
+test("standalone knockouts draw every registration by seed and allow a reset before play even with byes", () => {
+  const legacy = { id: "league", name: "Existing league", size: 1, groups: 1, qualify: 2, points: 21, cap: 30, bestOf: 1 };
+  let state = { ...emptyState(), tournaments: [legacy] };
+  assert.throws(() => applyAction(state, "tournament", { ...knockoutConfig, format: "unknown" }), /supported tournament format/);
+  state = applyAction(state, "tournament", knockoutConfig);
+  const tournamentId = state.tournaments[1].id;
+  assert.throws(() => applyAction(state, "generate", { tournamentId }), /at least 2 teams/);
+  state = applyAction(state, "tournament", { ...knockoutConfig, tournamentId, name: "Club singles" });
+  state = applyAction(state, "teams", { tournamentId, teams: [3, 1, 5, 2, 4].map(seed => ({ seed, players: [`Seed ${seed}`] })) });
+  state = applyAction(state, "generate", { tournamentId });
+  const seeds = new Map(state.teams.map(t => [t.id, t.seed]));
+  const firstRound = state.matches.filter(m => m.round === 1);
+  assert.deepEqual(firstRound.map(m => [seeds.get(m.a), seeds.get(m.b)]), [[1, undefined], [4, 5], [2, undefined], [3, undefined]]);
+  assert.deepEqual(firstRound.filter(m => m.bye).map(m => m.winner), [firstRound[0].a, firstRound[2].a, firstRound[3].a]);
+  assert.ok(state.teams.every(t => t.group === null));
+  assert.ok(state.matches.every(m => m.group === null && m.stage !== "League"));
+  assert.equal(tournamentProgress(state, tournamentId).hasFixtures, true);
+  assert.equal(tournamentProgress(state, tournamentId).canCreateKnockouts, false);
+  const display = tournamentDisplayData(state, tournamentId);
+  assert.equal(display.hasLeague, false);
+  assert.equal(display.showLeagueStandings, false);
+  assert.deepEqual(display.knockoutRounds.map(r => r.stage), ["Quarterfinal", "Semifinal", "Final"]);
+  assert.throws(() => applyAction(state, "generate", { tournamentId }), /Fixtures already exist/);
+  assert.throws(() => applyAction(state, "tournament", { ...knockoutConfig, tournamentId }), /Format is locked/);
+  state = applyAction(state, "resetFixtures", { tournamentId });
+  assert.equal(state.matches.length, 0);
+  assert.equal(state.teams.length, 5);
+  assert.equal(tournamentProgress(state, tournamentId).hasFixtures, false);
+  state = applyAction(state, "tournament", { ...legacy, tournamentId, format: "league" });
+  state = applyAction(state, "generate", { tournamentId });
+  assert.equal(state.matches.length, 10);
+  assert.ok(state.matches.every(m => m.stage === "League"));
+  assert.deepEqual(state.tournaments[0], legacy);
+});
+
+test("standalone knockouts share the bracket editor, team locks, scoring changes and result corrections", () => {
+  let state = applyAction(emptyState(), "tournament", knockoutConfig);
+  const tournamentId = state.tournaments[0].id;
+  state = applyAction(state, "teams", { tournamentId, teams: ["Uma", "Mira", "Isha"].map(name => ({ players: [name] })) });
+  state = applyAction(state, "generate", { tournamentId });
+  const [bye, opener, final] = state.matches;
+  const team = state.teams.find(t => t.id === opener.a);
+  const editTeam = { tournamentId, teams: [{ id: team.id, players: ["Meera"] }] };
+  assert.throws(() => applyAction(state, "teams", { ...editTeam, teams: [{ ...editTeam.teams[0], seed: 10 }] }), /Seeds are locked/);
+  assert.throws(() => applyAction(state, "deleteTeam", { tournamentId, teamId: team.id }), /entries are locked/);
+  state = applyAction(state, "teams", editTeam);
+  assert.equal(state.teams.find(t => t.id === team.id).name, "Meera");
+  state = fill(state, bye);
+  state = swap(state, opener, "a", opener, "b");
+  state = applyAction(state, "schedule", { matchId: opener.id, scheduled: "17:30" });
+  const edited = state.matches.find(m => m.id === opener.id);
+  assert.equal(edited.a, opener.b);
+  assert.equal(edited.scheduled, "17:30");
+  state = finish(state, edited);
+  assert.throws(() => applyAction(state, "resetFixtures", { tournamentId }), /Only unplayed fixtures/);
+  assert.equal(state.matches.find(m => m.id === final.id).b, edited.a);
+  state = applyAction(state, "scoring", { tournamentId, scoring: { knockout: { ...knockoutRules, points: 7, cap: 7 } } });
+  assert.deepEqual(state.matches.find(m => m.id === opener.id).scoring, knockoutRules);
+  state = finish(state, state.matches.find(m => m.id === bye.id));
+  state = finish(state, state.matches.find(m => m.id === final.id));
+  assert.equal(tournamentProgress(state, tournamentId).champion.winner, bye.a);
+  assert.throws(() => applyAction(state, "teams", editTeam), /Player names are locked/);
+  state = applyAction(state, "correctResult", { matchId: opener.id, games: [[0, 5]] });
+  const reopened = state.matches.find(m => m.id === final.id);
+  assert.deepEqual([reopened.status, reopened.winner, reopened.b], ["upcoming", null, edited.b]);
 });
 
 test("opening swaps preserve completed league results, fixture IDs and schedules and advance the new opponents", () => {

@@ -1,5 +1,5 @@
 import { check } from "./security.js";
-import { pendingOpponent, scoringRules } from "../shared/format.js";
+import { isKnockoutOnly, pendingOpponent, scoringRules } from "../shared/format.js";
 
 export function historyLimit(value, fallback = 10, maximum = 50) {
   if (value === null || value === undefined || value === "") return fallback;
@@ -21,10 +21,11 @@ export function categoryHistory(state, category, teams, matches, archivedAt = nu
     return team ? { id: team.id, name: team.name, players: team.players } : null;
   };
   const runner = final && (final.winner === final.a ? final.b : final.winner === final.b ? final.a : null);
+  const fixtures = isKnockoutOnly(category) ? matches.filter(m => !m.bye) : matches;
   return {
-    id: category.id, name: category.name, size: category.size, groups: category.groups,
-    status: final ? "completed" : !matches.length ? "registration" : matches.every(m => m.status === "upcoming") ? "ready" : "ongoing",
-    teams: teams.length, matches: matches.length, completedMatches: matches.filter(m => m.status === "completed").length,
+    id: category.id, name: category.name, size: category.size, groups: category.groups, format: category.format,
+    status: final ? "completed" : !matches.length ? "registration" : fixtures.every(m => m.status === "upcoming") ? "ready" : "ongoing",
+    teams: teams.length, matches: fixtures.length, completedMatches: fixtures.filter(m => m.status === "completed").length,
     winner: final ? label(final.winner) : null, runnerUp: runner ? label(runner) : null,
     completedAt: final?.completedAt || null, archivedAt, eventName: state.event.name,
   };
@@ -112,7 +113,7 @@ export class EventHistory {
     const rows = this.sql.exec(`SELECT position,data FROM ${table} WHERE category=? AND position>=? ORDER BY position LIMIT ?`, id, cursor, size + 1).toArray();
     const config = JSON.parse(row.config);
     return { event: { name: state.event.name, venue: state.event.venue }, revision: state.revision, tournament: JSON.parse(row.summary),
-      rules: { league: scoringRules(config), knockout: scoringRules(config, "Final") }, view,
+      rules: { ...(!isKnockoutOnly(config) && { league: scoringRules(config) }), knockout: scoringRules(config, "Final") }, view,
       items: rows.slice(0, size).map(r => JSON.parse(r.data)), total: this.sql.exec(`SELECT COUNT(*) AS n FROM ${table} WHERE category=?`, id).one().n,
       nextCursor: rows.length > size ? String(rows[size - 1].position + 1) : null, limit: size };
   }

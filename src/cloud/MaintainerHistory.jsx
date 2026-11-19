@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronRight, RefreshCw, Trophy } from "lucide-react";
-import { groupLabel, scoringLabel } from "../../shared/format.js";
+import { groupLabel, isKnockoutOnly, scoringLabel } from "../../shared/format.js";
 import { maintainerRequest } from "./maintainer-api.js";
 import "./history.css";
 
@@ -77,10 +77,10 @@ function CategoryPage({ event, category, view, setView, onLock }) {
   const pager = useHistoryPage(`maintainer/history/${event.eventId}/tournaments/${encodeURIComponent(category.id)}?view=${view}`, 20, true, onLock);
   const heading = useHeading(true, pager.page), result = pager.data?.tournament || category;
   return <>
-    <div className="history-heading"><div><h2 ref={heading} tabIndex={-1}>{result.name}</h2><p>{entryLabel(result.size)} · {result.teams} entries · {result.completedMatches}/{result.matches} matches finished</p></div><Refresh pager={pager}/></div>
+    <div className="history-heading"><div><h2 ref={heading} tabIndex={-1}>{result.name}</h2><p>{entryLabel(result.size)}{isKnockoutOnly(result) && " · Knockouts"} · {result.teams} entries · {result.completedMatches}/{result.matches} matches finished</p></div><Refresh pager={pager}/></div>
     {!pager.error && <div className="history-detail-summary"><div className="history-badges"><Status status={result.status}/>{result.archivedAt && <span className="history-status">Archived</span>}</div><Results tournament={result}/>
       {result.completedAt && <p>Final completed {dateLabel(result.completedAt)}</p>}{result.archivedAt && <p>Archived {dateLabel(result.archivedAt)}. Results reflect the last recorded state before removal.</p>}
-      {pager.data?.rules && <details><summary>Scoring rules</summary><p>League: {scoringLabel(pager.data.rules.league)}<br/>Knockout: {scoringLabel(pager.data.rules.knockout)}</p></details>}
+      {pager.data?.rules && <details><summary>Scoring rules</summary><p>{pager.data.rules.league && <>League: {scoringLabel(pager.data.rules.league)}<br/></>}Knockout: {scoringLabel(pager.data.rules.knockout)}</p></details>}
     </div>}
     <nav className="history-switcher" aria-label="Sub-tournament details">{["matches", "entries"].map(item => <button key={item} aria-current={view === item ? "page" : undefined} onClick={() => setView(item)}>{item === "matches" ? "Match results" : "Entries"}</button>)}</nav>
     <PageState pager={pager} empty={view === "matches" ? "No matches were recorded for this sub-tournament." : "No entries were recorded for this sub-tournament."}>

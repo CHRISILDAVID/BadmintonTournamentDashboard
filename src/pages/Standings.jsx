@@ -2,7 +2,8 @@ import React from "react";
 
 import { standings, groupName } from "../utils.js";
 
-import { PLAYOFF_STAGE, directPlaces, isPlayoffFormat, qualificationStatus, scoringRules, scoringLabel } from "../../shared/format.js";
+import { PLAYOFF_STAGE, directPlaces, isKnockoutOnly, isPlayoffFormat, qualificationStatus, scoringRules, scoringLabel } from "../../shared/format.js";
+import { isKnockout } from "../../shared/knockouts.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
@@ -17,28 +18,39 @@ function Standings() {
   const ts = state.tournaments.filter(
     (t) => filter === "all" || filter === t.id,
   );
+  const showLeague = ts.some(t => !isKnockoutOnly(t));
   return (
     <>
       <div className="toolbar standalone">
         {categorySelect}
-        <span className="muted">
+        {showLeague && <span className="muted">
           Ranked by wins → game difference → point difference → seed.
-        </span>
+        </span>}
       </div>
       <StageActions />
       {ts.length > 1 && <nav className="section-jumps" aria-label="Jump to tournament standings">{ts.map(t => <a key={t.id} href={`#standings-${t.id}`}>{t.name}</a>)}</nav>}
-      <p className="standings-legend">P: played · W: wins · L: losses · GD: game difference · PD: point difference</p>
+      {showLeague && <p className="standings-legend">P: played · W: wins · L: losses · GD: game difference · PD: point difference</p>}
       {ts.length ? (
-        ts.map((t) => (
-          <section key={t.id} id={`standings-${t.id}`} className="standing-section">
+        ts.map((t) => {
+          const knockoutOnly = isKnockoutOnly(t);
+          const matches = state.matches.filter(m => m.tournamentId === t.id);
+          const playoffs = matches.filter(m => m.stage === PLAYOFF_STAGE);
+          const knockouts = matches.filter(isKnockout);
+          const rounds = new Map();
+          for (const match of knockouts) {
+            if (!rounds.has(match.round)) rounds.set(match.round, []);
+            rounds.get(match.round).push(match);
+          }
+          return <section key={t.id} id={`standings-${t.id}`} className="standing-section">
             <div className="section-heading">
               <h2>{t.name}</h2>
-              <Pill>{isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct + playoffs` : `${t.qualify} qualify per group`}</Pill>
+              <Pill>{knockoutOnly ? "Knockouts" : isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct + playoffs` : `${t.qualify} qualify per group`}</Pill>
             </div>
+            {!knockoutOnly && <>
             <nav className="section-jumps" aria-label={`${t.name} sections`}>
               {Array.from({ length: t.groups }, (_, g) => <a key={g} href={`#group-${t.id}-${g}`}>{groupName(g)}</a>)}
-              {state.matches.some(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE) && <a href={`#playoffs-${t.id}`}>Playoffs</a>}
-              {state.matches.some(m => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE) && <a href={`#bracket-${t.id}`}>Knockout bracket</a>}
+              {!!playoffs.length && <a href={`#playoffs-${t.id}`}>Playoffs</a>}
+              {!!knockouts.length && <a href={`#bracket-${t.id}`}>Knockout bracket</a>}
             </nav>
             <div className="standings-grid">
               {Array.from({ length: t.groups }, (_, g) => {
@@ -96,54 +108,24 @@ function Standings() {
             <p className="standings-note">
               <i className="dot" /> {isPlayoffFormat(t) ? "Green: direct places or playoff winners. Amber: playoff places. League rankings stay unchanged after playoffs." : "Shaded places qualify once the league is complete."} Seed breaks any remaining tie.
             </p>
-            {state.matches.some(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE) && <section className="organizer-playoffs" id={`playoffs-${t.id}`}>
+            </>}
+            {knockoutOnly && !knockouts.length && <Empty title="Bracket pending">The bracket appears when the organizer generates it.</Empty>}
+            {!!playoffs.length && <section className="organizer-playoffs" id={`playoffs-${t.id}`}>
               <h3>Qualification playoffs</h3><p className="muted">{scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Winners fill the named knockout slots.</p>
-              <div className="organizer-playoff-groups">{Array.from({ length: t.groups }, (_, g) => g).map(g => <div key={g}><h4>{groupName(g)}</h4>{state.matches.filter(m => m.tournamentId === t.id && m.stage === PLAYOFF_STAGE && m.group === g).map(m => <MatchCard key={m.id} m={m} compact/>)}</div>)}</div>
+              <div className="organizer-playoff-groups">{Array.from({ length: t.groups }, (_, g) => g).map(g => <div key={g}><h4>{groupName(g)}</h4>{playoffs.filter(m => m.group === g).map(m => <MatchCard key={m.id} m={m} compact/>)}</div>)}</div>
             </section>}
-            {state.matches.some(
-              (m) => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
-            ) && (
+            {!!knockouts.length && (
               <div className="bracket" id={`bracket-${t.id}`} tabIndex={0} aria-label={`${t.name} knockout bracket; scroll for all rounds`}>
-                {[
-                  ...new Set(
-                    state.matches
-                      .filter(
-                        (m) => m.tournamentId === t.id && m.stage !== "League" && m.stage !== PLAYOFF_STAGE,
-                      )
-                      .map((m) => m.round),
-                  ),
-                ]
-                  .sort()
-                  .map((round) => (
-                    <div className="bracket-round" key={round}>
-                      <h3>
-                        {
-                          state.matches.find(
-                            (m) =>
-                              m.tournamentId === t.id &&
-                              m.stage !== "League" && m.stage !== PLAYOFF_STAGE &&
-                              m.round === round,
-                          )?.stage
-                        }
-                      </h3>
-                      <div>
-                        {state.matches
-                          .filter(
-                            (m) =>
-                              m.tournamentId === t.id &&
-                              m.stage !== "League" && m.stage !== PLAYOFF_STAGE &&
-                              m.round === round,
-                          )
-                          .map((m) => (
-                            <MatchCard key={m.id} m={m} compact />
-                          ))}
-                      </div>
-                    </div>
-                  ))}
+                {[...rounds].sort(([a], [b]) => a - b).map(([round, fixtures]) => (
+                  <div className="bracket-round" key={round}>
+                    <h3>{fixtures[0].stage}</h3>
+                    <div>{fixtures.map(m => <MatchCard key={m.id} m={m} compact/>)}</div>
+                  </div>
+                ))}
               </div>
             )}
-          </section>
-        ))
+          </section>;
+        })
       ) : (
         <Empty title="Every point will count">
           Standings and brackets appear here once you create a tournament.

@@ -2,13 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import { StageScoringFields } from "../TournamentFormatFields.jsx";
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Button } from "../components/ui/button.jsx";
-import { isPlayoffFormat, scoringRules, PLAYOFF_STAGE } from "../../shared/format.js";
+import { isKnockoutOnly, isPlayoffFormat, scoringRules, PLAYOFF_STAGE } from "../../shared/format.js";
 
 export default function ScoringForm() {
   const { state, modal, busy, act, setModal } = useDesk();
   const [form, setForm] = useState(() => {
     const t = structuredClone(modal.tournament);
-    return { ...t, scoring: { league: scoringRules(t), knockout: scoringRules(t, "Final"), ...(isPlayoffFormat(t) ? { playoff: scoringRules(t, PLAYOFF_STAGE) } : {}) } };
+    return { ...t, scoring: {
+      ...(!isKnockoutOnly(t) && { league: scoringRules(t) }),
+      ...(isPlayoffFormat(t) && { playoff: scoringRules(t, PLAYOFF_STAGE) }),
+      knockout: scoringRules(t, "Final"),
+    } };
   });
   const revision = useRef(state.revision);
   useEffect(() => { if (modal.conflictRevision) revision.current = modal.conflictRevision; }, [modal.conflictRevision]);

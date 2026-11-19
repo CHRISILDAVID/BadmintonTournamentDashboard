@@ -2,7 +2,7 @@ import React from "react";
 import { Check } from "lucide-react";
 import { standings, groupName } from "../utils.js";
 
-import { PLAYOFF_STAGE, directPlaces, qualificationStatus, isPlayoffFormat, scoringRules, scoringLabel } from "../../shared/format.js";
+import { PLAYOFF_STAGE, directPlaces, qualificationStatus, drawSize, isKnockoutOnly, isPlayoffFormat, knockoutStage, scoringRules, scoringLabel } from "../../shared/format.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 
@@ -13,14 +13,22 @@ function ConfirmForm() {
   const t = modal.tournament;
   const type = modal.type;
   const returning = state.matches.find(m => m.id === modal.matchId);
+  const knockoutOnly = isKnockoutOnly(t);
+  const count = knockoutOnly ? state.teams.filter(team => team.tournamentId === t.id).length : 0;
+  const size = drawSize(count);
+  const byes = size - count;
   const descriptions = {
     randomComplete: `TESTING ONLY: Complete every unfinished fixture in ${t ? t.name : "all tournaments"} with random scores? This includes on-court games and later rounds waiting for winners, across all stages and search/status filters. Existing completed results stay saved. Courts are freed and standings and brackets update. New stages are not created automatically.`,
     returnMatch: `Return ${team(returning?.a)?.name || "this match"} vs ${team(returning?.b)?.name || "opponent"} to waiting? Use this only if play has not begun. The court will be freed and this game will return to the upcoming list.`,
-    generate: `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft by seed. Late entries and removals remain available during the league.`,
+    generate: knockoutOnly
+      ? count < 2 ? "Add at least two teams before generating the knockout bracket."
+        : `Create the knockout bracket for ${t.name}? All ${count} teams enter by seed. The draw starts at the ${knockoutStage(size)}${byes ? ` with ${byes} automatic ${byes === 1 ? "bye" : "byes"}` : ""}.`
+      : `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft by seed. Late entries and removals remain available during the league.`,
     knockouts: isPlayoffFormat(t) ? `Create qualification playoffs and the knockout bracket for ${t.name}? Top ${directPlaces(t)} per group advance directly; playoff winners earn the remaining slots. Playoffs: ${scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Main knockout: ${scoringLabel(scoringRules(t, "Final"))}. Review final league standings before confirming. League ranks will not change after playoffs.` : `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
     resetFixtures:
       "Remove the unplayed fixtures for this category and reopen team registration? Your teams will be kept.",
-    deleteTeam: `Remove ${modal.team?.name} from this category? All ${state.matches.filter(m => m.tournamentId === t?.id && [m.a, m.b].includes(modal.team?.id)).length} matches involving this team, including completed results and scheduled or live matches, will be deleted. Any occupied court will be freed. Standings and qualification will be recalculated from the remaining results. This cannot be undone.`,
+    deleteTeam: knockoutOnly ? `Remove ${modal.team?.name} from this category? This cannot be undone.`
+      : `Remove ${modal.team?.name} from this category? All ${state.matches.filter(m => m.tournamentId === t?.id && [m.a, m.b].includes(modal.team?.id)).length} matches involving this team, including completed results and scheduled or live matches, will be deleted. Any occupied court will be freed. Standings and qualification will be recalculated from the remaining results. This cannot be undone.`,
     deleteTournament: `Delete "${t?.name}"? This permanently removes ${state.teams.filter(x => x.tournamentId === t?.id).length} teams, ${state.matches.filter(m => m.tournamentId === t?.id).length} fixtures, and ${state.matches.filter(m => m.tournamentId === t?.id && m.status === "completed").length} completed results. This cannot be undone. Other tournaments are kept.`,
   };
   return (
@@ -40,7 +48,7 @@ function ConfirmForm() {
         </Button>
         <Button variant={type === "deleteTournament" ? "destructive" : "default"}
           className={`btn ${type === "deleteTournament" ? "danger" : "primary"}`}
-          disabled={busy}
+          disabled={busy || (type === "generate" && knockoutOnly && count < 2)}
           onClick={async () => {
             if (
               await act(

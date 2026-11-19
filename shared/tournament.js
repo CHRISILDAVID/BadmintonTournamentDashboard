@@ -2,8 +2,8 @@ import { standings } from "./standings.js";
 export { standings } from "./standings.js";
 import { randomUUID } from "node:crypto";
 import { playerLabel } from "./players.js";
-import { removeLegacyCalls, isCustomGame } from "./matches.js";
-import { groupEditLockReason, hasLeagueDraw, leagueEntryLockReason } from "./groups.js";
+import { canResetFixtures, hasTournamentDraw, removeLegacyCalls, isCustomGame } from "./matches.js";
+import { groupEditLockReason, hasLeagueDraw, teamEntryLockReason } from "./groups.js";
 import { randomGames } from "./random-scores.js";
 import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams } from "./knockouts.js";
 import {
@@ -15,7 +15,11 @@ import {
   knockoutStage,
   drawSize,
   groupLabel,
+  tournamentFormats,
+  isKnockoutOnly,
+  minimumTeamsForDraw,
 } from "./format.js";
+const MAX_KNOCKOUT_PLACES = 4096;
 export const id = () => randomUUID();
 export const emptyState = () => ({
   revision: 0,
@@ -109,7 +113,7 @@ export function validateGames(games, t) {
   if (!wins.includes(needed)) fail(`A player/team must win ${needed} game(s).`);
   return wins[0] > wins[1] ? 0 : 1;
 }
-function createDraw(s, t) {
+function leagueQualifiers(s, t) {
   const ranked = Array.from({ length: t.groups }, (_, g) =>
     standings(s, t.id, g),
   );
@@ -152,6 +156,10 @@ function createDraw(s, t) {
   for (let rank = 0; rank < t.qualify; rank++)
     for (let g = 0; g < t.groups; g++) if (slots[g][rank]) entrants.push(slots[g][rank]);
   if (entrants.length < 2) fail("At least two qualifying teams are needed to create a knockout bracket.");
+  return entrants;
+}
+
+function createDraw(s, t, entrants = leagueQualifiers(s, t)) {
   // Standard bracket seeding keeps highest-ranked entrants in opposite halves.
   let order = [1, 2];
   while (order.length < drawSize(entrants.length)) {
@@ -318,6 +326,17 @@ function validateScoring(input, label) {
     fail(`Golden point ${label} must stop at ${points}.`);
   return { points, cap, bestOf, goldenPoint: input.goldenPoint };
 }
+
+function tournamentScoring(t, scoring) {
+  if (isKnockoutOnly(t)) return { knockout: validateScoring(scoring?.knockout, "Knockout") };
+  const next = {
+    league: validateScoring(scoring?.league, "League"),
+    knockout: validateScoring(scoring?.knockout, "Knockout"),
+  };
+  if (isPlayoffFormat(t)) next.playoff = validateScoring(scoring?.playoff, "Playoff");
+  return next;
+}
+
 export function applyAction(previous, action, payload = {}) {
   const s = structuredClone(previous);
   removeLegacyCalls(s);
@@ -353,40 +372,30 @@ export function applyAction(previous, action, payload = {}) {
     s.matches.push({ ...match(null, entrants[0].id, entrants[1].id, "Custom", null, 0, 0),
       id: matchId, kind: "custom", size, scoring });
   } else if (action === "tournament") {
-    if (t && hasLeagueDraw(s, t.id))
+    if (t && hasTournamentDraw(s, t.id))
       fail("Format is locked after fixtures are generated.");
     const name = clean(payload.name);
     if (!name) fail("Enter a category name.");
-    const qualification = payload.qualification || "direct";
-    if (!Object.hasOwn(qualificationFormats, qualification))
-      fail("Choose a supported qualification format.");
-    const leagueRules = payload.scoring
-      ? validateScoring(payload.scoring.league, "League")
-      : null;
-    const points =
-      leagueRules?.points ?? integer(payload.points, 5, 50, "Points");
+    const format = payload.format ?? t?.format ?? "league";
+    if (typeof format !== "string" || !Object.hasOwn(tournamentFormats, format))
+      fail("Choose a supported tournament format.");
     const config = {
       name,
       size: integer(payload.size, 1, 12, "Players per team"),
-      groups: integer(payload.groups, 1, 256, "Groups"),
-      qualify: integer(payload.qualify, 1, 256, "Qualifiers per group"),
-      bestOf: leagueRules?.bestOf ?? integer(payload.bestOf, 1, 5, "Best of"),
-      points,
-      cap:
-        leagueRules?.cap ?? integer(payload.cap, points + 1, 60, "Score cap"),
-      qualification,
+      format,
     };
-    if (payload.scoring) {
-      config.scoring = {
-        league: leagueRules,
-        knockout: validateScoring(payload.scoring.knockout, "Knockout"),
-      };
-      if (isPlayoffFormat(config))
-        config.scoring.playoff = validateScoring(
-          payload.scoring.playoff,
-          "Playoff",
-        );
-    } else if (isPlayoffFormat(config))
+    if (!isKnockoutOnly(config)) {
+      const qualification = payload.qualification || "direct";
+      if (!Object.hasOwn(qualificationFormats, qualification))
+        fail("Choose a supported qualification format.");
+      Object.assign(config, {
+        groups: integer(payload.groups, 1, 256, "Groups"),
+        qualify: integer(payload.qualify, 1, 256, "Qualifiers per group"),
+        qualification,
+      });
+    }
+    if (payload.scoring) config.scoring = tournamentScoring(config, payload.scoring);
+    else if (isPlayoffFormat(config))
       fail("Set scoring rules for league, playoffs and knockouts.");
     if (
       isPlayoffFormat(config) &&
@@ -395,21 +404,28 @@ export function applyAction(previous, action, payload = {}) {
       fail(
         "These playoff formats require doubles and four knockout slots per group.",
       );
+    const baseRules = isKnockoutOnly(config) ? config.scoring?.knockout : config.scoring?.league;
+    config.points = baseRules?.points ?? integer(payload.points, 5, 50, "Points");
+    config.cap = baseRules?.cap ?? integer(payload.cap, config.points + 1, 60, "Score cap");
+    config.bestOf = baseRules?.bestOf ?? integer(payload.bestOf, 1, 5, "Best of");
     if (![1, 3, 5].includes(config.bestOf)) fail("Best of must be 1, 3 or 5.");
-    const total = config.groups * config.qualify;
-    if (total < 2 || total > 4096)
-      fail("Groups times qualifiers must provide between 2 and 4096 knockout places.");
+    if (!isKnockoutOnly(config)) {
+      const total = config.groups * config.qualify;
+      if (total < 2 || total > MAX_KNOCKOUT_PLACES)
+        fail(`Groups times qualifiers must provide between 2 and ${MAX_KNOCKOUT_PLACES} knockout places.`);
+    }
     if (t) {
       delete t.scoring;
+      if (isKnockoutOnly(config)) {
+        delete t.groups;
+        delete t.qualify;
+        delete t.qualification;
+      }
       Object.assign(t, config);
     } else s.tournaments.push({ id: id(), ...config });
   } else if (action === "scoring") {
     if (!t) fail("Tournament not found.");
-    const next = {
-      league: validateScoring(payload.scoring?.league, "League"),
-      knockout: validateScoring(payload.scoring?.knockout, "Knockout"),
-    };
-    if (isPlayoffFormat(t)) next.playoff = validateScoring(payload.scoring?.playoff, "Playoff");
+    const next = tournamentScoring(t, payload.scoring);
     // Completed results keep the rules under which they were played, including corrections.
     for (const fixture of s.matches.filter(m => m.tournamentId === t.id && m.status === "completed")) {
       const previousRules = scoringRules(t, fixture.stage, fixture);
@@ -417,7 +433,8 @@ export function applyAction(previous, action, payload = {}) {
       if (["points", "cap", "bestOf", "goldenPoint"].some(key => previousRules[key] !== nextRules[key])) fixture.scoring = structuredClone(previousRules);
     }
     t.scoring = next;
-    Object.assign(t, { points: next.league.points, cap: next.league.cap, bestOf: next.league.bestOf });
+    const { points, cap, bestOf } = next.league ?? next.knockout;
+    Object.assign(t, { points, cap, bestOf });
   } else if (action === "deleteTournament") {
     if (!t) fail("Tournament not found.");
     if (
@@ -441,17 +458,17 @@ export function applyAction(previous, action, payload = {}) {
       payload.teams.length > 256
     )
       fail("Add between 1 and 256 teams per import.");
-    const locked = hasLeagueDraw(s, t.id);
+    const locked = hasTournamentDraw(s, t.id);
     if (s.matches.some(m => m.tournamentId === t.id && m.stage === "Final" && m.winner))
       fail("Player names are locked after the tournament ends.");
     const additions = payload.teams.filter(row => !row.id);
     let group = null;
     if (locked && additions.length) {
-      const reason = leagueEntryLockReason(s, t.id);
+      const reason = teamEntryLockReason(s, t.id);
       if (reason) fail(reason);
       if (payload.group === "new") {
         if (additions.length < 2) fail("Add at least two teams to create a new group.");
-        if (t.groups >= 256 || (t.groups + 1) * t.qualify > 4096) fail("This tournament cannot have more groups.");
+        if (t.groups >= 256 || (t.groups + 1) * t.qualify > MAX_KNOCKOUT_PLACES) fail("This tournament cannot have more groups.");
         group = t.groups++;
       } else {
         if (payload.group === undefined || payload.group === null || payload.group === "") fail("Choose an existing group for the new teams.");
@@ -521,7 +538,7 @@ export function applyAction(previous, action, payload = {}) {
     if (payload.arrived) team.arrivedAt ||= new Date().toISOString();
     else delete team.arrivedAt;
   } else if (action === "deleteTeam") {
-    const reason = leagueEntryLockReason(s, payload.tournamentId);
+    const reason = teamEntryLockReason(s, payload.tournamentId);
     if (reason) fail(reason);
     if (!s.teams.some(x => x.id === payload.teamId && x.tournamentId === t.id)) fail("Team not found.");
     if (hasLeagueDraw(s, t.id)) t.leagueGenerated = true;
@@ -564,19 +581,17 @@ export function applyAction(previous, action, payload = {}) {
       }
     }
   } else if (action === "resetFixtures") {
-    if (
-      !t ||
-      s.matches.some((m) => m.tournamentId === t.id && m.status !== "upcoming")
-    )
+    if (!t || !canResetFixtures(s.matches.filter(m => m.tournamentId === t.id)))
       fail("Only unplayed fixtures can be reset.");
     s.matches = s.matches.filter((m) => m.tournamentId !== t.id);
     delete t.leagueGenerated;
-    s.teams
-      .filter((x) => x.tournamentId === t.id)
-      .forEach((x) => (x.group = null));
+    for (const team of s.teams.filter(x => x.tournamentId === t.id)) {
+      team.group = null;
+      delete team.knockoutEntry;
+    }
   } else if (action === "generate") {
     if (!t) fail("Category not found.");
-    if (hasLeagueDraw(s, t.id))
+    if (hasTournamentDraw(s, t.id))
       fail("Fixtures already exist.");
     const teams = s.teams
       .filter((x) => x.tournamentId === t.id)
@@ -588,40 +603,25 @@ export function applyAction(previous, action, payload = {}) {
       fail(
         `This format needs exactly ${t.groups * qualificationFormat(t).teamsPerGroup} teams (${qualificationFormat(t).teamsPerGroup} per group).`,
       );
-    if (teams.length < t.groups * Math.max(t.qualify, 2))
-      fail(
-        `Add at least ${t.groups * Math.max(t.qualify, 2)} teams for this format.`,
-      );
-    teams.forEach((x, i) => {
-      const row = Math.floor(i / t.groups);
-      x.group = row % 2 ? t.groups - 1 - (i % t.groups) : i % t.groups;
-    });
-    t.leagueGenerated = true;
-    for (let g = 0; g < t.groups; g++) {
-      const ring = teams.filter((x) => x.group === g).map((x) => x.id);
-      if (ring.length % 2) ring.push(null);
-      for (let r = 0; r < ring.length - 1; r++) {
-        for (let i = 0; i < ring.length / 2; i++)
-          if (ring[i] && ring[ring.length - 1 - i])
-            s.matches.push(
-              match(
-                t.id,
-                ring[i],
-                ring[ring.length - 1 - i],
-                "League",
-                g,
-                r,
-                i,
-              ),
-            );
-        ring.splice(1, 0, ring.pop());
-      }
+    const minimum = minimumTeamsForDraw(t);
+    if (teams.length < minimum) fail(`Add at least ${minimum} teams for this format.`);
+    if (isKnockoutOnly(t)) {
+      if (teams.length > MAX_KNOCKOUT_PLACES)
+        fail(`The knockout draw supports up to ${MAX_KNOCKOUT_PLACES} teams.`);
+      createDraw(s, t, teams);
+      reconcileDraw(s, t);
+    } else {
+      teams.forEach((team, i) => {
+        const row = Math.floor(i / t.groups);
+        team.group = row % 2 ? t.groups - 1 - (i % t.groups) : i % t.groups;
+      });
+      t.leagueGenerated = true;
+      for (let group = 0; group < t.groups; group++) appendLeagueFixtures(s, t, group);
+      s.matches.sort((a, b) => a.round - b.round || (a.group ?? 0) - (b.group ?? 0));
     }
-    s.matches.sort(
-      (a, b) => a.round - b.round || (a.group ?? 0) - (b.group ?? 0),
-    );
   } else if (action === "knockouts") {
     if (!t) fail("Category not found.");
+    if (isKnockoutOnly(t)) fail("Generate fixtures to create the knockout bracket for this tournament.");
     const league = s.matches.filter((m) => m.tournamentId === t.id);
     if (
       !hasLeagueDraw(s, t.id) ||
@@ -654,14 +654,14 @@ export function applyAction(previous, action, payload = {}) {
       let entrant;
       if (payload.teamId) {
         entrant = eligibleKnockoutTeams(s, t.id).find(team => team.id === payload.teamId);
-        if (!entrant) fail("Choose a new team that has not played in the league or entered the knockout draw.");
+        if (!entrant) fail(isKnockoutOnly(t) ? "Choose a team that has not entered the knockout draw." : "Choose a new team that has not played in the league or entered the knockout draw.");
       } else {
         const players = (Array.isArray(payload.players) ? payload.players : []).map(p => clean(p, 80)).filter(Boolean);
         if (players.length !== t.size) fail(`Each ${t.name} entry needs exactly ${t.size} player(s).`);
         const normalized = players.map(p => p.toLowerCase());
         if (new Set(normalized).size !== normalized.length || s.teams.some(team =>
           team.tournamentId === t.id && team.players.some(p => normalized.includes(p.toLowerCase()))))
-          fail("A player is already entered in this category. League-eliminated teams cannot re-enter the knockout draw.");
+          fail(isKnockoutOnly(t) ? "A player is already entered in this category." : "A player is already entered in this category. League-eliminated teams cannot re-enter the knockout draw.");
         const seed = integer(Math.max(0, ...s.teams.filter(team => team.tournamentId === t.id).map(team => team.seed)) + 1, 1, 10000, "Seed");
         entrant = { id: id(), tournamentId: t.id, group: null, name: playerLabel(players), players, seed, knockoutEntry: true };
         s.teams.push(entrant);

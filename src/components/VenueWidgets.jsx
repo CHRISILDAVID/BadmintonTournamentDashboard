@@ -4,7 +4,7 @@ import { useStore } from "zustand";
 import { Grip, Minus, SlidersHorizontal } from "lucide-react";
 import { venueStore } from "../stores/venue.js";
 import { selectionKey } from "../lib/venue-layout.js";
-import { WIDGETS, WIDGET_BREAKPOINTS, WIDGET_COLUMNS, WIDGET_ROW, WIDGET_GAP, widgetBreakpoint, visibleWidgets, widgetLayout, cleanWidgetPreferences, keyboardWidgetLayout } from "../lib/venue-widgets.js";
+import { WIDGETS, WIDGET_BREAKPOINTS, WIDGET_COLUMNS, WIDGET_ROW, WIDGET_GAP, widgetBreakpoint, availableWidgets, visibleWidgets, widgetLayout, cleanWidgetPreferences, keyboardWidgetLayout } from "../lib/venue-widgets.js";
 import { Button } from "./ui/button.jsx";
 import { NativeSelect } from "./ui/native-select.jsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog.jsx";
@@ -75,8 +75,8 @@ export default function VenueWidgets({ data, renderWidget, sharedLiveScores = fa
           <DialogTitle>Widgets · {data.tournament.name}</DialogTitle>
           <DialogDescription>Automatic follows the tournament stage. Always show keeps a widget visible at every stage, including after the final.</DialogDescription>
         </DialogHeader>
-        {Object.entries(WIDGETS).map(([widget, label]) => <label className="flex items-center justify-between gap-4" key={widget}>
-          <span>{label}{widget === "live" && sharedLiveScores && <small className="block text-muted-foreground">Displayed above tournaments</small>}</span><NativeSelect className="w-40" aria-label={`${label} visibility`} value={widgets.visibility[widget]} disabled={widget === "live" && sharedLiveScores}
+        {availableWidgets(data).map(widget => <label className="flex items-center justify-between gap-4" key={widget}>
+          <span>{WIDGETS[widget]}{widget === "live" && sharedLiveScores && <small className="block text-muted-foreground">Displayed above tournaments</small>}</span><NativeSelect className="w-40" aria-label={`${WIDGETS[widget]} visibility`} value={widgets.visibility[widget]} disabled={widget === "live" && sharedLiveScores}
             onChange={event => preferences.setWidgetVisibility(id, widget, event.target.value)}>
             <option value="auto">Automatic</option><option value="show">Always show</option><option value="hide">Hide</option>
           </NativeSelect>

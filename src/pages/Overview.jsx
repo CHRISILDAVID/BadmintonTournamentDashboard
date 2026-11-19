@@ -2,6 +2,7 @@ import React from "react";
 import { ArrowUpRight, ArrowRight, MapPin, Plus } from "lucide-react";
 import { groupName } from "../utils.js";
 import { matchCategory, matchStageLabel, tournamentProgress } from "../../shared/matches.js";
+import { isKnockoutOnly, minimumTeamsForDraw } from "../../shared/format.js";
 import { useDesk } from "../hooks/useDesk.jsx";
 import MatchCard from "../components/MatchCard.jsx";
 import StageActions from "../components/StageActions.jsx";
@@ -67,11 +68,12 @@ function Overview() {
           {categories.length ? categories.map(t => {
             const progress = tournamentProgress(state, t.id);
             const entries = state.teams.filter(team => team.tournamentId === t.id).length;
-            const needsTeams = entries < t.groups * Math.max(2, t.qualify);
-            const label = progress.champion ? "Final results" : progress.canCreateKnockouts ? "Review qualification" : progress.hasFixtures ? "Manage games" : needsTeams ? "Add teams" : "Generate fixtures";
+            const knockoutOnly = isKnockoutOnly(t);
+            const needsTeams = entries < minimumTeamsForDraw(t);
+            const label = progress.champion ? "Final results" : progress.canCreateKnockouts ? "Review qualification" : progress.hasFixtures ? "Manage games" : needsTeams ? "Add teams" : knockoutOnly ? "Generate bracket" : "Generate fixtures";
             const next = () => {
               if (progress.champion || progress.canCreateKnockouts) setPage("Standings", { filter: t.id });
-              else if (progress.hasFixtures) setPage("Matches", { filter: t.id, matchQuery: "", matchStatus: "all", matchStage: progress.postseason ? "postseason" : "all" });
+              else if (progress.hasFixtures) setPage("Matches", { filter: t.id, matchQuery: "", matchStatus: "all", matchStage: progress.postseason && !knockoutOnly ? "postseason" : "all" });
               else if (needsTeams) setPage("Teams & players", { filter: t.id, teamQuery: "" });
               else open({ type: "generate", tournament: t });
             };

@@ -33,6 +33,7 @@ import ConfirmForm from "./forms/ConfirmForm.jsx";
 import { currentSession } from "./cloud/storage.js";
 import Umpire from "./cloud/Umpire.jsx";
 import Scorer from "./cloud/Scorer.jsx";
+import { isKnockoutOnly } from "../shared/format.js";
 import "./styles/match-day.css";
 
 function MatchScorer({ match, teams, category, onClose, returnLabel }) {
@@ -83,11 +84,11 @@ function App() {
   };
   const subtitles = {
     Overview: "Keep the courts moving.",
-    Tournaments: "Set up categories, seed groups, and build the draw.",
+    Tournaments: "Set up categories, register teams, and build the draw.",
     "Teams & players": "Register your players and manage team entries.",
     Matches: "Choose any ready game, assign a court, and record the result.",
     History: "Completed tournament matches and custom games.",
-    Standings: "Group tables and the route to the final.",
+    Standings: "Review tournament standings and brackets.",
     Settings: "Your venue, courts, and connected screens.",
     "Not found": "This address does not match a tournament desk page.",
   };
@@ -160,7 +161,7 @@ function App() {
                 import: "Import your teams",
                 match: "Match desk",
                 custom: "Create a custom game",
-                generate: "Ready to create fixtures?",
+                generate: isKnockoutOnly(modal.tournament) ? "Generate knockout bracket" : "Ready to create fixtures?",
                 knockouts: "Create the knockout bracket",
                 resetFixtures: "Reset fixtures",
                 groups: "Edit groups",

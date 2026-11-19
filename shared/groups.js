@@ -1,10 +1,14 @@
+import { isKnockoutOnly } from "./format.js";
+
 export function hasLeagueDraw(state, tournamentId) {
-  return !!state.tournaments.find(t => t.id === tournamentId)?.leagueGenerated ||
+  const tournament = state.tournaments.find(t => t.id === tournamentId);
+  if (isKnockoutOnly(tournament)) return false;
+  return !!tournament?.leagueGenerated ||
     state.matches.some(m => m.tournamentId === tournamentId) ||
     state.teams.some(t => t.tournamentId === tournamentId && t.group != null);
 }
 
-export function leagueEntryLockReason(state, tournamentId) {
+export function teamEntryLockReason(state, tournamentId) {
   if (!state.tournaments.some(t => t.id === tournamentId)) return "Tournament not found.";
   return state.matches.some(m => m.tournamentId === tournamentId && m.stage !== "League")
     ? "Team entries are locked after the playoff or knockout draw is created." : "";
@@ -13,6 +17,7 @@ export function leagueEntryLockReason(state, tournamentId) {
 export function groupEditLockReason(state, tournamentId) {
   const tournament = state.tournaments.find((t) => t.id === tournamentId);
   if (!tournament) return "Tournament not found.";
+  if (isKnockoutOnly(tournament)) return "This tournament uses a knockout bracket.";
   if (tournament.groups < 2) return "This tournament has only one group.";
   const matches = state.matches.filter((m) => m.tournamentId === tournamentId);
   if (!hasLeagueDraw(state, tournamentId)) return "Create fixtures before editing groups.";

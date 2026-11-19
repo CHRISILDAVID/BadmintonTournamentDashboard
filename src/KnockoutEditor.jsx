@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import VenueBracket from "./VenueBracket.jsx";
 import { tournamentDisplayData } from "../shared/display.js";
+import { isKnockoutOnly } from "../shared/format.js";
 import { eligibleKnockoutTeams, knockoutSlotLockReason } from "../shared/knockouts.js";
 import { Button } from "./components/ui/button.jsx";
 import { Input } from "./components/ui/input.jsx";
@@ -50,7 +51,7 @@ export default function KnockoutEditor({ state, tournamentId, busy, act, close }
   }
   return <form className="knockout-editor" onSubmit={save}>
     <p><strong>{data.tournament.name}</strong><br/>Select two teams in uncompleted games to swap them, or select a Bye to add a new team.</p>
-    <p className="help-text">Completed games are locked. Return on-court games to waiting before editing. Teams eliminated in the league cannot be added.</p>
+    <p className="help-text">Completed games are locked. Return on-court games to waiting before editing.{!isKnockoutOnly(data.tournament) && " Teams eliminated in the league cannot be added."}</p>
     <VenueBracket tournament={data.tournament} rounds={data.knockoutRounds} teams={teams}
       slotProps={(match, side, team, placeholder) => {
         const reason = knockoutSlotLockReason(state, match, side);

@@ -5,7 +5,7 @@ import { groupName, time } from "../utils.js";
 import ScoreInput from "../ScoreInput.jsx";
 import { finalScores } from "../scores.js";
 
-import { pendingOpponent, scoringRules, scoringLabel } from "../../shared/format.js";
+import { isKnockoutOnly, pendingOpponent, scoringRules, scoringLabel } from "../../shared/format.js";
 import { isCustomGame, matchCategory, matchStageLabel } from "../../shared/matches.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
@@ -26,6 +26,7 @@ function MatchEditor() {
   const { state, modal, busy, team, tournament, open, act, setPage, setModal, setError } = useDesk();
   const m = state.matches.find((m) => m.id === modal.matchId),
     t = tournament(m.tournamentId);
+  const knockoutOnly = isKnockoutOnly(t);
   const rules = scoringRules(t, m.stage, m);
   const [court, setCourt] = useState(
       Array.from({ length: state.event.courts }, (_, i) => i + 1).find(
@@ -67,7 +68,7 @@ function MatchEditor() {
       </div>
       {m.status === "upcoming" ? (
         <>
-          <p className="help-text">{m.a && m.b ? "Choose a free court and start when both teams are ready." : "Both opponents must qualify before this game can start."}</p>
+          <p className="help-text">{m.a && m.b ? "Choose a free court and start when both teams are ready." : "Both opponents must be known before this game can start."}</p>
           <Field label="Court">
             <NativeSelect value={court} onChange={(e) => setCourt(+e.target.value)}>
               {Array.from({ length: state.event.courts }, (_, i) => i + 1).map(
@@ -128,11 +129,11 @@ function MatchEditor() {
           {m.status === "live" && <div className="return-match"><p>Players not ready and play has not begun?</p><Button variant="ghost" className="text-btn" disabled={busy} onClick={() => open({type:"returnMatch", matchId:m.id})}>Undo start and free court</Button></div>}
           <h3>{m.status === "completed" ? "Edit final result" : "Record the final result"}</h3>
           <p className="help-text">
-            Enter each completed game in opponent order above. {isCustomGame(m) ? "Saving adds the result to custom game history." : "Saving updates the result and standings."}
+            Enter each completed game in opponent order above. {isCustomGame(m) ? "Saving adds the result to custom game history." : knockoutOnly ? "Saving updates the knockout bracket." : "Saving updates the result and standings."}
           </p>
           {m.status === "completed" && <label className="help-text">
             <Input type="checkbox" checked={confirmCorrection} onChange={e => setConfirmCorrection(e.target.checked)} />
-            {isCustomGame(m) ? "I confirm this correction to the custom game result." : "I confirm this correction. Standings and the draw will update. Later games whose opponents change will return to upcoming, clearing their scores and freeing any occupied courts. Unaffected results stay saved."}
+            {isCustomGame(m) ? "I confirm this correction to the custom game result." : `I confirm this correction. ${knockoutOnly ? "The knockout bracket will update." : "Standings and the draw will update."} Later games whose opponents change will return to upcoming, clearing their scores and freeing any occupied courts. Unaffected results stay saved.`}
           </label>}
           <div className="game-inputs">
             {scoreError && <p id="match-score-error" className="sr-only">{scoreError}</p>}
@@ -170,7 +171,7 @@ function MatchEditor() {
                   await act(
                     m.status === "completed" ? "correctResult" : "finish",
                     { matchId: m.id, games: completedGames },
-                    m.status === "completed" ? (isCustomGame(m) ? "Custom result corrected" : "Result corrected; standings and draw updated") : "Result recorded",
+                    m.status === "completed" ? (isCustomGame(m) ? "Custom result corrected" : knockoutOnly ? "Result corrected and bracket updated" : "Result corrected; standings and draw updated") : "Result recorded",
                     resultRevision.current,
                   )
                 ) {

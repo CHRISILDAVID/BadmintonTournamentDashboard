@@ -1,5 +1,11 @@
 import { hasLeagueDraw } from "./groups.js";
 
+export const hasTournamentDraw = (state, tournamentId) =>
+  state.matches.some(m => m.tournamentId === tournamentId) || hasLeagueDraw(state, tournamentId);
+
+export const canResetFixtures = (matches) =>
+  matches.every(m => m.status === "upcoming" || (m.status === "completed" && m.bye));
+
 // Read games saved before standalone games were renamed from Friendly to Custom.
 export const isCustomGame = match => ["custom", "friendly"].includes(match?.kind);
 export const matchStageLabel = match => isCustomGame(match) ? "Custom" : match.stage;
@@ -33,15 +39,16 @@ export function tournamentProgress(state, tournamentId) {
   const postseason = matches.some((m) => m.stage !== "League");
   const remaining = league.filter((m) => m.status !== "completed").length;
   const champion = matches.find((m) => m.stage === "Final" && m.winner);
+  const hasLeague = hasLeagueDraw(state, tournamentId);
   const qualifiers = Array.from({ length: tournament?.groups || 0 }, (_, group) =>
     Math.min(tournament.qualify, state.teams.filter(t => t.tournamentId === tournamentId && t.group === group).length),
   ).reduce((total, count) => total + count, 0);
   return {
-    hasFixtures: hasLeagueDraw(state, tournamentId),
+    hasFixtures: matches.length > 0 || hasLeague,
     postseason,
     remaining,
     champion,
-    canCreateKnockouts: hasLeagueDraw(state, tournamentId) && remaining === 0 && !postseason &&
+    canCreateKnockouts: hasLeague && remaining === 0 && !postseason &&
       qualifiers >= 2,
   };
 }
