@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import VenueBracket from "./VenueBracket.jsx";
+import KnockoutByeBatch from "./KnockoutByeBatch.jsx";
 import { tournamentDisplayData } from "../shared/display.js";
 import { isKnockoutOnly } from "../shared/format.js";
 import { eligibleKnockoutTeams, knockoutSlotLockReason } from "../shared/knockouts.js";
@@ -15,6 +16,7 @@ export default function KnockoutEditor({ state, tournamentId, busy, act, close }
   const [players, setPlayers] = useState([]);
   const [teamId, setTeamId] = useState("");
   const [revisionNotice, setRevisionNotice] = useState("");
+  const [batchOpen, setBatchOpen] = useState(false);
   const data = tournamentDisplayData(state, tournamentId);
   const teams = new Map(state.teams.map(team => [team.id, team]));
   const eligible = eligibleKnockoutTeams(state, tournamentId);
@@ -25,6 +27,8 @@ export default function KnockoutEditor({ state, tournamentId, busy, act, close }
     }
   }, [state.revision, selected]);
   if (!data) return <p>This tournament is no longer available.</p>;
+  if (batchOpen) return <KnockoutByeBatch state={state} tournament={data.tournament} rounds={data.knockoutRounds} teams={teams}
+    eligible={eligible} busy={busy} act={act} back={() => setBatchOpen(false)}/>;
   const matchFor = slot => state.matches.find(m => m.id === slot?.matchId);
   const first = matchFor(selected[0]);
   const second = matchFor(selected[1]);
@@ -52,6 +56,8 @@ export default function KnockoutEditor({ state, tournamentId, busy, act, close }
   return <form className="knockout-editor" onSubmit={save}>
     <p><strong>{data.tournament.name}</strong><br/>Select two teams in uncompleted games to swap them, or select a Bye to add a new team.</p>
     <p className="help-text">Completed games are locked. Return on-court games to waiting before editing.{!isKnockoutOnly(data.tournament) && " Teams eliminated in the league cannot be added."}</p>
+    {isKnockoutOnly(data.tournament) && <div className="ko-batch-tools"><Button type="button" variant="outline" disabled={busy}
+      onClick={() => { setSelected([]); setPlayers([]); setTeamId(""); setRevisionNotice(""); setBatchOpen(true); }}>Add late teams</Button></div>}
     <VenueBracket tournament={data.tournament} rounds={data.knockoutRounds} teams={teams}
       slotProps={(match, side, team, placeholder) => {
         const reason = knockoutSlotLockReason(state, match, side);

@@ -3,33 +3,40 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import LiveScores from "../cloud/LiveScores.jsx";
 import { Button } from "./ui/button.jsx";
 
-export default function SharedLiveScores({ matches, teams, tournaments, flow }) {
+export default function SharedLiveScores({ matches, teams, tournaments, tournament, flow = "horizontal", showHeading = true }) {
   const scroll = useRef(null);
+  const horizontal = matches.length > 5 || flow === "horizontal";
   const [edges, setEdges] = useState({ previous: false, next: false });
   const measure = () => {
     const node = scroll.current;
-    if (node) setEdges({ previous: node.scrollLeft > 1, next: node.scrollLeft + node.clientWidth < node.scrollWidth - 1 });
+    if (!node) return;
+    const previous = node.scrollLeft > 1;
+    const next = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
+    setEdges(current => current.previous === previous && current.next === next ? current : { previous, next });
   };
   useLayoutEffect(() => {
     const node = scroll.current, observer = new ResizeObserver(measure);
     measure(); observer.observe(node); observer.observe(node.firstElementChild);
     return () => observer.disconnect();
-  }, [flow, matches]);
+  }, [horizontal, matches.length]);
   const move = direction => {
     const node = scroll.current;
-    if (node) node.scrollBy({ left: direction * ((node.querySelector(".live-score-card")?.getBoundingClientRect().width || node.clientWidth) + 12), behavior: "smooth" });
+    if (node) node.scrollBy({ left: direction * ((node.querySelector(".live-score-card")?.getBoundingClientRect().width || node.clientWidth) + 8), behavior: "smooth" });
   };
-  return <section className={`venue-shared-live ${flow}`} aria-label="Live scores across all matches">
-    <header className="venue-widget-heading">
-      <h3>Live scores <small>All matches · {matches.length} on court</small></h3>
-      {flow === "horizontal" && <div className="flex gap-1">
+  const controls = horizontal && <div className="venue-live-arrows">
         <Button variant="ghost" size="icon-sm" aria-label="Previous live matches" disabled={!edges.previous} onClick={() => move(-1)}><ChevronLeft/></Button>
         <Button variant="ghost" size="icon-sm" aria-label="Next live matches" disabled={!edges.next} onClick={() => move(1)}><ChevronRight/></Button>
-      </div>}
-    </header>
-    <div ref={scroll} className="venue-shared-live-scroll vb-scroll" data-auto-scroll="" data-scroll-axis={flow === "horizontal" ? "x" : "y"}
-      tabIndex={0} aria-label={flow === "horizontal" ? "Live matches, scroll horizontally" : "Live matches, scroll for more"} onScroll={measure}>
-      <LiveScores matches={matches} teams={teams} tournaments={tournaments}/>
+      </div>;
+  return <section className={`venue-live-strip ${horizontal ? "horizontal" : "wrap"} ${showHeading ? "venue-shared-live" : "venue-widget-live"}`}
+    aria-label={showHeading ? "Live scores across all matches" : `${tournament.name} live scores`}>
+    {showHeading ? <header className="venue-widget-heading">
+      <h3>Live scores <small>All matches · {matches.length} on court</small></h3>
+      {controls}
+    </header> : (edges.next || edges.previous) && controls}
+    <div ref={scroll} className="venue-shared-live-scroll vb-scroll" data-auto-scroll={horizontal ? "" : undefined}
+      data-scroll-axis={horizontal ? "x" : undefined}
+      tabIndex={0} aria-label={horizontal ? "Live matches, scroll horizontally" : "Live matches, scroll for more"} onScroll={measure}>
+      <LiveScores matches={matches} teams={teams} tournaments={tournaments} tournament={tournament}/>
     </div>
   </section>;
 }

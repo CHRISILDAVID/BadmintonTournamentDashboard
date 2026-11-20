@@ -14,15 +14,14 @@ import {
 } from "../shared/display.js";
 import { groupName } from "./utils.js";
 import useAutoScroll from "./useAutoScroll.js";
-import VenueBracket, { VenuePlayoffs } from "./VenueBracket.jsx";
+import VenueBracket, { PagedVenueBracket, VENUE_MATCHES_PER_SCREEN, VenuePlayoffs } from "./VenueBracket.jsx";
 import VenueWidgets from "./components/VenueWidgets.jsx";
 import SharedLiveScores from "./components/SharedLiveScores.jsx";
-import { cleanLiveScoreLayout } from "./lib/venue-widgets.js";
+import { cleanLiveScoreLayout, cleanWidgetPreferences, visibleWidgets } from "./lib/venue-widgets.js";
 import { selectionKey } from "./lib/venue-layout.js";
 import { directPlaces, isKnockoutOnly, isPlayoffFormat } from "../shared/format.js";
 import { isCustomGame } from "../shared/matches.js";
 import logo from "../assets/logo.jpg";
-import LiveScores from "./cloud/LiveScores.jsx";
 import { liveStore } from "./cloud/connection.js";
 import "./venue-board.css";
 import "./styles/venue-layout.css";
@@ -159,12 +158,12 @@ function ResultGroup({ group, teams }) {
   );
 }
 
-function TournamentPanel({ data, upcoming, teams, sharedLiveScores }) {
+function TournamentPanel({ data, upcoming, teams, liveMatches, sharedLiveScores, bracketView, playing, advance }) {
   const { tournament: t, groups, onCourt, knockoutRounds, playoffs, hasKnockouts, champion } = data;
   const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: isKnockoutOnly(t) ? "Knockouts" : "Playoffs & knockouts", results: data.knockoutResults }] : [])];
   const scroll = (label, children) => <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${t.name} ${label}`}>{children}</div>;
   const renderWidget = widget => {
-    if (widget === "live") return scroll("live scores", <LiveScores matches={onCourt} teams={teams} tournament={t}/>);
+    if (widget === "live") return <SharedLiveScores matches={liveMatches} teams={teams} tournament={t} showHeading={false}/>;
     if (widget === "standings") return scroll("standings, scroll for all groups", <>
       <p className="venue-widget-note">{data.hasLeague ? (isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct · remaining places through playoffs` : `Top ${t.qualify} per group advance`) : "Entries · draw pending"}</p>
       <div className="venue-standing-groups">{groups.map(group => <StandingsGroup key={group.key} group={group} tournament={t} hasLeague={data.hasLeague}/>)}</div>
@@ -179,6 +178,8 @@ function TournamentPanel({ data, upcoming, teams, sharedLiveScores }) {
     </>);
     if (widget === "results") return scroll("latest results", results.length ? <div className="venue-result-groups">{results.map(group => <ResultGroup key={group.key} group={group} teams={teams}/>)}</div> : <p className="vb-empty">Results appear when matches are completed.</p>);
     if (widget === "playoffs") return <VenuePlayoffs tournament={t} playoffs={playoffs} teams={teams}/>;
+    if (bracketView) return <PagedVenueBracket tournament={t} rounds={knockoutRounds} teams={teams}
+      view={bracketView} playing={playing} advance={advance}/>;
     return knockoutRounds.length ? <VenueBracket tournament={t} rounds={knockoutRounds} teams={teams}/> : <p className="vb-empty">The knockout bracket appears when the draw is created.</p>;
   };
   return <article className="vb-tournament" aria-label={`${t.name} tournament board`}>
@@ -188,6 +189,13 @@ function TournamentPanel({ data, upcoming, teams, sharedLiveScores }) {
     </header>
     <VenueWidgets data={data} renderWidget={renderWidget} sharedLiveScores={sharedLiveScores}/>
   </article>;
+}
+
+function knockoutView(rounds, view) {
+  const level = Math.min(view?.level ?? 0, rounds.length - 1);
+  const totalScreens = Math.ceil(rounds[level].matches.length / VENUE_MATCHES_PER_SCREEN);
+  const screen = Math.min(view?.screen ?? 0, totalScreens - 1);
+  return { ...view, level, screen, totalScreens };
 }
 
 export default function VenueBoard({ state: fullState, upcoming, connected }) {
@@ -200,9 +208,13 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
     }
   }, [preset?.updatedAt]);
   const boardRef = useRef(null);
+  const contentRef = useRef(null);
+  const [scoresInView, setScoresInView] = useState(true);
   const { selection: preferences, setSelection: setPreferences, editing, draft, savedLayouts } = useStore(venueStore);
   const [autoScroll, setAutoScroll] = useState(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [layoutControls, setLayoutControls] = useState(null);
+  const [bracketViews, setBracketViews] = useState({});
+  const [controlledBracket, setControlledBracket] = useState(null);
   useAutoScroll(boardRef, !editing && autoScroll);
   const [error, setError] = useState("");
   const options = useMemo(() => displayTournamentOptions(state), [state]);
@@ -222,6 +234,48 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
     [state, selection],
   );
   const sharedLiveScores = liveLayout.position === "top" || liveMatches.some(isCustomGame) || !panels.length;
+  useEffect(() => {
+    if (!sharedLiveScores) return;
+    const node = contentRef.current;
+    const measure = () => setScoresInView(node.scrollTop + node.clientHeight < node.scrollHeight - 1);
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    observer.observe(node.firstElementChild);
+    node.addEventListener("scroll", measure, { passive: true });
+    measure();
+    return () => {
+      observer.disconnect();
+      node.removeEventListener("scroll", measure);
+    };
+  }, [sharedLiveScores]);
+  const layout = editing ? draft : savedLayouts[selectionKey(selection.ids)];
+  const knockoutPanels = panels.filter(data => isKnockoutOnly(data.tournament) && data.knockoutRounds.length &&
+    visibleWidgets(data, cleanWidgetPreferences(layout?.widgets?.[data.tournament.id])).includes("knockouts"));
+  const controlledPanel = knockoutPanels.find(data => data.tournament.id === controlledBracket) ?? knockoutPanels[0];
+  const controlledView = controlledPanel && knockoutView(controlledPanel.knockoutRounds, bracketViews[controlledPanel.tournament.id]);
+  const moveBracket = ({ tournament, knockoutRounds }, axis, delta) => {
+    setBracketViews(views => {
+      const view = knockoutView(knockoutRounds, views[tournament.id]);
+      const level = axis === "round" ? view.level + delta : view.level;
+      if (level < 0 || level >= knockoutRounds.length || (axis === "screen" && view.totalScreens <= 1)) return views;
+      const screen = axis === "screen" ? (view.screen + delta + view.totalScreens) % view.totalScreens : 0;
+      const direction = axis === "round" ? (delta > 0 ? "up" : "down") : (delta > 0 ? "left" : "right");
+      return { ...views, [tournament.id]: { level, screen, direction, step: (view.step ?? 0) + 1,
+        previous: { level: view.level, screen: view.screen } } };
+    });
+  };
+  useEffect(() => {
+    if (editing || !controlledPanel || controlledView.totalScreens <= 1) return;
+    const navigate = event => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        !["ArrowLeft", "ArrowRight"].includes(event.key) ||
+        event.target.closest?.("input, select, textarea, [contenteditable], [role=dialog], [data-auto-scroll]")) return;
+      event.preventDefault();
+      moveBracket(controlledPanel, "screen", event.key === "ArrowRight" ? 1 : -1);
+    };
+    window.addEventListener("keydown", navigate);
+    return () => window.removeEventListener("keydown", navigate);
+  }, [controlledPanel, controlledView?.totalScreens, editing]);
   useEffect(() => {
     if (
       selection.count !== preferences.count ||
@@ -303,6 +357,21 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
           ))}
         </div>
         <div className="vb-screen-actions">
+        {controlledView && <div className="vb-bracket-controls" role="group" aria-label="Knockout display controls">
+          {knockoutPanels.length > 1 && <NativeSelect aria-label="Knockout bracket to control" value={controlledPanel.tournament.id}
+            disabled={editing} onChange={event => setControlledBracket(event.target.value)}>
+            {knockoutPanels.map(({ tournament }) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}
+          </NativeSelect>}
+          <span className="vb-screen-badge">{controlledView.totalScreens > 1
+            ? `Screen ${controlledView.screen + 1} of ${controlledView.totalScreens} · ${autoScroll && !editing ? "7s Timer" : "Paused"}`
+            : "Static Screen"}</span>
+          <Button variant="outline" size="xs" disabled={editing || controlledView.totalScreens <= 1}
+            onClick={() => moveBracket(controlledPanel, "screen", 1)}>Next Screen</Button>
+          <Button variant="outline" size="xs" disabled={editing || controlledView.level === 0}
+            onClick={() => moveBracket(controlledPanel, "round", -1)}>Undo</Button>
+          <Button variant="default" size="xs" disabled={editing || controlledView.level === controlledPanel.knockoutRounds.length - 1}
+            onClick={() => moveBracket(controlledPanel, "round", 1)}>Next Round</Button>
+        </div>}
         <Button variant="ghost" size="icon" aria-label={autoScroll ? "Pause automatic scrolling" : "Resume automatic scrolling"} title={autoScroll ? "Pause automatic scrolling" : "Resume automatic scrolling"} disabled={editing} onClick={() => setAutoScroll(value => !value)}>{autoScroll ? <Pause/> : <Play/>}</Button>
         <span className="venue-layout-actions" ref={setLayoutControls}/>
         <Button variant="ghost" size="icon"
@@ -324,8 +393,15 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
         </Button>
         </div>
       </div>
-      {sharedLiveScores && <SharedLiveScores matches={liveMatches} teams={teams} tournaments={tournaments} flow={liveLayout.flow}/>}
-      <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} sharedLiveScores={sharedLiveScores} upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}/>} />
+      <div ref={contentRef} className={`vb-display-content${sharedLiveScores ? " has-shared-scores" : ""}${sharedLiveScores && scoresInView ? " scores-in-view" : ""}`}
+        tabIndex={sharedLiveScores ? 0 : undefined} role="region" aria-label="Venue display content">
+        {sharedLiveScores && <SharedLiveScores matches={liveMatches} teams={teams} tournaments={tournaments} flow={liveLayout.flow}/>}
+        <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} sharedLiveScores={sharedLiveScores}
+          liveMatches={liveMatches.filter(match => match.tournamentId === data.tournament.id)}
+          upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}
+          bracketView={isKnockoutOnly(data.tournament) && data.knockoutRounds.length ? knockoutView(data.knockoutRounds, bracketViews[data.tournament.id]) : null}
+          playing={!editing && autoScroll} advance={() => moveBracket(data, "screen", 1)}/>} />
+      </div>
 
       {error && (
         <div className="toast error" role="alert">

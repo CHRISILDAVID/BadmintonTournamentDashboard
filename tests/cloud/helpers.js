@@ -20,11 +20,11 @@ export async function redeem(url) {
   if (r.status !== 200) throw new Error(JSON.stringify(r));
   return { ...r.data, cookie: r.cookie };
 }
-export function fixture(courts = 2, points = 5) {
+export function fixture(courts = 2, points = 5, bestOf = 1) {
   let s = applyAction(emptyState(), "event", { name: "Isolation cup", venue: "Test only", courts: Math.max(2, courts), announcement: "" });
   // Separate categories allow courts to start in parallel without shared players.
   for (let court = 1; court <= courts; court++) {
-    s = applyAction(s, "tournament", { name: `Doubles ${court}`, size: 2, groups: 1, qualify: 2, points, cap: points + 1, bestOf: 1 });
+    s = applyAction(s, "tournament", { name: `Doubles ${court}`, size: 2, groups: 1, qualify: 2, points, cap: points + 1, bestOf });
     const tournamentId = s.tournaments.at(-1).id;
     s = applyAction(s, "teams", { tournamentId, teams: Array.from({ length: 4 }, (_, i) => ({ players: [`C${court} Player ${i} A`, `C${court} Player ${i} B`], seed: i + 1 })) });
     s = applyAction(s, "generate", { tournamentId });

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { applyAction, emptyState } from "../shared/tournament.js";
-import { eligibleKnockoutTeams, knockoutSlotLockReason } from "../shared/knockouts.js";
+import { eligibleKnockoutTeams, knockoutDependents, knockoutSlotLockReason } from "../shared/knockouts.js";
 import { PLAYOFF_STAGE, playoffPreset, scoringRules } from "../shared/format.js";
 import { tournamentProgress } from "../shared/matches.js";
 import { tournamentDisplayData } from "../shared/display.js";
@@ -44,6 +44,43 @@ const knockoutConfig = {
   format: "knockouts",
   scoring: { knockout: knockoutRules },
 };
+
+test("batch entrants fill two byes atomically and keep the original draw", () => {
+  let state = applyAction(emptyState(), "tournament", knockoutConfig);
+  const tournamentId = state.tournaments[0].id;
+  state = applyAction(state, "teams", { tournamentId, teams: Array.from({ length: 6 }, (_, i) => ({ players: [`Seed ${i + 1}`] })) });
+  state = applyAction(state, "generate", { tournamentId });
+  const byes = main(state).filter(match => match.bye);
+  const entries = byes.map((match, index) => ({
+    matchId: match.id, side: match.a ? "b" : "a", players: [`Late team ${index + 1}`],
+  }));
+  const batch = entries => applyAction(state, "fillKnockoutByes", { tournamentId, entries });
+  const before = structuredClone(state);
+  assert.throws(() => batch([entries[0], { ...entries[1], players: entries[0].players }]), /Late team 2.*already entered/);
+  assert.deepEqual(state, before);
+  const updated = batch(entries);
+  assert.equal(updated.teams.length, 8);
+  assert.equal(updated.revision, state.revision + 1);
+  assert.equal(main(updated).length, 7);
+  assert.equal(main(updated).filter(match => match.bye).length, 0);
+  assert.deepEqual(main(updated).map(match => match.id), main(state).map(match => match.id));
+  const dependents = knockoutDependents(main(state));
+  for (const [index, bye] of byes.entries()) {
+    const filled = updated.matches.find(match => match.id === bye.id);
+    assert.equal(filled.status, "upcoming");
+    assert.equal(filled[entries[index].side], updated.teams.find(team => team.name === entries[index].players[0]).id);
+    const consumer = updated.matches.find(match => match.id === dependents.get(bye.id)[0].id);
+    assert.equal([consumer.a, consumer.b].includes(bye.winner), false);
+  }
+
+  const next = dependents.get(byes[1].id)[0];
+  const sibling = main(state).find(match => match.round === byes[1].round && match.index === (byes[1].index ^ 1));
+  state = finish(state, sibling);
+  state = applyAction(state, "start", { matchId: next.id, court: 1 });
+  const locked = structuredClone(state);
+  assert.throws(() => batch(entries), /Late team 2.*on court or completed/);
+  assert.deepEqual(state, locked);
+});
 
 test("standalone knockouts draw every registration by seed and allow a reset before play even with byes", () => {
   const legacy = { id: "league", name: "Existing league", size: 1, groups: 1, qualify: 2, points: 21, cap: 30, bestOf: 1 };

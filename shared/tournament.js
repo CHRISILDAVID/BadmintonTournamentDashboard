@@ -1,11 +1,12 @@
 import { standings } from "./standings.js";
+import { gameTally } from "./game-scores.js";
 export { standings } from "./standings.js";
 import { randomUUID } from "node:crypto";
 import { playerLabel } from "./players.js";
 import { canResetFixtures, hasTournamentDraw, removeLegacyCalls, isCustomGame } from "./matches.js";
 import { groupEditLockReason, hasLeagueDraw, teamEntryLockReason } from "./groups.js";
 import { randomGames } from "./random-scores.js";
-import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams } from "./knockouts.js";
+import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams, knockoutDependents } from "./knockouts.js";
 import {
   PLAYOFF_STAGE,
   qualificationFormats,
@@ -83,34 +84,8 @@ function appendLeagueFixtures(s, t, group) {
 export function validateGames(games, t) {
   if (!Array.isArray(games) || !games.length || games.length > t.bestOf)
     fail("Enter the completed games for this match.");
-  const wins = [0, 0],
-    needed = Math.ceil(t.bestOf / 2);
-  for (const s of games) {
-    if (wins.includes(needed))
-      fail("Remove games played after the match was already won.");
-    if (
-      !Array.isArray(s) ||
-      s.length !== 2 ||
-      s.some((v) => !Number.isInteger(v) || v < 0 || v > t.cap)
-    )
-      fail(`Scores must be whole numbers from 0 to ${t.cap}.`);
-    const hi = Math.max(...s),
-      lo = Math.min(...s);
-    if (
-      t.goldenPoint
-        ? hi !== t.points || lo >= t.points
-        : hi === lo ||
-          hi < t.points ||
-          (hi < t.cap && hi - lo < 2) ||
-          (hi > t.points && hi < t.cap && hi - lo !== 2) ||
-          (hi === t.cap && lo < t.cap - 2)
-    )
-      fail(
-        `Invalid game ${s.join("–")}. ${t.goldenPoint ? `First to ${t.points}, golden point (no deuce).` : `Play to ${t.points}, win by two, capped at ${t.cap}.`}`,
-      );
-    wins[s[0] > s[1] ? 0 : 1]++;
-  }
-  if (!wins.includes(needed)) fail(`A player/team must win ${needed} game(s).`);
+  const { wins, complete } = gameTally(games, t);
+  if (!complete) fail(`A player/team must win ${Math.ceil(t.bestOf / 2)} game(s).`);
   return wins[0] > wins[1] ? 0 : 1;
 }
 function leagueQualifiers(s, t) {
@@ -223,6 +198,33 @@ function resetResult(m) {
   delete m.completedAt;
   delete m.correctedAt;
   delete m.scoring;
+}
+
+function replaceKnockoutBye(state, tournament, match, { side, teamId, players: names }, dependents) {
+  const reason = knockoutSlotLockReason(state, match, side, dependents);
+  if (reason) fail(reason);
+  if (!match.bye || match[side] || match[`${side}Source`]) fail("Choose an available bye.");
+  let entrant;
+  if (teamId) {
+    entrant = eligibleKnockoutTeams(state, tournament.id).find(team => team.id === teamId);
+    if (!entrant) fail(isKnockoutOnly(tournament) ? "Choose a team that has not entered the knockout draw." : "Choose a new team that has not played in the league or entered the knockout draw.");
+  } else {
+    const players = (Array.isArray(names) ? names : []).map(name => clean(name, 80)).filter(Boolean);
+    if (players.length !== tournament.size) fail(`Each ${tournament.name} entry needs exactly ${tournament.size} player(s).`);
+    const normalized = players.map(name => name.toLowerCase());
+    const categoryTeams = state.teams.filter(team => team.tournamentId === tournament.id);
+    if (new Set(normalized).size !== normalized.length || categoryTeams.some(team =>
+      team.players.some(name => normalized.includes(name.toLowerCase()))))
+      fail(isKnockoutOnly(tournament) ? "A player is already entered in this category." : "A player is already entered in this category. League-eliminated teams cannot re-enter the knockout draw.");
+    const seed = integer(Math.max(0, ...categoryTeams.map(team => team.seed)) + 1, 1, 10000, "Seed");
+    entrant = { id: id(), tournamentId: tournament.id, group: null, name: playerLabel(players), players, seed };
+    state.teams.push(entrant);
+  }
+  entrant.knockoutEntry = true;
+  match[side] = entrant.id;
+  match[`${side}Source`] = { teamId: entrant.id };
+  delete match.bye;
+  resetResult(match);
 }
 
 // Recompute in feeder order; retain results only while both opponents stay the same.
@@ -630,14 +632,14 @@ export function applyAction(previous, action, payload = {}) {
       fail("Complete every league match before creating the knockout bracket.");
     createDraw(s, t);
     reconcileDraw(s, t);
-  } else if (action === "swapKnockouts" || action === "fillKnockoutBye") {
+  } else if (["swapKnockouts", "fillKnockoutBye", "fillKnockoutByes"].includes(action)) {
     if (!t) fail("Tournament not found.");
     const fixtures = s.matches.filter(m => m.tournamentId === t.id && isKnockout(m));
     const first = fixtures.find(m => m.id === payload.matchId);
     const side = payload.side;
-    const reason = knockoutSlotLockReason(s, first, side);
-    if (reason) fail(reason);
     if (action === "swapKnockouts") {
+      const reason = knockoutSlotLockReason(s, first, side);
+      if (reason) fail(reason);
       const second = fixtures.find(m => m.id === payload.otherMatchId);
       const otherSide = payload.otherSide;
       const otherReason = knockoutSlotLockReason(s, second, otherSide);
@@ -649,28 +651,22 @@ export function applyAction(previous, action, payload = {}) {
       [first[side], second[otherSide]] = [second[otherSide], first[side]];
       first[`${side}Source`] = otherSource;
       second[`${otherSide}Source`] = source;
-    } else {
-      if (!first.bye || first[side] || first[`${side}Source`]) fail("Choose an available bye.");
-      let entrant;
-      if (payload.teamId) {
-        entrant = eligibleKnockoutTeams(s, t.id).find(team => team.id === payload.teamId);
-        if (!entrant) fail(isKnockoutOnly(t) ? "Choose a team that has not entered the knockout draw." : "Choose a new team that has not played in the league or entered the knockout draw.");
-      } else {
-        const players = (Array.isArray(payload.players) ? payload.players : []).map(p => clean(p, 80)).filter(Boolean);
-        if (players.length !== t.size) fail(`Each ${t.name} entry needs exactly ${t.size} player(s).`);
-        const normalized = players.map(p => p.toLowerCase());
-        if (new Set(normalized).size !== normalized.length || s.teams.some(team =>
-          team.tournamentId === t.id && team.players.some(p => normalized.includes(p.toLowerCase()))))
-          fail(isKnockoutOnly(t) ? "A player is already entered in this category." : "A player is already entered in this category. League-eliminated teams cannot re-enter the knockout draw.");
-        const seed = integer(Math.max(0, ...s.teams.filter(team => team.tournamentId === t.id).map(team => team.seed)) + 1, 1, 10000, "Seed");
-        entrant = { id: id(), tournamentId: t.id, group: null, name: playerLabel(players), players, seed, knockoutEntry: true };
-        s.teams.push(entrant);
+    } else if (action === "fillKnockoutBye") replaceKnockoutBye(s, t, first, payload);
+    else {
+      if (!isKnockoutOnly(t)) fail("Batch bye entry is available for knockout-only tournaments.");
+      const { entries } = payload;
+      if (!Array.isArray(entries) || !entries.length || entries.length > fixtures.length)
+        fail("Choose at least one available bye for the late teams.");
+      const byId = new Map(fixtures.map(match => [match.id, match]));
+      const dependents = knockoutDependents(fixtures);
+      for (const [index, entry] of entries.entries()) {
+        if (!entry || typeof entry !== "object") fail(`Late team ${index + 1}: Choose an available bye.`);
+        try {
+          replaceKnockoutBye(s, t, byId.get(entry.matchId), entry, dependents);
+        } catch (error) {
+          fail(`Late team ${index + 1}: ${error.message}`);
+        }
       }
-      entrant.knockoutEntry = true;
-      first[side] = entrant.id;
-      first[`${side}Source`] = { teamId: entrant.id };
-      delete first.bye;
-      resetResult(first);
     }
     reconcileDraw(s, t);
     // Editing the draw must never erase a played game or change an on-court fixture.

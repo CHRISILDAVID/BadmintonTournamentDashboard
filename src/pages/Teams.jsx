@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Plus, Upload, Pencil } from "lucide-react";
 import { groupName, time } from "../utils.js";
 
@@ -11,27 +11,43 @@ import { useDesk } from "../hooks/useDesk.jsx";
 import { Empty, Pill } from "../components/common.jsx";
 
 import { Button } from "../components/ui/button.jsx";
+import { NativeSelect } from "../components/ui/native-select.jsx";
 import SearchField from "../components/SearchField.jsx";
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
 function Teams() {
   const { state, filter, admin, busy, act, categorySelect, tournament, open, setPage, teamQuery: query, setTeamQuery: setQuery } = useDesk();
+  const [arrival, setArrival] = useState("all");
   const selectedTournament = state.tournaments.find((t) => t.id === filter);
   const showGroups = selectedTournament ? !isKnockoutOnly(selectedTournament) : state.tournaments.some(t => !isKnockoutOnly(t));
   const groupLock = selectedTournament ? groupEditLockReason(state, filter) : "";
-  const teams = state.teams.filter(
+  const categoryTeams = state.teams.filter(t => t.tournamentId && (filter === "all" || t.tournamentId === filter));
+  const matchingTeams = categoryTeams.filter(
     (t) =>
-      t.tournamentId && (filter === "all" || t.tournamentId === filter) &&
       `${t.name} ${t.players.join(" ")}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  const arrived = matchingTeams.filter(t => t.arrivedAt).length;
+  const teams = arrival === "all" ? matchingTeams : matchingTeams.filter(t => Boolean(t.arrivedAt) === (arrival === "arrived"));
+  const filtered = query || filter !== "all" || arrival !== "all";
+  const reset = () => {
+    setArrival("all");
+    setPage("Teams & players", { filter: "all", teamQuery: "" });
+  };
   return (
     <section className="panel teams-panel">
       <div className="toolbar teams-toolbar">
         <SearchField placeholder="Search teams or players…" value={query} onChange={setQuery}/>
         <label className="filter-control"><span className="control-label">Tournament</span>{categorySelect}</label>
+        <label className="filter-control"><span className="control-label">Arrival</span>
+          <NativeSelect aria-label="Filter by arrival" value={arrival} onChange={event => setArrival(event.target.value)}>
+            <option value="all">All teams ({matchingTeams.length})</option>
+            <option value="arrived">Arrived ({arrived})</option>
+            <option value="not-arrived">Not arrived ({matchingTeams.length - arrived})</option>
+          </NativeSelect>
+        </label>
         {showGroups && selectedTournament?.groups > 1 && (
           <Button variant="outline" className="btn" disabled={!!groupLock} title={groupLock || "Move or swap teams between groups"}
             onClick={() => open({ type: "groups", tournament: selectedTournament })}>
@@ -57,7 +73,7 @@ function Teams() {
           </>
         )}
       </div>
-      <div className="results-summary"><span role="status">{teams.length} of {state.teams.filter(t => t.tournamentId && (filter === "all" || t.tournamentId === filter)).length} teams{query && <> · Search: “{query}”</>}</span>{(query || filter !== "all") && <Button variant="ghost" onClick={() => setPage("Teams & players", { filter: "all", teamQuery: "" })}>Reset filters</Button>}</div>
+      <div className="results-summary"><span role="status">{teams.length} of {categoryTeams.length} teams{query && <> · Search: “{query}”</>}</span>{filtered && <Button variant="ghost" onClick={reset}>Reset filters</Button>}</div>
       {showGroups && selectedTournament?.groups > 1 && <p className="group-edit-hint">
         {groupLock || "Select teams in Edit groups to move or swap them. Editing locks after the first completed match."}
       </p>}
@@ -133,8 +149,8 @@ function Teams() {
           </Table>
         </div>
       ) : (
-        <Empty title={query || filter !== "all" ? "No teams found" : "Make room for your competitors"} action={(query || filter !== "all") && <Button variant="outline" onClick={() => setPage("Teams & players", { filter: "all", teamQuery: "" })}>Reset filters</Button>}>
-          {query || filter !== "all" ? "Try another player name or reset your tournament filter." : "Create a tournament, then add teams manually or import a CSV / Excel workbook."}
+        <Empty title={filtered ? "No teams found" : "Make room for your competitors"} action={filtered && <Button variant="outline" onClick={reset}>Reset filters</Button>}>
+          {filtered ? "Try another player name or change your filters." : "Create a tournament, then add teams manually or import a CSV / Excel workbook."}
         </Empty>
       )}
     </section>
