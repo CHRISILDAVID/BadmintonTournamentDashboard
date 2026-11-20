@@ -11,15 +11,7 @@ export function knockoutSource(matches, match, side) {
   return { matchId: feeder?.id, label: `Winner of ${feeder?.stage} ${(feeder?.index ?? 0) + 1}` };
 }
 
-export function knockoutSlotLockReason(state, match, side) {
-  if (!match || !isKnockout(match) || !["a", "b"].includes(side)) return "Choose a knockout place.";
-  if (match.status === "live") return "Return this match to waiting before editing its teams.";
-  if (!match.bye) {
-    if (match.status === "completed") return "Completed games are locked.";
-    return match[side] ? "" : "Awaiting a winner from an earlier game.";
-  }
-  if (match[side] || match[`${side}Source`]) return "This team has advanced by bye. Select it in its next unplayed game.";
-  const fixtures = state.matches.filter(m => m.tournamentId === match.tournamentId && isKnockout(m));
+export function knockoutDependents(fixtures) {
   const positions = new Map(fixtures.map(m => [`${m.round}:${m.index}`, m.id]));
   const dependents = new Map();
   for (const fixture of fixtures) {
@@ -32,6 +24,18 @@ export function knockoutSlotLockReason(state, match, side) {
       dependents.get(feederId).push(fixture);
     }
   }
+  return dependents;
+}
+
+export function knockoutSlotLockReason(state, match, side, dependents) {
+  if (!match || !isKnockout(match) || !["a", "b"].includes(side)) return "Choose a knockout place.";
+  if (match.status === "live") return "Return this match to waiting before editing its teams.";
+  if (!match.bye) {
+    if (match.status === "completed") return "Completed games are locked.";
+    return match[side] ? "" : "Awaiting a winner from an earlier game.";
+  }
+  if (match[side] || match[`${side}Source`]) return "This team has advanced by bye. Select it in its next unplayed game.";
+  dependents ??= knockoutDependents(state.matches.filter(m => m.tournamentId === match.tournamentId && isKnockout(m)));
   const affected = new Set([match.id]), queue = [match.id];
   for (let index = 0; index < queue.length; index++) {
     for (const fixture of dependents.get(queue[index]) || []) {

@@ -1,4 +1,5 @@
 import React from "react";
+import { CircleCheck } from "lucide-react";
 
 import { groupName, time } from "../utils.js";
 
@@ -38,9 +39,17 @@ function MatchTable({ matches, history = false, onScore }) {
             <TableRow key={m.id} data-match-status={m.status}>
               <TableCell>
                 <strong className="match-opponents">
-                  <span>{team(m.a)?.name || pendingOpponent(m, "a")}</span>{" "}
-                  <span className="versus">vs</span>{" "}
-                  <span>{team(m.b)?.name || pendingOpponent(m, "b")}</span>
+                  {["a", "b"].map(side => {
+                    const opponent = team(m[side]);
+                    return <React.Fragment key={side}>
+                      {side === "b" && <>{" "}<span className="versus">vs</span>{" "}</>}
+                      <span>{opponent?.name || pendingOpponent(m, side)}
+                        {!history && opponent?.arrivedAt && <span className="match-arrived-icon" role="img" aria-label="Arrived" title="Arrived">
+                          <CircleCheck size={14} aria-hidden="true"/>
+                        </span>}
+                      </span>
+                    </React.Fragment>;
+                  })}
                 </strong>
                 <small>{matchCategory(m, tournament(m.tournamentId))}</small>
               </TableCell>

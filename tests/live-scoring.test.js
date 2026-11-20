@@ -37,3 +37,40 @@ test("pause timing and wrong team checks do not mutate previous state", () => {
   assert.equal(elapsedSeconds(resumed, 13000), 7);
   assert.deepEqual(s.points, [0, 0]);
 });
+
+test("a completed game correction preserves current points and later undo", () => {
+  let s = newScore(match, { points: 5, cap: 6, bestOf: 3 });
+  for (const teamId of [match.a, match.a, match.a, match.a, match.a, match.b, match.b])
+    s = reduceScore(s, { type: "point", teamId });
+  const correction = { type: "correctGame", gameIndex: 0 };
+  assert.throws(() => reduceScore(s, { ...correction, score: [4, 4] }), /Invalid game/);
+  assert.throws(() => reduceScore(s, { ...correction, score: [2, 5] }), /Confirm the change/);
+  s = reduceScore(s, { ...correction, score: [5, 2] });
+  assert.deepEqual(s.points, [0, 2]);
+  assert.deepEqual(s.wins, [1, 0]);
+  s = reduceScore(s, { ...correction, score: [2, 5], confirmWinnerChange: true });
+  assert.deepEqual(s.wins, [0, 1]);
+  s = reduceScore(s, { type: "undo" });
+  assert.deepEqual(s.games, [[2, 5]]);
+  assert.deepEqual(s.points, [0, 1]);
+  s = reduceScore(s, { type: "undo" });
+  assert.deepEqual(s.points, [0, 0]);
+  assert.throws(() => reduceScore(s, { type: "undo" }), /No point to undo/);
+});
+
+test("winner corrections recalculate completion without discarding a game underway", () => {
+  const rules = { points: 5, cap: 6, bestOf: 3 };
+  let s = newScore(match, rules);
+  for (const teamId of [...Array(5).fill(match.a), ...Array(5).fill(match.b)])
+    s = reduceScore(s, { type: "point", teamId });
+  const correction = { type: "correctGame", gameIndex: 0, score: [0, 5], confirmWinnerChange: true };
+  const thirdGame = reduceScore(s, { type: "point", teamId: match.a });
+  assert.throws(() => reduceScore(thirdGame, correction), /Undo its points/);
+  const complete = reduceScore(s, correction);
+  assert.equal(complete.complete, true);
+  assert.deepEqual(complete.wins, [0, 2]);
+  s = reduceScore(complete, { ...correction, score: [5, 0] });
+  assert.equal(s.complete, false);
+  assert.deepEqual(s.points, [0, 0]);
+  assert.deepEqual(s.wins, [1, 1]);
+});

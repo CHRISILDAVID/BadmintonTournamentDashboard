@@ -1,15 +1,27 @@
 .venue-layout-area { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; }
+.vb-display-content { display:flex; flex-direction:column; flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; }
+.vb-display-content::-webkit-scrollbar { display:none; }
+.vb-display-content.has-shared-scores { gap:12px; }
+.vb-display-content.has-shared-scores > .venue-shared-live { flex-shrink:0; }
+.vb-display-content.has-shared-scores > .venue-layout-area { flex:0 0 100%; }
+/* Let the outer viewport scroll the scores away before the bracket takes over. */
+.vb-display-content.scores-in-view .vb-bracket-page { overflow-y:hidden; }
 .venue-live-settings { display:flex; flex-wrap:wrap; gap:8px 16px; padding:8px 12px; border:1px dashed #27946f; border-radius:8px; background:#eaf4ee; }
 .venue-live-settings label { display:flex; align-items:center; gap:8px; min-width:0; font-size:12px; }
 .venue-live-settings select { max-width:100%; font-size:12px; }
-.venue-shared-live { display:flex; flex-direction:column; flex:0 1 auto; min-height:140px; max-height:38dvh; overflow:hidden; border:1px solid #c6d9cd; border-radius:10px; background:white; }
+.venue-live-strip { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+.venue-widget-live { height:100%; }
+.venue-shared-live { flex:0 1 auto; max-height:min(34dvh, 195px); border:1px solid #c6d9cd; border-radius:10px; background:white; }
+.venue-shared-live.wrap { max-height:34dvh; }
 .venue-shared-live .venue-widget-heading h3 { font-size:18px; }
 .venue-shared-live h3 small { margin-left:10px; font-size:11px; font-weight:400; color:#61786b; }
-.venue-shared-live-scroll { min-height:0; overflow:auto; padding:10px; overscroll-behavior:contain; }
-.venue-shared-live.horizontal .live-score-list { display:flex; align-items:stretch; gap:12px; }
-.venue-shared-live.horizontal .live-score-card { flex:0 0 clamp(300px,32vw,420px); min-width:0; max-width:100%; box-sizing:border-box; }
-.venue-shared-live.wrap .live-score-list { grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr)); }
-.venue-shared-live.wrap .live-score-card { max-width:420px; }
+.venue-shared-live-scroll { min-height:0; overflow:auto; padding:6px 10px; overscroll-behavior-x:contain; }
+.venue-shared-live-scroll.vb-scroll { scrollbar-width:none; }
+.venue-shared-live-scroll::-webkit-scrollbar { display:none; }
+.venue-live-strip.horizontal .live-score-list { display:flex; align-items:stretch; }
+.venue-live-strip.horizontal .live-score-card { flex:0 0 calc((100% - 16px) / 3); }
+.venue-live-strip.wrap .live-score-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.venue-live-arrows { display:flex; justify-content:flex-end; gap:4px; flex-shrink:0; }
 .venue-grid-viewport { width:100%; min-height:0; flex:1; overflow:hidden; padding:2px; }
 .venue-layout-area.is-editing .venue-grid-viewport { overflow-y:auto; }
 .venue-grid-panel { display:flex; flex-direction:column; min-width:0; min-height:0; }
@@ -40,7 +52,6 @@
 
 }
 @media (max-width:767px) {
-  .venue-shared-live.horizontal .live-score-card { flex-basis:min(100%,360px); }
   .venue-board { padding:10px; gap:10px; }
   .vb-toolbar { flex-wrap:nowrap; gap:4px; }
   .vb-selectors { flex:1; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin; gap:8px; padding-bottom:2px; }

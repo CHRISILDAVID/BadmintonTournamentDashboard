@@ -11,5 +11,10 @@
 .ko-new-team { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:12px; padding:12px; border:1px solid var(--line); border-radius:8px; }
 .ko-new-team legend { padding:0 5px; font-weight:600; }
 .ko-new-team .help-text { grid-column:1 / -1; margin:0; }
+.ko-batch-title { margin:0; font-size:18px; font-weight:700; }
+.ko-batch-tools { display:flex; align-items:center; }
+.ko-batch-preview { grid-column:1 / -1; padding:8px 10px; border-radius:6px; background:#edf5ef; color:#234b3a; overflow-wrap:anywhere; }
+.ko-batch-preview p { margin:4px 0 0; font-size:13px; }
+.ko-batch-remove { justify-self:start; }
 .ko-edit-summary p { margin:0; overflow-wrap:anywhere; }
 .knockout-editor .modal-actions { flex-wrap:wrap; margin-top:0; }

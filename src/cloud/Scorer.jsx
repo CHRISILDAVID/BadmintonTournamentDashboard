@@ -5,8 +5,9 @@ import { liveStore, subscribeCloud, contact, refreshLive } from "./connection.js
 import { reduceScore, elapsedSeconds } from "../../shared/live-scoring.js";
 import { scoringRules, scoringLabel } from "../../shared/format.js";
 import { matchCategory, matchStageLabel } from "../../shared/matches.js";
+import GameScoreCorrection from "./GameScoreCorrection.jsx";
 
-export default function Scorer({ match, teams, category, onClose, returnLabel = "Matches" }) {
+export default function Scorer({ match, teams, category, onClose, onResultRecorded, returnLabel = "Matches" }) {
   const session = currentSession(), key = `${namespace(session)}:match:${match.id}`;
   const [swapped, setSwapped] = useState(() => {
     try { return sessionStorage.getItem(`${key}:swapped`) === "true"; } catch { return false; }
@@ -20,6 +21,7 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
   const [busy, setBusy] = useState(false), [, tick] = useState(0);
   const [offlineReady, setOfflineReady] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [editingGame, setEditingGame] = useState(null);
   const { connected } = useStore(liveStore);
   const remote = useStore(liveStore, state => state.records[match.id]);
   const controlledElsewhere = remote?.control === "other";
@@ -50,6 +52,11 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
           let optimistic = response.record.score;
           for (const a of pending) optimistic = reduceScore(optimistic, a, a.clientTime);
           await commit({ ...ref.current, base: response.record, pending, optimistic });
+          if (action.type === "confirm" && response.record.score.confirmed && !pending.length &&
+            alive.current && currentSession()?.sessionId === session.sessionId) {
+            onResultRecorded();
+            return;
+          }
         } finally { editing.current = false; }
       }
       if (alive.current && !ref.current?.conflict) setError("");
@@ -113,17 +120,18 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
       setError(""); contact(base, device);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
-  const tap = async (type, teamId) => {
+  const tap = async (type, payload = {}) => {
     if (!ref.current || editing.current || releasing || ref.current.conflict) return;
     editing.current = true; setBusy(true);
     try {
       const r = ref.current;
       const action = { id: crypto.randomUUID(), eventId: session.eventId, matchId: match.id,
         generation: r.base.generation, device: r.device, seq: r.base.seq + r.pending.length + 1,
-        revision: r.base.revision + r.pending.length, type, ...(teamId ? { teamId } : {}), clientTime: Date.now() };
+        revision: r.base.revision + r.pending.length, type, ...payload, clientTime: Date.now() };
       const optimistic = reduceScore(r.optimistic, action, action.clientTime);
       await commit({ ...r, pending: [...r.pending, action], optimistic });
       setError("");
+      return true;
     } catch (e) { setError(e.message); }
     finally { editing.current = false; setBusy(false); flush(); }
   };
@@ -146,26 +154,41 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
     finally { setBusy(false); setReleasing(false); }
   };
   const s = record?.optimistic, pending = record?.pending.length || 0, elapsed = s ? elapsedSeconds(s) : 0;
+  const sides = swapped ? [1, 0] : [0, 1];
+  const score = s?.complete ? s.games.at(-1) : s?.points;
+  const teamName = side => teams.find(team => team.id === s?.teams[side])?.name || "Team";
   const canRelease = remote?.control === "yours" && !remote.invalidated && !s?.confirmed && (!record || record.base.generation === remote.generation);
   return <section className="scorer" aria-label="Point by point scorer">
-    <header><button onClick={onClose}>← {returnLabel}</button><span>Court {match.court} · {matchCategory(match, category)}</span><small>Match {match.id.slice(0, 8)}</small></header>
-    <div className={`score-status ${!connected || pending ? "pending" : ""}`} role="status">
-      <span><small>Connection</small>{!connected ? "OFFLINE / CONNECTION UNAVAILABLE" : "Connected"}</span>
-      <span><small>Saved work</small>{pending} pending</span>
-      <span><small>Scoring</small>{!s ? "Control not claimed" : s.confirmed ? pending ? "Result pending sync" : "Result confirmed" : s.paused ? "Paused" : "Playing"}</span>
+    <div className="score-sticky-header">
+      <header><button onClick={onClose}>← {returnLabel}</button><span>Court {match.court} · {matchCategory(match, category)}</span><small>Match {match.id.slice(0, 8)}</small></header>
+      <div className={`score-status ${!connected || pending ? "pending" : ""}`} role="status">
+        <span><small>Connection</small>{!connected ? "OFFLINE / CONNECTION UNAVAILABLE" : "Connected"}</span>
+        <span><small>Saved work</small>{pending} pending</span>
+        <span><small>Scoring</small>{!s ? "Control not claimed" : s.confirmed ? pending ? "Result pending sync" : "Result confirmed" : s.paused ? "Paused" : "Playing"}</span>
+      </div>
+      {s && <>
+        <div className="score-compact" aria-label="Current score">{sides.map(side =>
+          <div key={side}><span title={teamName(side)}>{teamName(side)}</span><strong>{score?.[side]}</strong></div>
+        )}</div>
+        <div className="score-games score-game-strip">
+          <strong>{s.complete ? "Match complete" : `Game ${s.games.length + 1} of ${s.rules.bestOf}`}</strong>
+          {s.games.map((game, index) => <button type="button" key={index} className="score-game-chip" aria-label={`Correct Game ${index + 1} score`}
+            disabled={s.confirmed || busy || !locked || !!record.conflict} onClick={() => { setError(""); setEditingGame(index); }}>
+            Game {index + 1} · {sides.map(side => game[side]).join("–")} <span aria-hidden="true">✎</span>
+          </button>)}
+        </div>
+      </>}
     </div>
     <small>{offlineReady ? "Offline shell prepared on this browser" : "Preparing offline shell — keep internet connected"}</small>
     {error && <p role="alert" className="score-error">{error}</p>}
     {!s ? <div className="score-start"><h2>{controlledElsewhere ? "Scoring in progress" : "Ready to score"}</h2><div className="claim-opponents"><strong>{teams.find(t => t.id === match.a)?.name}</strong><span>vs</span><strong>{teams.find(t => t.id === match.b)?.name}</strong></div><p>{matchStageLabel(match)} · {scoringLabel(scoringRules(category, match.stage, match))}</p><p>{controlledElsewhere ? "Another umpire controls this match. Ask an organizer if control needs to be transferred." : "Check the opponents and court, then claim this match while connected. Keep this tab for the whole match."}</p><button disabled={!locked || busy || !connected || controlledElsewhere} onClick={claim}>{busy ? "Claiming control…" : "Claim scoring control"}</button></div> : <>
-      <div className="score-meta">Game {Math.min(s.games.length + 1, s.rules.bestOf)} · First to {s.rules.points} · {s.rules.goldenPoint ? "Golden point" : `Win by two, cap ${s.rules.cap}`}<b>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</b></div>
-      <div className="score-teams">{(swapped ? [1, 0] : [0, 1]).map(side => { const id = s.teams[side]; return <div className="score-team" key={id}>
-        <h2>{teams.find(t => t.id === id)?.name || "Team"}</h2><strong>{s.complete ? s.games.at(-1)?.[side] : s.points[side]}</strong>
-        <span>{s.wins[side]} games won</span><button aria-label={`Point for ${teams.find(t => t.id === id)?.name}`} disabled={busy || !locked || !!record.conflict || s.paused || s.complete || s.confirmed} onClick={() => tap("point", id)}>+ Point</button>
+      <div className="score-meta">First to {s.rules.points} · {s.rules.goldenPoint ? "Golden point" : `Win by two, cap ${s.rules.cap}`}<b>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</b></div>
+      <div className="score-teams">{sides.map(side => { const id = s.teams[side]; return <div className="score-team" key={id}>
+        <h2>{teams.find(t => t.id === id)?.name || "Team"}</h2><strong>{score?.[side]}</strong>
+        <span>{s.wins[side]} games won</span><button aria-label={`Point for ${teams.find(t => t.id === id)?.name}`} disabled={busy || !locked || !!record.conflict || s.paused || s.complete || s.confirmed} onClick={() => tap("point", { teamId: id })}>+ Point</button>
       </div>; })}</div>
       <div className="score-controls"><button type="button" aria-pressed={swapped} onClick={swapSides}>Swap sides</button><span>Changes team positions on this screen only.</span></div>
       <div className="score-controls"><button disabled={busy || !!record.conflict || !s.undo.length || s.confirmed} onClick={() => tap("undo")}>Undo point</button><button disabled={busy || !!record.conflict || s.complete || s.confirmed} onClick={() => tap(s.paused ? "resume" : "pause")}>{s.paused ? "Resume" : "Pause"}</button><button disabled={!pending || busy} onClick={flush}>Sync now</button></div>
-      <p className="score-games">Previous games: {s.games.map(g => (swapped ? [...g].reverse() : g).join("–")).join(" / ") || "None yet"}</p>
-      {s.complete && !s.confirmed && <button className="confirm-result" disabled={busy || !!record.conflict} onClick={() => tap("confirm")}>Confirm final result</button>}
       {record.conflict && <><p>Pending work is preserved. Ask the organizer to review it before restarting.</p><button onClick={() => {
         const blob = new Blob([JSON.stringify(record, null, 2)], { type: "application/json" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `pending-${match.id}.json`; a.click(); URL.revokeObjectURL(a.href);
@@ -176,5 +199,10 @@ export default function Scorer({ match, teams, category, onClose, returnLabel = 
       <button disabled={busy || !locked || !connected || pending > 0 || !!record?.conflict} onClick={() => releaseMatch(true)}>Undo start and free court</button>
       <span>{s ? "Release control to keep accepted points, or undo the start to reset scoring and move courts." : "Started by mistake? Return this game to Upcoming so another umpire can start it on a free court."}</span>
     </div>}
+    {s?.complete && !s.confirmed && <div className="score-final-action">
+      <button className="confirm-result" disabled={busy || !!record.conflict} onClick={() => tap("confirm")}>Confirm final result</button>
+    </div>}
+    {editingGame !== null && s?.games[editingGame] && <GameScoreCorrection score={s} gameIndex={editingGame} sides={sides}
+      teamName={teamName} busy={busy} blocked={!!record.conflict} error={error} save={patch => tap("correctGame", patch)} close={() => setEditingGame(null)}/>}
   </section>;
 }

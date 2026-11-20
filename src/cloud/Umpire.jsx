@@ -13,7 +13,7 @@ import { Toaster } from "../components/ui/sonner.jsx";
 import DeskNavigation from "../components/DeskNavigation.jsx";
 import useScorerReturn from "../hooks/useScorerReturn.js";
 
-export default function Umpire() {
+export default function Umpire({ onResultRecorded }) {
   const { state, page, modal, error, busy, setModal, setError } = useDesk();
   const { connected } = useStore(liveStore);
   // Retain the fixture and pending work through finalization and controller changes.
@@ -27,7 +27,11 @@ export default function Umpire() {
       .then(rows => setPending(rows.filter(r => r.prepared && (r.pending.length || r.conflict))))
       .catch(e => setStorageError(e.message));
   }, [prepared, state]);
-  if (prepared) return <Scorer key={prepared.match.id} {...prepared} returnLabel={page === "History" ? "Match history" : page} onClose={() => setPrepared(null)}/>;
+  if (prepared) return <Scorer key={prepared.match.id} {...prepared} returnLabel={page === "History" ? "Match history" : page}
+    onClose={() => setPrepared(null)} onResultRecorded={() => {
+      setPrepared(null);
+      onResultRecorded();
+    }}/>;
   const titles = { match: "Match desk", returnMatch: "Return this match to waiting?" };
   return <main className="umpire-desk">
     <a className="skip-link" href="#umpire-content">Skip to matches and standings</a>

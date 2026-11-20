@@ -1,5 +1,7 @@
 // Pure reducer shared by the phone and the authoritative event coordinator.
 // Points are attributed to team IDs, never player labels.
+import { gameTally, gameWinner } from "./game-scores.js";
+
 export function newScore(match, rules, now = Date.now()) {
   return { matchId: match.id, teams: [match.a, match.b], rules: structuredClone(rules),
     points: [0, 0], games: [], wins: [0, 0], undo: [], paused: false,
@@ -21,6 +23,24 @@ export function reduceScore(previous, action, now = Date.now()) {
       s.games.push([...s.points]); s.wins[side]++; s.points = [0, 0];
       s.complete = s.wins[side] >= Math.ceil(r.bestOf / 2);
     }
+  } else if (action.type === "correctGame") {
+    const { gameIndex, score } = action;
+    if (!Number.isInteger(gameIndex) || gameIndex < 0 || gameIndex >= s.games.length)
+      fail("Choose a completed game to correct.");
+    const winner = gameWinner(score, s.rules);
+    if (winner !== gameWinner(s.games[gameIndex], s.rules) && action.confirmWinnerChange !== true)
+      fail("Confirm the change of game winner.");
+    const replace = games => games.map((game, index) => index === gameIndex ? [...score] : game);
+    const games = replace(s.games);
+    const { wins, complete } = gameTally(games, s.rules);
+    if (complete && s.points.some(Boolean))
+      fail("This correction would end the match before the current game. Undo its points before saving the correction.");
+    // Keep undo for later points using the corrected score. Earlier point history no longer matches the game.
+    s.undo = s.undo.filter(prior => prior.games.length > gameIndex).map(prior => {
+      const games = replace(prior.games);
+      return { ...prior, games, ...gameTally(games, s.rules) };
+    });
+    Object.assign(s, { games, wins, complete });
   } else if (action.type === "undo") {
     const prior = s.undo.pop();
     if (!prior) fail("No point to undo.");

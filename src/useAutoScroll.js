@@ -88,7 +88,7 @@ export default function useAutoScroll(rootRef, enabled = true) {
     };
     collect();
     const observer = new MutationObserver(collect);
-    observer.observe(root, { childList: true, subtree: true });
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-auto-scroll"] });
     const interactions = [
       "pointerdown",
       "touchstart",

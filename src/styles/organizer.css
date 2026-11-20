@@ -1,9 +1,4 @@
 /* Organizer layouts and court/bracket details. Shared controls use components/ui and theme.css. */
-.point-scoring-toolbar { align-items:stretch; }
-.point-scoring-toolbar > span { align-self:center; }
-.point-scoring-toolbar .point-scoring-match { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; height:auto; min-height:48px; max-width:100%; white-space:normal; text-align:left; gap:3px; }
-.point-scoring-match strong { overflow-wrap:anywhere; }
-.point-scoring-match small { font-size:11px; color:#527061; }
 .match-action-buttons { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
 .match-foot { flex-wrap:wrap; gap:6px; }
 @layer components {
@@ -856,12 +851,27 @@ td small {
   padding: 20px;
 }
 .bracket {
-  display: flex;
-  gap: 28px;
   overflow: auto;
   padding: 28px 0;
 }
+.bracket-canvas {
+  position: relative;
+  display: flex;
+  gap: 28px;
+  width: max-content;
+  padding: 0 14px 18px;
+}
+.bracket-connectors {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.bracket-connectors path { fill: none; stroke: #668575; stroke-width: 1.5px; }
+.bracket-connectors path.advanced { stroke: #27805c; stroke-width: 2px; }
 .bracket-round {
+  position: relative;
   flex: 0 0 280px;
   display: flex;
   flex-direction: column;

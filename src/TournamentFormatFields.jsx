@@ -13,14 +13,21 @@ import {
   tournamentFormats,
 } from "../shared/format.js";
 import { Button } from "./components/ui/button.jsx";
+import { scoreText } from "./scores.js";
 import "./tournament-format.css";
 
 export function RuleFields({ title, value, change }) {
   const update = (key, input) => {
     const next = { ...value, [key]: input };
     if (next.goldenPoint) next.cap = next.points;
-    else if (next.cap <= next.points) next.cap = Math.max(30, next.points + 1);
+    else if ((key === "points" || key === "goldenPoint") && next.cap !== "" &&
+      next.points >= 5 && next.points <= 50 && next.cap <= next.points)
+      next.cap = Math.max(30, next.points + 1);
     change(next);
+  };
+  const updateNumber = (key, raw) => {
+    const text = scoreText(raw);
+    if (text !== null) update(key, text === "" ? "" : Number(text));
   };
   return (
     <fieldset className="stage-scoring">
@@ -48,8 +55,8 @@ export function RuleFields({ title, value, change }) {
             min="5"
             max="50"
             required
-            value={value.points}
-            onChange={(e) => update("points", +e.target.value)}
+            value={String(value.points)}
+            onChange={(e) => updateNumber("points", e.target.value)}
           />
         </label>
         <label className="field">
@@ -70,16 +77,16 @@ export function RuleFields({ title, value, change }) {
           <Input
             aria-label={`${title} score cap`}
             type="number"
-            min={value.points + 1}
+            min={value.points === "" ? undefined : value.points + 1}
             max="60"
             required
-            value={value.cap}
-            onChange={(e) => update("cap", +e.target.value)}
+            value={String(value.cap)}
+            onChange={(e) => updateNumber("cap", e.target.value)}
           />
         </label>
       )}
       <p className="help-text">
-        {value.goldenPoint
+        {value.points === "" || value.cap === "" ? "Enter the scoring values to review the finish rule." : value.goldenPoint
           ? `At ${value.points - 1}–${value.points - 1}, the next point wins. Play stops at ${value.points}.`
           : `Win by two from ${value.points}; at ${value.cap - 1}–${value.cap - 1}, the next point wins.`}
       </p>
@@ -101,7 +108,10 @@ export function StageScoringFields({ form, setForm }) {
       <Button type="button" variant="outline" onClick={() => setForm(current => ({ ...current, scoring: Object.fromEntries(stages.map(([key]) => [key, { ...scoringRules(current) }])) }))}>Use league rules for every stage</Button>
     </>}
     {stages.map(([key, title]) => <RuleFields key={key} title={title} value={scoring[key]} change={value => setForm(current => ({ ...current, scoring: { ...scoring, ...current.scoring, [key]: value } }))}/>)}
-    <div className="format-preview" aria-label="Scoring summary"><div><strong>Review scoring</strong>{stages.map(([key, title]) => <span key={key}>{title}: {scoringLabel(scoring[key])}</span>)}</div></div>
+    <div className="format-preview" aria-label="Scoring summary"><div><strong>Review scoring</strong>{stages.map(([key, title]) => {
+      const rules = scoring[key];
+      return <span key={key}>{title}: {rules.points === "" || rules.cap === "" ? "Enter the scoring values" : scoringLabel(rules)}</span>;
+    })}</div></div>
   </>;
 }
 

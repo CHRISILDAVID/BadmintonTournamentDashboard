@@ -1,6 +1,6 @@
 import { Toaster } from "./components/ui/sonner.jsx";
 import { toast } from "sonner";
-import React, { Suspense, lazy, useEffect, useRef } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { Plus, ChevronRight } from "lucide-react";
 
 const VenueBoard = lazy(() => import("./VenueBoard.jsx"));
@@ -36,16 +36,17 @@ import Scorer from "./cloud/Scorer.jsx";
 import { isKnockoutOnly } from "../shared/format.js";
 import "./styles/match-day.css";
 
-function MatchScorer({ match, teams, category, onClose, returnLabel }) {
+function MatchScorer({ match, teams, category, onClose, onResultRecorded, returnLabel }) {
   // Keep the prepared fixture available through result confirmation.
   const [prepared] = React.useState(() => ({ match, teams, category }));
-  return <Scorer {...prepared} onClose={onClose} returnLabel={returnLabel}/>;
+  return <Scorer {...prepared} onClose={onClose} onResultRecorded={onResultRecorded} returnLabel={returnLabel}/>;
 }
 function App() {
   const { state, page, filter, modal, error, notice, connected, busy, admin, display, readyMatches, act, open, setPage, setFilter, setModal, setError, setNotice } = useDesk();
   useEffect(() => tournamentStore.getState().connect(), []);
   useEffect(() => organizerStore.getState().connectNavigation(), []);
   const heading = useRef(null);
+  const [resultRecorded, setResultRecorded] = useState(false);
   useScorerReturn(modal?.type === "scorer");
   useEffect(() => {
     document.querySelector("nav [aria-current='page']")?.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -61,17 +62,26 @@ function App() {
   }, [state, page, filter, setFilter]);
   useEffect(() => { if (notice) toast.success(notice); }, [notice]);
   useEffect(() => {
+    if (!resultRecorded) return;
+    toast.success("Result recorded");
+    setResultRecorded(false);
+  }, [resultRecorded]);
+  useEffect(() => {
     if (error && !modal) toast.error(error, { id: "desk-error", onDismiss: () => setError("") });
     else toast.dismiss("desk-error");
   }, [error, modal, setError]);
   if (!state && !error) return <StartupLoading/>;
   if (!state) return <div className="loading"><Logo/><p role="alert">{error}</p><Button variant="ghost" onClick={() => location.reload()}>Reconnect</Button></div>;
   if (display) return <Suspense fallback={<StartupLoading/>}><VenueBoard state={state} upcoming={readyMatches} connected={connected}/></Suspense>;
+  const onResultRecorded = () => {
+    setPage("Matches");
+    setResultRecorded(true);
+  };
   if (modal?.type === "scorer") {
     const match = state.matches.find(m => m.id === modal.matchId);
-    if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} returnLabel={page === "History" ? "Match history" : page} onClose={() => setModal(null)}/>;
+    if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} returnLabel={page === "History" ? "Match history" : page} onClose={() => setModal(null)} onResultRecorded={onResultRecorded}/>;
   }
-  if (currentSession()?.role === "umpire") return <Umpire/>;
+  if (currentSession()?.role === "umpire") return <Umpire onResultRecorded={onResultRecorded}/>;
   const titles = {
     Overview: "Match day",
     Tournaments: "Your tournaments",

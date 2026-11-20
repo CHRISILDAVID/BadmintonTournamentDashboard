@@ -8,6 +8,7 @@ import { isKnockout } from "../../shared/knockouts.js";
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty } from "../components/common.jsx";
 import MatchCard from "../components/MatchCard.jsx";
+import StandingsBracket from "../components/StandingsBracket.jsx";
 
 import StageActions from "../components/StageActions.jsx";
 
@@ -36,11 +37,6 @@ function Standings() {
           const matches = state.matches.filter(m => m.tournamentId === t.id);
           const playoffs = matches.filter(m => m.stage === PLAYOFF_STAGE);
           const knockouts = matches.filter(isKnockout);
-          const rounds = new Map();
-          for (const match of knockouts) {
-            if (!rounds.has(match.round)) rounds.set(match.round, []);
-            rounds.get(match.round).push(match);
-          }
           return <section key={t.id} id={`standings-${t.id}`} className="standing-section">
             <div className="section-heading">
               <h2>{t.name}</h2>
@@ -114,16 +110,7 @@ function Standings() {
               <h3>Qualification playoffs</h3><p className="muted">{scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Winners fill the named knockout slots.</p>
               <div className="organizer-playoff-groups">{Array.from({ length: t.groups }, (_, g) => g).map(g => <div key={g}><h4>{groupName(g)}</h4>{playoffs.filter(m => m.group === g).map(m => <MatchCard key={m.id} m={m} compact/>)}</div>)}</div>
             </section>}
-            {!!knockouts.length && (
-              <div className="bracket" id={`bracket-${t.id}`} tabIndex={0} aria-label={`${t.name} knockout bracket; scroll for all rounds`}>
-                {[...rounds].sort(([a], [b]) => a - b).map(([round, fixtures]) => (
-                  <div className="bracket-round" key={round}>
-                    <h3>{fixtures[0].stage}</h3>
-                    <div>{fixtures.map(m => <MatchCard key={m.id} m={m} compact/>)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {!!knockouts.length && <StandingsBracket tournament={t} matches={knockouts}/>}
           </section>;
         })
       ) : (

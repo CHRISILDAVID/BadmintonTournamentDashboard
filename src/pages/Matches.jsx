@@ -61,6 +61,18 @@ function Matches({ history = false, onScore }) {
   };
   return (
     <section className="panel matches-panel">
+      {!history && scoringMatches.length > 0 && <section className="point-scoring-strip" aria-labelledby="on-court-heading">
+        <h2 id="on-court-heading">On court <span>{scoringMatches.length}</span></h2>
+        <div className="point-scoring-toolbar">{scoringMatches.map(match => {
+          const opponents = `${team(match.a)?.name} vs ${team(match.b)?.name}`;
+          return <article className="point-scoring-card" key={match.id}>
+            <small>Court {match.court}</small>
+            <strong>{opponents}</strong>
+            <Button variant="outline" size="sm" className="point-scoring-match" aria-label={`Open scorer for ${opponents}`}
+              onClick={() => openScorer(match)}>Open scorer</Button>
+          </article>;
+        })}</div>
+      </section>}
       <div className="toolbar match-filters" id="match-filters" tabIndex={-1}>
         <SearchField label="Search players" placeholder="Type a player or team name…" value={query} onChange={setQuery}/>
         <label className="filter-control"><span className="control-label">Tournament</span>{categorySelect}</label>
@@ -107,13 +119,6 @@ function Matches({ history = false, onScore }) {
       </div>
       {!history && <StageActions />}
       {!history && matchOrder === "arrival" && <details className="arrival-explainer"><summary>How arrival priority works</summary><p>Ready matches come first when both teams have arrived and their players are free. The longest-waiting team gets priority; each team's wait restarts after a completed match. Umpires can still choose any eligible game.</p></details>}
-      {!history && scoringMatches.length > 0 && <details className="point-scoring-disclosure">
-        <summary>{scoringMatches.length} on court · Quick scoring access</summary>
-        <p>All on-court matches in the selected tournament{group !== "all" ? ` and ${groupName(Number(group))}` : ""}, independent of search, status and stage filters.</p>
-        <div className="point-scoring-toolbar" aria-label="Point scoring">{scoringMatches.map(m => <Button key={m.id} variant="outline" className="point-scoring-match" aria-label={`Open scorer: ${team(m.a)?.name} vs ${team(m.b)?.name}`} onClick={() => openScorer(m)}>
-          <strong>{team(m.a)?.name} vs {team(m.b)?.name}</strong><small>Court {m.court} · Open scorer</small>
-        </Button>)}</div>
-      </details>}
       {!matches.length && filtered && hasRecords ? <Empty title="No matches found" action={<Button variant="outline" onClick={reset}>Reset filters</Button>}>Try another player name or reset your filters to see {history ? "completed" : "all"} matches.</Empty> : <MatchTable matches={matches} history={history} onScore={openScorer} />}
       {!history && admin && testTools && filter !== "custom" && <div className="toolbar test-tools-toolbar">
         <Button variant="destructive" className="btn danger" disabled={busy || !unfinishedCount}
