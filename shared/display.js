@@ -1,7 +1,8 @@
 import { standings } from "./standings.js";
 import { hasLeagueDraw } from "./groups.js";
-import { PLAYOFF_STAGE, qualificationStatus, groupLabel, isKnockoutOnly } from "./format.js";
-import { isCustomGame } from "./matches.js";
+import { PLAYOFF_STAGE, qualificationStatus, groupLabel, isKnockoutOnly, isLinkedPlayoffs } from "./format.js";
+import { isCustomGame, matchStageLabel } from "./matches.js";
+import { linkedLeaguePlaces } from "./linked-playoffs.js";
 
 export function displayTournamentOptions(state) {
   const priority = (t) => {
@@ -34,7 +35,12 @@ export function resolveDisplaySelection(tournaments, selection = {}) {
 export function tournamentDisplayData(state, tournamentId) {
   const tournament = state.tournaments.find((t) => t.id === tournamentId);
   if (!tournament) return null;
-  const matches = state.matches.filter((m) => m.tournamentId === tournamentId);
+  const matches = state.matches.filter((m) => m.tournamentId === tournamentId)
+    .map(m => {
+      const stageLabel = matchStageLabel(m, state.tournaments);
+      return stageLabel === m.stage ? m : { ...m, stageLabel };
+    });
+  const linkedPlaces = tournament.linkedLeaguePlaces ?? linkedLeaguePlaces(state, tournamentId);
   const hasLeague = hasLeagueDraw(state, tournamentId);
   const completed = matches
     .filter((m) => m.status === "completed" && !m.bye)
@@ -46,7 +52,7 @@ export function tournamentDisplayData(state, tournamentId) {
         label: `Group ${groupLabel(group)}`,
         rows: standings(state, tournamentId, group).map((row, rank) => ({
           ...row,
-          qualificationStatus: qualificationStatus(
+          qualificationStatus: linkedPlaces ? (rank < linkedPlaces ? "direct" : "") : qualificationStatus(
             state,
             tournament,
             row,
@@ -78,11 +84,14 @@ export function tournamentDisplayData(state, tournamentId) {
       const fixtures = knockouts
         .filter((m) => m.round === round)
         .sort((a, b) => a.index - b.index);
-      return { round, stage: fixtures[0].stage, matches: fixtures };
+      const stage = isLinkedPlayoffs(tournament) && fixtures[0].stage === "Semifinal" ? "Grand Semifinals"
+        : isLinkedPlayoffs(tournament) ? fixtures[0].stageLabel : fixtures[0].stage;
+      return { round, stage, matches: fixtures };
     });
   const final = matches.find((m) => m.stage === "Final" && m.winner);
   return {
     tournament,
+    linkedPlaces,
     groups,
     resultGroups: hasLeague
       ? groups.map(({ key, label, results }) => ({ key, label, results }))

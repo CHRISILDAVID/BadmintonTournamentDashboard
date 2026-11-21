@@ -1,12 +1,13 @@
 import { standings } from "./standings.js";
 import { gameTally } from "./game-scores.js";
 export { standings } from "./standings.js";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { playerLabel } from "./players.js";
 import { canResetFixtures, hasTournamentDraw, removeLegacyCalls, isCustomGame } from "./matches.js";
 import { groupEditLockReason, hasLeagueDraw, teamEntryLockReason } from "./groups.js";
 import { randomGames } from "./random-scores.js";
 import { isKnockout, knockoutSource, knockoutSlotLockReason, eligibleKnockoutTeams, knockoutDependents } from "./knockouts.js";
+import { linkedEntryConflict, linkedSourceSupportsLeague, linkedSourceTeams, qualifiesFromLeague } from "./linked-playoffs.js";
 import {
   PLAYOFF_STAGE,
   qualificationFormats,
@@ -18,6 +19,7 @@ import {
   groupLabel,
   tournamentFormats,
   isKnockoutOnly,
+  isLinkedPlayoffs,
   minimumTeamsForDraw,
 } from "./format.js";
 const MAX_KNOCKOUT_PLACES = 4096;
@@ -296,8 +298,11 @@ function reconcileDraw(s, t, rebuild = false) {
         if (blueprint[`${side}Source`]) m[`${side}Source`] = blueprint[`${side}Source`];
         else delete m[`${side}Source`];
       }
-      if (m[`${side}Source`]) opponents[i] = Object.hasOwn(m[`${side}Source`], "teamId")
-        ? m[`${side}Source`].teamId : byId.get(m[`${side}Source`].matchId)?.winner || null;
+      const source = m[`${side}Source`];
+      if (source) {
+        if (Object.hasOwn(source, "teamId")) opponents[i] = source.teamId;
+        else if (!isLinkedPlayoffs(t)) opponents[i] = byId.get(source.matchId)?.winner || null;
+      }
       else if (m.stage !== PLAYOFF_STAGE && m.round > 1)
         opponents[i] = mainByPosition.get(`${m.round - 1}:${m.index * 2 + i}`)?.winner || null;
     }
@@ -308,6 +313,93 @@ function reconcileDraw(s, t, rebuild = false) {
       m.winner = m.a || m.b;
       m.completedAt ||= new Date().toISOString();
     }
+  }
+}
+
+export function validateLinkedPlayoffs(state, tournament) {
+  const { mode, sources } = tournament.linkedPlayoffs ?? {};
+  if (!["final", "semifinals"].includes(mode)) fail("Choose a linked playoff bracket.");
+  if (!Array.isArray(sources) || sources.length !== 2 || sources[0]?.tournamentId === sources[1]?.tournamentId)
+    fail("Choose two different source categories.");
+  for (const source of sources) {
+    const category = state.tournaments.find(t => t.id === source?.tournamentId);
+    if (!category || isLinkedPlayoffs(category) || category.id === tournament.id || category.size !== tournament.size)
+      fail("Choose two source categories with the same team size as the linked playoffs.");
+    if (!["league", "bracket"].includes(source.method)) fail("Choose how each source category qualifies.");
+    if (source.method === "league" && !linkedSourceSupportsLeague(state, category))
+      fail("League qualifiers need a single group and no category knockout bracket.");
+    if (source.method === "bracket" && qualifiesFromLeague(state, category.id))
+      fail("This source category already qualifies through league standings.");
+  }
+  return { mode, sources: sources.map(({ tournamentId, method }) => ({ tournamentId, method })) };
+}
+
+function linkedEntrants(tournament) {
+  const ranks = tournament.linkedPlayoffs.mode === "semifinals" ? [1, 2] : [1];
+  return ranks.flatMap(rank => tournament.linkedPlayoffs.sources.map(source => ({
+    id: null,
+    source: { tournamentId: source.tournamentId, rank },
+  })));
+}
+
+export function validateLinkedFixtures(state) {
+  for (const tournament of state.tournaments.filter(isLinkedPlayoffs)) {
+    validateLinkedPlayoffs(state, tournament);
+    const draft = { matches: [] };
+    createDraw(draft, tournament, linkedEntrants(tournament));
+    const fixtures = state.matches.filter(m => m.tournamentId === tournament.id);
+    if (fixtures.length !== draft.matches.length || state.teams.some(team => team.tournamentId === tournament.id))
+      fail("Invalid linked playoff bracket.");
+    for (const expected of draft.matches) {
+      const fixture = fixtures.find(m => m.round === expected.round && m.index === expected.index);
+      if (!fixture || fixture.stage !== expected.stage || fixture.group !== null || fixture.bye ||
+        ["a", "b"].some(side => {
+          const actualSource = fixture[`${side}Source`], expectedSource = expected[`${side}Source`];
+          return expectedSource ? !actualSource || Object.hasOwn(actualSource, "teamId") || Object.hasOwn(actualSource, "matchId") ||
+            actualSource.rank !== expectedSource.rank || actualSource.tournamentId !== expectedSource.tournamentId : !!actualSource;
+        })) fail("Invalid linked playoff fixture or source.");
+    }
+    const positions = new Map(fixtures.map(m => [`${m.round}:${m.index}`, m]));
+    const qualifiers = new Map(tournament.linkedPlayoffs.sources.map(source => [
+      source.tournamentId, linkedSourceTeams(state, source),
+    ]));
+    for (const fixture of fixtures) {
+      for (const [index, side] of ["a", "b"].entries()) {
+        const source = fixture[`${side}Source`];
+        const entrant = source ? qualifiers.get(source.tournamentId)[source.rank - 1]
+          : positions.get(`${fixture.round - 1}:${fixture.index * 2 + index}`)?.winner;
+        if (fixture[side] !== (entrant ?? null)) fail("Linked playoff opponents differ from their qualifying results.");
+      }
+    }
+    if (fixtures.some(m => m.status !== "upcoming")) {
+      const conflict = linkedEntryConflict(state, tournament.id);
+      if (conflict) fail(conflict);
+    }
+  }
+}
+
+export function reconcileLinkedPlayoffs(state) {
+  const linked = state.tournaments.filter(isLinkedPlayoffs);
+  for (const tournament of linked) {
+    validateLinkedPlayoffs(state, tournament);
+    const fixtures = state.matches.filter(m => m.tournamentId === tournament.id);
+    const started = fixtures.some(m => m.status !== "upcoming");
+    const teams = new Map(tournament.linkedPlayoffs.sources.map(source => [
+      source.tournamentId, linkedSourceTeams(state, source),
+    ]));
+    for (const fixture of fixtures.filter(m => m.round === 1)) {
+      for (const side of ["a", "b"]) {
+        const source = fixture[`${side}Source`];
+        const category = state.tournaments.find(t => t.id === source.tournamentId);
+        const entrant = teams.get(source.tournamentId)[source.rank - 1] ?? null;
+        if (started && fixture[side] !== entrant)
+          fail(`This change would replace a qualifier in ${tournament.name}, where play has already started.`);
+        fixture[side] = entrant;
+        source.label = `${category.name} #${source.rank}`;
+      }
+    }
+    // Resolved qualifiers occupy round one; later rounds use the ordinary winner feeders.
+    reconcileDraw(state, tournament);
   }
 }
 function validateScoring(input, label) {
@@ -386,6 +478,9 @@ export function applyAction(previous, action, payload = {}) {
       size: integer(payload.size, 1, 12, "Players per team"),
       format,
     };
+    if (t && isLinkedPlayoffs(config)) fail("Create linked playoffs as a separate tournament.");
+    if (isLinkedPlayoffs(config))
+      config.linkedPlayoffs = validateLinkedPlayoffs(s, { ...config, id: t?.id, linkedPlayoffs: payload.linkedPlayoffs });
     if (!isKnockoutOnly(config)) {
       const qualification = payload.qualification || "direct";
       if (!Object.hasOwn(qualificationFormats, qualification))
@@ -424,7 +519,12 @@ export function applyAction(previous, action, payload = {}) {
         delete t.qualification;
       }
       Object.assign(t, config);
-    } else s.tournaments.push({ id: id(), ...config });
+    } else {
+      const tournament = { id: id(), ...config };
+      if (payload.manualSeeding === true && !isLinkedPlayoffs(tournament)) tournament.seedOrder = [];
+      s.tournaments.push(tournament);
+      if (isLinkedPlayoffs(tournament)) createDraw(s, tournament, linkedEntrants(tournament));
+    }
   } else if (action === "scoring") {
     if (!t) fail("Tournament not found.");
     const next = tournamentScoring(t, payload.scoring);
@@ -439,6 +539,9 @@ export function applyAction(previous, action, payload = {}) {
     Object.assign(t, { points, cap, bestOf });
   } else if (action === "deleteTournament") {
     if (!t) fail("Tournament not found.");
+    if (s.tournaments.some(link => isLinkedPlayoffs(link) &&
+      link.linkedPlayoffs.sources.some(source => source.tournamentId === t.id)))
+      fail("Remove the linked playoffs before deleting a source category.");
     if (
       s.matches.some(
         (match) => match.tournamentId === t.id && match.status === "live",
@@ -452,8 +555,17 @@ export function applyAction(previous, action, payload = {}) {
     s.tournaments = s.tournaments.filter(
       (tournament) => tournament.id !== t.id,
     );
+  } else if (action === "seeds") {
+    if (!t || isLinkedPlayoffs(t)) fail("Choose a category that takes team entries.");
+    if (hasTournamentDraw(s, t.id)) fail("Seeds are locked after fixtures are generated.");
+    const entries = new Set(s.teams.filter(team => team.tournamentId === t.id).map(team => team.id));
+    const order = payload.teamIds;
+    if (!Array.isArray(order) || new Set(order).size !== order.length || order.some(id => !entries.has(id)))
+      fail("Each seed must be a different team from this category.");
+    t.seedOrder = [...order];
   } else if (action === "teams") {
     if (!t) fail("Category not found.");
+    if (isLinkedPlayoffs(t)) fail(teamEntryLockReason(s, t.id));
     if (
       !Array.isArray(payload.teams) ||
       !payload.teams.length ||
@@ -461,6 +573,11 @@ export function applyAction(previous, action, payload = {}) {
     )
       fail("Add between 1 and 256 teams per import.");
     const locked = hasTournamentDraw(s, t.id);
+    const seedRows = payload.seededRows;
+    if (seedRows !== undefined && (locked || !Array.isArray(seedRows) ||
+      new Set(seedRows).size !== seedRows.length || payload.teams.some(row => row.id) ||
+      seedRows.some(index => !Number.isInteger(index) || index < 0 || index >= payload.teams.length)))
+      fail("Confirm a unique list of imported seeds before fixtures are generated.");
     if (s.matches.some(m => m.tournamentId === t.id && m.stage === "Final" && m.winner))
       fail("Player names are locked after the tournament ends.");
     const additions = payload.teams.filter(row => !row.id);
@@ -478,6 +595,7 @@ export function applyAction(previous, action, payload = {}) {
       }
       t.leagueGenerated = true;
     }
+    const addedIds = [];
     for (const row of payload.teams) {
       const players = (Array.isArray(row.players) ? row.players : [])
         .map((p) => clean(p, 80))
@@ -503,7 +621,7 @@ export function applyAction(previous, action, payload = {}) {
       )
         fail(`A player in ${name} is already entered in this category.`);
       const seed = integer(
-        (locked && existing ? existing.seed : row.seed) ||
+        (((locked && existing) || t.seedOrder || seedRows !== undefined) ? existing?.seed : row.seed ?? existing?.seed) ||
           Math.max(
             0,
             ...s.teams
@@ -522,8 +640,13 @@ export function applyAction(previous, action, payload = {}) {
         fail(`Seed ${seed} is already used. Give every team a unique seed.`);
       const team = { name, players, seed };
       if (existing) Object.assign(existing, team);
-      else s.teams.push({ id: id(), tournamentId: t.id, group, ...team });
+      else {
+        const teamId = id();
+        s.teams.push({ id: teamId, tournamentId: t.id, group, ...team });
+        addedIds.push(teamId);
+      }
     }
+    if (seedRows !== undefined) t.seedOrder = [...(t.seedOrder ?? []), ...seedRows.map(index => addedIds[index])];
     if (locked && additions.length) appendLeagueFixtures(s, t, group);
     const livePlayers = new Set();
     for (const fixture of s.matches.filter(m => m.status === "live"))
@@ -548,6 +671,7 @@ export function applyAction(previous, action, payload = {}) {
     s.teams = s.teams.filter(
       (x) => !(x.id === payload.teamId && x.tournamentId === t.id),
     );
+    if (t.seedOrder) t.seedOrder = t.seedOrder.filter(id => id !== payload.teamId);
   } else if (action === "moveGroup") {
     const reason = groupEditLockReason(s, payload.tournamentId);
     if (reason) fail(reason);
@@ -583,6 +707,7 @@ export function applyAction(previous, action, payload = {}) {
       }
     }
   } else if (action === "resetFixtures") {
+    if (isLinkedPlayoffs(t)) fail("Delete the linked playoffs to remove its bracket.");
     if (!t || !canResetFixtures(s.matches.filter(m => m.tournamentId === t.id)))
       fail("Only unplayed fixtures can be reset.");
     s.matches = s.matches.filter((m) => m.tournamentId !== t.id);
@@ -593,11 +718,23 @@ export function applyAction(previous, action, payload = {}) {
     }
   } else if (action === "generate") {
     if (!t) fail("Category not found.");
+    if (isLinkedPlayoffs(t)) fail("The linked playoff bracket is created automatically.");
     if (hasTournamentDraw(s, t.id))
       fail("Fixtures already exist.");
-    const teams = s.teams
+    let teams = s.teams
       .filter((x) => x.tournamentId === t.id)
       .sort((a, b) => a.seed - b.seed);
+    if (t.seedOrder) {
+      const entries = new Map(teams.map(team => [team.id, team]));
+      const seeded = t.seedOrder.map(id => entries.get(id));
+      for (const id of t.seedOrder) entries.delete(id);
+      const unseeded = [...entries.values()];
+      for (let i = unseeded.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [unseeded[i], unseeded[j]] = [unseeded[j], unseeded[i]];
+      }
+      teams = [...seeded, ...unseeded];
+    }
     if (
       isPlayoffFormat(t) &&
       teams.length !== t.groups * qualificationFormat(t).teamsPerGroup
@@ -623,6 +760,7 @@ export function applyAction(previous, action, payload = {}) {
     }
   } else if (action === "knockouts") {
     if (!t) fail("Category not found.");
+    if (qualifiesFromLeague(s, t.id)) fail("This category qualifies directly for linked playoffs through league standings.");
     if (isKnockoutOnly(t)) fail("Generate fixtures to create the knockout bracket for this tournament.");
     const league = s.matches.filter((m) => m.tournamentId === t.id);
     if (
@@ -634,6 +772,7 @@ export function applyAction(previous, action, payload = {}) {
     reconcileDraw(s, t);
   } else if (["swapKnockouts", "fillKnockoutBye", "fillKnockoutByes"].includes(action)) {
     if (!t) fail("Tournament not found.");
+    if (isLinkedPlayoffs(t)) fail("Linked playoff places are determined by source results.");
     const fixtures = s.matches.filter(m => m.tournamentId === t.id && isKnockout(m));
     const first = fixtures.find(m => m.id === payload.matchId);
     const side = payload.side;
@@ -689,6 +828,10 @@ export function applyAction(previous, action, payload = {}) {
         fail("Some matches are missing opponents or feeder fixtures. No random results were saved.");
       const changed = new Set();
       for (const fixture of ready) {
+        if (isLinkedPlayoffs(configs.get(fixture.tournamentId))) {
+          const conflict = linkedEntryConflict(s, fixture.tournamentId);
+          if (conflict) fail(conflict);
+        }
         const games = randomGames(scoringRules(configs.get(fixture.tournamentId), fixture.stage, fixture));
         const winner = validateGames(games, scoringRules(configs.get(fixture.tournamentId), fixture.stage, fixture));
         fixture.games = games;
@@ -698,7 +841,11 @@ export function applyAction(previous, action, payload = {}) {
         fixture.court = null;
         changed.add(fixture.tournamentId);
       }
-      for (const tournamentId of changed) if (configs.has(tournamentId)) reconcileDraw(s, configs.get(tournamentId));
+      for (const tournamentId of changed) {
+        const config = configs.get(tournamentId);
+        if (config && !isLinkedPlayoffs(config)) reconcileDraw(s, config);
+      }
+      reconcileLinkedPlayoffs(s);
     }
   } else if (action === "returnMatch") {
     if (!m) fail("Match not found.");
@@ -719,6 +866,10 @@ export function applyAction(previous, action, payload = {}) {
     } else if (action === "start") {
       if (m.status !== "upcoming" || !m.a || !m.b)
         fail("Both opponents must be known and the match must be upcoming.");
+      if (isLinkedPlayoffs(config)) {
+        const conflict = linkedEntryConflict(s, config.id);
+        if (conflict) fail(conflict);
+      }
       const court = integer(payload.court, 1, s.event.courts, "Court");
       if (s.matches.some((x) => x.status === "live" && x.court === court))
         fail("That court is already occupied.");
@@ -754,9 +905,10 @@ export function applyAction(previous, action, payload = {}) {
       m.status = "completed";
       if (correcting) m.correctedAt = new Date().toISOString();
       else m.completedAt = new Date().toISOString();
-      if (!isCustomGame(m)) reconcileDraw(s, config, correcting && m.stage === "League");
+      if (!isCustomGame(m) && !isLinkedPlayoffs(config)) reconcileDraw(s, config, correcting && m.stage === "League");
     }
   } else fail("Unknown operation.");
+  reconcileLinkedPlayoffs(s);
   s.revision++;
   return s;
 }

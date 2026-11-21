@@ -13,6 +13,7 @@ import { Input } from "../components/ui/input.jsx";
 
 import { NativeSelect } from "../components/ui/native-select.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
+import SeedPicker from "../components/SeedPicker.jsx";
 
 function TeamForm({ importing = false }) {
   const { state, filter, modal, busy, tournament, open, act, setModal, setError } = useDesk();
@@ -38,6 +39,7 @@ function TeamForm({ importing = false }) {
   const [players, setPlayers] = useState(initial?.players || []),
     [seed, setSeed] = useState(initial?.seed || ""),
     [rows, setRows] = useState(null),
+    [seedOrder, setSeedOrder] = useState([]),
     [fileName, setFileName] = useState(""),
     [fileBusy, setFileBusy] = useState(false);
   if (!unlocked.length || (initial && !editable))
@@ -51,7 +53,7 @@ function TeamForm({ importing = false }) {
       onSubmit={async (e) => {
         e.preventDefault();
         const teams = importing
-          ? rows
+          ? rows.map(({ players }) => ({ players }))
           : [
               {
                 id: initial?.id,
@@ -62,7 +64,8 @@ function TeamForm({ importing = false }) {
         if (
           await act(
             "teams",
-            { tournamentId: tid, teams, ...(needsGroup ? { group } : {}) },
+            { tournamentId: tid, teams, ...(needsGroup ? { group } : {}),
+              ...(importing && !seedsLocked ? { seededRows: seedOrder.map(Number) } : {}) },
             importing ? "Teams imported" : "Team saved",
             formRevision.current,
           )
@@ -79,6 +82,7 @@ function TeamForm({ importing = false }) {
             setTid(e.target.value);
             setPlayers([]);
             setRows(null);
+            setSeedOrder([]);
             setGroup(modal.newGroup ? "new" : "");
           }}
         >
@@ -121,6 +125,9 @@ function TeamForm({ importing = false }) {
                 try {
                   const data = await importTeams(file);
                   setRows(data);
+                  setSeedOrder(data.map((row, i) => ({ seed: row.seed, id: String(i) }))
+                    .filter(row => Number.isInteger(row.seed) && row.seed > 0 && row.seed <= 10000)
+                    .sort((a, b) => a.seed - b.seed).map(row => row.id));
                   setFileName(file.name);
                 } catch (err) {
                   setError(err.message);
@@ -137,14 +144,21 @@ function TeamForm({ importing = false }) {
             onClick={() =>
               download(
                 "shuttlehub-team-template.csv",
-                `${Array.from({ length: t?.size || 2 }, (_, i) => `player${i + 1}`).join(",")},seed\n${Array.from({ length: t?.size || 2 }, (_, i) => `Player ${i + 1}`).join(",")},1\n`,
+                `${Array.from({ length: t?.size || 2 }, (_, i) => `player${i + 1}`).join(",")},seed\n${Array.from({ length: t?.size || 2 }, (_, i) => `Player ${i + 1}`).join(",")},\n`,
               )
             }
           >
             <Download size={15} />
             Download CSV template
           </Button>
-          {rows && (
+          {rows && <>
+            {seedsLocked ? <p className="help-text">Fixtures already exist. Imported seed ranks are ignored.</p> : <>
+              {t?.seedOrder?.length > 0 && <p className="help-text">New seeds are added after the {t.seedOrder.length} existing seeds. Use Manage seeds to reorder the full category.</p>}
+              {t?.seedOrder === undefined && state.teams.some(team => team.tournamentId === tid) &&
+                <p className="help-text">This import switches the category to explicit seeding. Existing teams will be unseeded until you select them in Manage seeds.</p>}
+              <SeedPicker entries={rows.map((row, i) => ({ id: String(i), name: row.name }))}
+                order={seedOrder} change={setSeedOrder} offset={t?.seedOrder?.length ?? 0}/>
+            </>}
             <div className="import-preview">
               <strong>{rows.length} teams ready to review</strong>
               <small>{fileName}</small>
@@ -160,7 +174,7 @@ function TeamForm({ importing = false }) {
                     {rows.slice(0, 12).map((r, i) => (
                       <TableRow key={i}>
                         <TableCell>{r.name}</TableCell>
-                        <TableCell>{r.seed || "Auto"}</TableCell>
+                        <TableCell>{!seedsLocked && seedOrder.includes(String(i)) ? (t?.seedOrder?.length ?? 0) + seedOrder.indexOf(String(i)) + 1 : "Unseeded"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -170,11 +184,11 @@ function TeamForm({ importing = false }) {
                 <small>…and {rows.length - 12} more entries</small>
               )}
             </div>
-          )}
+          </>}
           <p className="help-text">
             Headers: player1
             {t?.size > 1 ? `, player2${t.size > 2 ? ", …" : ""}` : ""}, seed
-            (optional). Team labels are made from player names. Players and seeds must be unique within a category. All
+            (optional). Team labels are made from player names. Players must be unique within a category. All
             rows are validated before anything is saved.
           </p>
         </>
@@ -195,7 +209,7 @@ function TeamForm({ importing = false }) {
               />
             </Field>
           ))}
-          <Field
+          {t?.seedOrder === undefined && <Field
             label="Seed"
             hint={seedsLocked && initial ? "Seeds are locked after fixtures are generated. Player names remain editable until the tournament ends." : "Leave blank to assign the next seed. Use consistent player names across categories to prevent court conflicts."}
           >
@@ -208,7 +222,7 @@ function TeamForm({ importing = false }) {
               onChange={(e) => setSeed(e.target.value)}
               placeholder="Automatic"
             />
-          </Field>
+          </Field>}
         </>
       )}
       <div className="modal-actions">
@@ -228,7 +242,7 @@ function TeamForm({ importing = false }) {
         )}
         <Button variant="default"
           className="btn primary"
-          disabled={busy || fileBusy || !editable || (importing && !rows?.length)}
+          disabled={busy || fileBusy || !editable || (importing && (!rows?.length || (!seedsLocked && seedOrder.some(id => id === ""))))}
         >
           {importing ? "Import teams" : "Save team"}
           <Check size={16} />

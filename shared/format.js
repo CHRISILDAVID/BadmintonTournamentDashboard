@@ -3,8 +3,12 @@ export const PLAYOFF_STAGE = "Qualification playoff";
 export const tournamentFormats = {
   league: "League cum knockouts",
   knockouts: "Knockouts",
+  linked: "Linked Playoffs",
 };
-export const isKnockoutOnly = (t) => t?.format === "knockouts";
+export const isLinkedPlayoffs = (t) => t?.format === "linked";
+export const isKnockoutOnly = (t) => t?.format === "knockouts" || isLinkedPlayoffs(t);
+export const teamSeed = (tournament, team) =>
+  tournament?.seedOrder ? (tournament.seedOrder.indexOf(team.id) + 1 || null) : team.seed;
 export const minimumTeamsForDraw = (t) => isKnockoutOnly(t) ? 2 : t.groups * Math.max(t.qualify, 2);
 
 export const qualificationFormats = {

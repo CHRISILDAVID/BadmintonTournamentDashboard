@@ -85,7 +85,7 @@ function CategoryPage({ event, category, view, setView, onLock }) {
     <nav className="history-switcher" aria-label="Sub-tournament details">{["matches", "entries"].map(item => <button key={item} aria-current={view === item ? "page" : undefined} onClick={() => setView(item)}>{item === "matches" ? "Match results" : "Entries"}</button>)}</nav>
     <PageState pager={pager} empty={view === "matches" ? "No matches were recorded for this sub-tournament." : "No entries were recorded for this sub-tournament."}>
       <ul className="history-list history-detail-list">{pager.data?.items.map(item => <li key={item.id}>{view === "entries" ? <>
-        <div className="history-heading"><h3>{item.name}</h3><span>Seed {item.seed}{item.group !== undefined && item.group !== null ? ` · Group ${groupLabel(item.group)}` : ""}</span></div>
+        <div className="history-heading"><h3>{item.name}</h3><span>{item.seed ? `Seed ${item.seed}` : "Unseeded"}{item.group !== undefined && item.group !== null ? ` · Group ${groupLabel(item.group)}` : ""}</span></div>
         <p>{item.players.join(" · ")}</p>
       </> : <>
         <div className="history-heading"><span>{item.stage}{item.group !== undefined && item.group !== null ? ` · Group ${groupLabel(item.group)}` : ""}{item.court ? ` · Court ${item.court}` : ""}</span><Status status={item.status}/></div>

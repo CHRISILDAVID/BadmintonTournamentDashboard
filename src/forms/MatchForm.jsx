@@ -5,8 +5,9 @@ import { groupName, time } from "../utils.js";
 import ScoreInput from "../ScoreInput.jsx";
 import { finalScores } from "../scores.js";
 
-import { isKnockoutOnly, pendingOpponent, scoringRules, scoringLabel } from "../../shared/format.js";
+import { isKnockoutOnly, pendingOpponent, scoringRules, scoringLabel, teamSeed } from "../../shared/format.js";
 import { isCustomGame, matchCategory, matchStageLabel } from "../../shared/matches.js";
+import { qualifiesFromLeague } from "../../shared/linked-playoffs.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Pill, Empty, Field } from "../components/common.jsx";
@@ -55,16 +56,19 @@ function MatchEditor() {
       <div className="match-dialog-meta">
         <Pill>{matchCategory(m, t)}</Pill>
         <span>
-          {matchStageLabel(m)}{groupName(m.group) ? ` · ${groupName(m.group)}` : ""} · {scoringLabel(rules)}
+          {matchStageLabel(m, state.tournaments)}{groupName(m.group) ? ` · ${groupName(m.group)}` : ""} · {scoringLabel(rules)}
         </span>
       </div>
       <div className="scoreboard">
-        {[m.a, m.b].map((tid, i) => (
-          <div key={i}>
-            <strong>{team(tid)?.name || pendingOpponent(m, i === 0 ? "a" : "b")}</strong>
-            <small>{isCustomGame(m) ? (m.size === 1 ? "Singles" : "Doubles") : team(tid) ? `Seed ${team(tid).seed}` : "Winner of previous round"}</small>
-          </div>
-        ))}
+        {[m.a, m.b].map((tid, i) => {
+          const entrant = team(tid);
+          const seed = entrant && teamSeed(tournament(entrant.tournamentId), entrant);
+          return <div key={i}>
+            <strong>{entrant?.name || pendingOpponent(m, i === 0 ? "a" : "b")}</strong>
+            <small>{isCustomGame(m) ? (m.size === 1 ? "Singles" : "Doubles") : entrant
+              ? (seed ? `Seed ${seed}` : "Unseeded") : "Winner of previous round"}</small>
+          </div>;
+        })}
       </div>
       {m.status === "upcoming" ? (
         <>
@@ -175,7 +179,7 @@ function MatchEditor() {
                     resultRevision.current,
                   )
                 ) {
-                  const leagueComplete = m.status !== "completed" && m.stage === "League" && state.matches
+                  const leagueComplete = m.status !== "completed" && m.stage === "League" && !qualifiesFromLeague(state, t.id) && state.matches
                     .filter(x => x.tournamentId === t.id && x.stage === "League" && x.id !== m.id)
                     .every(x => x.status === "completed");
                   if (leagueComplete) {

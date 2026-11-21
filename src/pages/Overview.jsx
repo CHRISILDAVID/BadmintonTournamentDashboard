@@ -57,7 +57,7 @@ function Overview() {
         <section className="upcoming-sheet" aria-labelledby="upcoming-title">
           <div className="sheet-section-heading"><h2 id="upcoming-title">Upcoming games <span className="count">{upcoming.length}</span></h2><Button variant="ghost" className="text-btn" onClick={() => browse("upcoming")}>All matches <ArrowRight size={16}/></Button></div>
           {upcoming.length ? <div className="match-queue">{upcoming.slice(0, 4).map(m => <button type="button" key={m.id} className="sheet-queue-row" onClick={() => open({ type: "match", matchId: m.id })}>
-            <span className="queue-teams"><strong>{team(m.a)?.name} <em>vs</em> {team(m.b)?.name}</strong><small>{matchCategory(m, tournament(m.tournamentId))} · {groupName(m.group) || matchStageLabel(m)}</small></span>
+            <span className="queue-teams"><strong>{team(m.a)?.name} <em>vs</em> {team(m.b)?.name}</strong><small>{matchCategory(m, tournament(m.tournamentId))} · {groupName(m.group) || matchStageLabel(m, state.tournaments)}</small></span>
             <span className="queue-action">Start game <ArrowUpRight size={16}/></span>
           </button>)}</div> : <p className="sheet-empty">{drafts.length ? "Upcoming games appear after you generate fixtures." : "No upcoming games in this selection."}</p>}
         </section>

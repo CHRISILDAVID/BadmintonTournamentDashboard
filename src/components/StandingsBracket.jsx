@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { knockoutDependents } from "../../shared/knockouts.js";
+import { isLinkedPlayoffs } from "../../shared/format.js";
 import MatchCard from "./MatchCard.jsx";
 
 function measurePaths(canvas, matches, dependents) {
@@ -54,7 +55,7 @@ export default function StandingsBracket({ tournament, matches }) {
           className={path.advanced ? "advanced" : undefined} d={path.d}/>)}
       </svg>
       {rounds.map(([round, fixtures]) => <div className="bracket-round" key={round}>
-        <h3>{fixtures[0].stage}</h3>
+        <h3>{isLinkedPlayoffs(tournament) ? (fixtures[0].stage === "Final" ? "Grand Final" : "Grand Semifinals") : fixtures[0].stage}</h3>
         <div>{fixtures.map(match => <div className="bracket-card" key={match.id} data-match-id={match.id}>
           <MatchCard m={match} compact/>
         </div>)}</div>

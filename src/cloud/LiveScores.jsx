@@ -32,7 +32,7 @@ export default function LiveScores({ matches, teams, tournament, tournaments }) 
     const sides = [match.a, match.b].map(id => teams.get(id));
     const doubles = sides.some(team => team?.players?.length > 1);
     const elapsed = matchElapsed(match, record?.score, now);
-    const context = [matchCategory(match, config), isCustomGame(match) ? (doubles ? "Doubles" : "Singles") : matchStageLabel(match),
+    const context = [matchCategory(match, config), isCustomGame(match) ? (doubles ? "Doubles" : "Singles") : matchStageLabel(match, tournaments?.values() || (config ? [config] : [])),
       match.group != null ? `Group ${groupLabel(match.group)}` : null, `Court ${match.court}`].filter(Boolean).join(" · ");
 
     return <article className="live-score-card" key={match.id} data-score-state={status.tone}

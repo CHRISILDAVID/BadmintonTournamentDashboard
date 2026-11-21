@@ -1,4 +1,6 @@
 export function standings(state, tournamentId, group) {
+  const seedOrder = state.tournaments.find(t => t.id === tournamentId)?.seedOrder;
+  const rank = new Map(seedOrder?.map((id, index) => [id, index]));
   const rows = state.teams
     .filter(
       (t) =>
@@ -36,6 +38,7 @@ export function standings(state, tournamentId, group) {
       b.wins - a.wins ||
       b.gameDiff - a.gameDiff ||
       b.pointDiff - a.pointDiff ||
+      (rank.get(a.id) ?? rank.size) - (rank.get(b.id) ?? rank.size) ||
       a.seed - b.seed ||
       a.name.localeCompare(b.name),
   );

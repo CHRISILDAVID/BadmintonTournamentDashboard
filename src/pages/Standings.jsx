@@ -2,7 +2,8 @@ import React from "react";
 
 import { standings, groupName } from "../utils.js";
 
-import { PLAYOFF_STAGE, directPlaces, isKnockoutOnly, isPlayoffFormat, qualificationStatus, scoringRules, scoringLabel } from "../../shared/format.js";
+import { PLAYOFF_STAGE, directPlaces, isKnockoutOnly, isLinkedPlayoffs, isPlayoffFormat, qualificationStatus, scoringRules, scoringLabel } from "../../shared/format.js";
+import { linkedLeaguePlaces } from "../../shared/linked-playoffs.js";
 import { isKnockout } from "../../shared/knockouts.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
@@ -34,13 +35,14 @@ function Standings() {
       {ts.length ? (
         ts.map((t) => {
           const knockoutOnly = isKnockoutOnly(t);
+          const linkedPlaces = linkedLeaguePlaces(state, t.id);
           const matches = state.matches.filter(m => m.tournamentId === t.id);
           const playoffs = matches.filter(m => m.stage === PLAYOFF_STAGE);
           const knockouts = matches.filter(isKnockout);
           return <section key={t.id} id={`standings-${t.id}`} className="standing-section">
             <div className="section-heading">
               <h2>{t.name}</h2>
-              <Pill>{knockoutOnly ? "Knockouts" : isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct + playoffs` : `${t.qualify} qualify per group`}</Pill>
+              <Pill>{isLinkedPlayoffs(t) ? "Linked Playoffs" : knockoutOnly ? "Knockouts" : linkedPlaces ? `Top ${linkedPlaces} to linked playoffs` : isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct + playoffs` : `${t.qualify} qualify per group`}</Pill>
             </div>
             {!knockoutOnly && <>
             <nav className="section-jumps" aria-label={`${t.name} sections`}>
@@ -72,15 +74,17 @@ function Standings() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {rows.map((r, i) => (
+                            {rows.map((r, i) => {
+                              const qualification = linkedPlaces ? (i < linkedPlaces ? "direct" : "") : qualificationStatus(state, t, r, i);
+                              return (
                               <TableRow
                                 key={r.id}
-                                className={["direct", "qualified"].includes(qualificationStatus(state, t, r, i)) ? "qualified" : qualificationStatus(state,t,r,i) === "playoff" ? "playoff-place" : ""}
+                                className={["direct", "qualified"].includes(qualification) ? "qualified" : qualification === "playoff" ? "playoff-place" : ""}
                               >
                                 <TableCell>{i + 1}</TableCell>
                                 <TableCell>
                                   <strong>{r.name}</strong>
-                                  {isPlayoffFormat(t) && <small className={`qualification-marker ${qualificationStatus(state,t,r,i)}`}>{({direct:"Direct place",playoff:"Qualification playoff",qualified:"Qualified via playoff",eliminated:"Eliminated in playoff"})[qualificationStatus(state,t,r,i)]}</small>}
+                                  {isPlayoffFormat(t) && !linkedPlaces && <small className={`qualification-marker ${qualification}`}>{({direct:"Direct place",playoff:"Qualification playoff",qualified:"Qualified via playoff",eliminated:"Eliminated in playoff"})[qualification]}</small>}
                                 </TableCell>
                                 <TableCell>{r.played}</TableCell>
                                 <TableCell>{r.wins}</TableCell>
@@ -88,7 +92,8 @@ function Standings() {
                                 <TableCell>{r.gameDiff}</TableCell>
                                 <TableCell>{r.pointDiff}</TableCell>
                               </TableRow>
-                            ))}
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
@@ -102,7 +107,7 @@ function Standings() {
               })}
             </div>
             <p className="standings-note">
-              <i className="dot" /> {isPlayoffFormat(t) ? "Green: direct places or playoff winners. Amber: playoff places. League rankings stay unchanged after playoffs." : "Shaded places qualify once the league is complete."} Seed breaks any remaining tie.
+              <i className="dot" /> {isPlayoffFormat(t) && !linkedPlaces ? "Green: direct places or playoff winners. Amber: playoff places. League rankings stay unchanged after playoffs." : "Shaded places qualify once the league is complete."} Seed breaks any remaining tie.
             </p>
             </>}
             {knockoutOnly && !knockouts.length && <Empty title="Bracket pending">The bracket appears when the organizer generates it.</Empty>}

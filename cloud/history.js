@@ -1,5 +1,6 @@
 import { check } from "./security.js";
-import { isKnockoutOnly, pendingOpponent, scoringRules } from "../shared/format.js";
+import { isKnockoutOnly, isLinkedPlayoffs, pendingOpponent, scoringRules, teamSeed } from "../shared/format.js";
+import { matchStageLabel } from "../shared/matches.js";
 
 export function historyLimit(value, fallback = 10, maximum = 50) {
   if (value === null || value === undefined || value === "") return fallback;
@@ -56,18 +57,22 @@ export class EventHistory {
     for (const id of previous.keys()) this.sql.exec(`DELETE FROM ${table} WHERE category=? AND id=?`, category, id);
   }
   capture(state, category, archivedAt = null) {
-    const teams = state.teams.filter(t => t.tournamentId === category.id).sort((a, b) => a.seed - b.seed || a.id.localeCompare(b.id));
     const matches = state.matches.filter(m => m.tournamentId === category.id);
+    const qualifiers = new Set(isLinkedPlayoffs(category) ? matches.flatMap(m => [m.a, m.b]) : []);
+    const teams = state.teams.filter(t => t.tournamentId === category.id || qualifiers.has(t.id))
+      .sort((a, b) => a.seed - b.seed || a.id.localeCompare(b.id));
     const summary = JSON.stringify(categoryHistory(state, category, teams, matches, archivedAt));
     const config = JSON.stringify(category);
     const old = this.sql.exec("SELECT summary,config,archived FROM history_categories WHERE id=?", category.id).toArray()[0];
     if (!old || old.summary !== summary || old.config !== config || old.archived !== Number(!!archivedAt))
       this.sql.exec("INSERT INTO history_categories(id,archived,summary,config) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET archived=excluded.archived,summary=excluded.summary,config=excluded.config", category.id, Number(!!archivedAt), summary, config);
-    this.syncRows("history_entries", category.id, teams.map(t => ({ id: t.id, name: t.name, players: t.players, seed: t.seed, group: t.group })));
+    this.syncRows("history_entries", category.id, teams.map(t => ({
+      id: t.id, name: t.name, players: t.players, seed: teamSeed(state.tournaments.find(source => source.id === t.tournamentId) ?? category, t), group: t.group,
+    })));
     const names = new Map(teams.map(t => [t.id, t.name]));
     this.syncRows("history_matches", category.id, matches.map(m => ({
       id: m.id, a: names.get(m.a) || pendingOpponent(m, "a"), b: names.get(m.b) || pendingOpponent(m, "b"),
-      stage: m.stage, group: m.group, round: m.round, status: m.status, court: m.court, scheduled: m.scheduled || null,
+      stage: matchStageLabel(m, state.tournaments), group: m.group, round: m.round, status: m.status, court: m.court, scheduled: m.scheduled || null,
       games: m.games, winner: names.get(m.winner) || null, bye: !!m.bye, completedAt: m.completedAt || null,
     })));
   }
