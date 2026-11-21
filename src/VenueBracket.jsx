@@ -22,13 +22,13 @@ function BracketMatch({ match, teams, previousStage, slotProps }) {
   return (
     <article
       className={`vb-ko-card ${match.status} ${match.stage === "Final" ? "vb-ko-final" : ""}`}
-      aria-label={`${match.stage} ${match.index + 1}`}
+      aria-label={match.stageLabel || `${match.stage} ${match.index + 1}`}
     >
       <div className="vb-ko-meta">
         <span>
           {match.stage === PLAYOFF_STAGE
             ? `${match.playoffRanks.join(" vs ")} → ${groupLabel(match.group)}${match.qualifyingSlot}`
-            : `Match ${match.index + 1}`}
+            : match.stageLabel?.startsWith("Grand ") ? match.stageLabel : `Match ${match.index + 1}`}
         </span>
         <span className={`vb-ko-status ${match.status}`}>{status}</span>
       </div>
@@ -38,7 +38,7 @@ function BracketMatch({ match, teams, previousStage, slotProps }) {
         const placeholder = match.bye && !id && !match[`${side === 0 ? "a" : "b"}Source`] ? "Bye" : match[`${side === 0 ? "a" : "b"}Source`]
           ? pendingOpponent(match, side === 0 ? "a" : "b")
           : previousStage
-            ? `Winner of ${previousStage} ${match.index * 2 + side + 1}`
+            ? `Winner of ${previousStage === "Grand Semifinals" ? "Grand Semifinal" : previousStage} ${match.index * 2 + side + 1}`
             : "Awaiting qualifier";
         return <BracketTeam key={side} team={player} placeholder={placeholder} winner={winner}
           games={match.games} side={side} completed={match.status === "completed"} bye={match.bye}

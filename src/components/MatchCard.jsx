@@ -12,7 +12,8 @@ import { Button } from "../components/ui/button.jsx";
 import LiveMatchSummary from "./LiveMatchSummary.jsx";
 
 function MatchCard({ m, compact = false }) {
-  const { canManageMatches, admin, team, tournament, open } = useDesk();
+  const { state, canManageMatches, admin, team, tournament, open } = useDesk();
+  const stage = matchStageLabel(m, state.tournaments);
   const t = tournament(m.tournamentId),
     a = team(m.a),
     b = team(m.b);
@@ -33,14 +34,14 @@ function MatchCard({ m, compact = false }) {
           ) : m.status === "completed" ? (
             m.bye ? "Bye" : "Final score"
           ) : (
-            matchStageLabel(m)
+            stage
           )}
         </Pill>
       </div>
       <div className="match-sub">
         {m.stage === PLAYOFF_STAGE ? `${groupName(m.group)} · ${m.playoffRanks.join(" vs ")} → slot ${m.qualifyingSlot}` : m.status === "live"
-          ? `${matchCategory(m, t)} / ${isCustomGame(m) ? (m.size === 1 ? "Singles" : "Doubles") : groupName(m.group) || m.stage}`
-          : groupName(m.group) || matchStageLabel(m)}
+          ? `${matchCategory(m, t)} / ${isCustomGame(m) ? (m.size === 1 ? "Singles" : "Doubles") : groupName(m.group) || stage}`
+          : groupName(m.group) || stage}
       </div>
       <div className="opponents">
         {[a, b].map((t, i) => (

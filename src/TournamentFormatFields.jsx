@@ -9,9 +9,11 @@ import {
   PLAYOFF_STAGE,
   scoringLabel,
   isKnockoutOnly,
+  isLinkedPlayoffs,
   qualificationFormats,
   tournamentFormats,
 } from "../shared/format.js";
+import { linkedSourceSupportsLeague, qualifiesFromLeague } from "../shared/linked-playoffs.js";
 import { Button } from "./components/ui/button.jsx";
 import { scoreText } from "./scores.js";
 import "./tournament-format.css";
@@ -99,7 +101,7 @@ export function StageScoringFields({ form, setForm }) {
   const stages = [
     ...(!knockoutOnly ? [["league", "League", "League"]] : []),
     ...(isPlayoffFormat(form) ? [["playoff", "Qualification playoff", PLAYOFF_STAGE]] : []),
-    ["knockout", knockoutOnly ? "Knockout" : "Main knockout", "Final"],
+    ["knockout", isLinkedPlayoffs(form) ? "Linked playoffs" : knockoutOnly ? "Knockout" : "Main knockout", "Final"],
   ];
   const scoring = Object.fromEntries(stages.map(([key, , stage]) => [key, scoringRules(form, stage)]));
   return <>
@@ -115,7 +117,51 @@ export function StageScoringFields({ form, setForm }) {
   </>;
 }
 
-export default function TournamentFormatFields({ form, setForm }) {
+function LinkedPlayoffFields({ form, change, state }) {
+  const { mode, sources } = form.linkedPlayoffs;
+  const categories = state.tournaments.filter(t => !isLinkedPlayoffs(t) && t.size === form.size);
+  const updateSource = (index, source) => change("linkedPlayoffs", {
+    mode, sources: sources.map((current, i) => i === index ? source : current),
+  });
+  return <>
+    <label className="field">
+      <span>Linked bracket</span>
+      <NativeSelect value={mode} onChange={e => change("linkedPlayoffs", { mode: e.target.value, sources })}>
+        <option value="final">Grand Final</option>
+        <option value="semifinals">Grand Semifinals + Grand Final</option>
+      </NativeSelect>
+    </label>
+    {categories.length < 2 && <p className="help-text">Create two source categories with {form.size} player{form.size === 1 ? "" : "s"} per team first.</p>}
+    {sources.map((source, index) => {
+      const category = categories.find(t => t.id === source.tournamentId);
+      const canUseLeague = category && linkedSourceSupportsLeague(state, category);
+      const leagueOnly = category && qualifiesFromLeague(state, category.id);
+      return <div className="form-row" key={index}>
+        <label className="field">
+          <span>Source category {index + 1}</span>
+          <NativeSelect required value={category?.id ?? ""} onChange={e => updateSource(index, {
+            tournamentId: e.target.value,
+            method: qualifiesFromLeague(state, e.target.value) ? "league" : "bracket",
+          })}>
+            <option value="">Choose a category</option>
+            {categories.filter(t => t.id !== sources[1 - index].tournamentId).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </NativeSelect>
+        </label>
+        <label className="field">
+          <span>Qualify through</span>
+          <NativeSelect value={source.method} disabled={!category} onChange={e => updateSource(index, { ...source, method: e.target.value })}>
+            <option value="bracket" disabled={leagueOnly}>{mode === "final" ? "Category winner" : "Category winner and runner-up"}</option>
+            <option value="league" disabled={!canUseLeague}>{mode === "final" ? "1st place in league standings" : "Top 2 in league standings"}</option>
+          </NativeSelect>
+        </label>
+      </div>;
+    })}
+    <p className="help-text">League qualification uses one group and goes directly to linked playoffs. Category bracket results qualify teams after the Category Final.</p>
+    {mode === "semifinals" && <p className="help-text">The first-place team from each category plays the second-place team from the other category.</p>}
+  </>;
+}
+
+export default function TournamentFormatFields({ form, setForm, state, editing }) {
   const knockoutOnly = isKnockoutOnly(form);
   const change = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -124,10 +170,10 @@ export default function TournamentFormatFields({ form, setForm }) {
       <label className="field">
         <span>Tournament format</span>
         <NativeSelect value={form.format} onChange={(e) => change("format", e.target.value)}>
-          {Object.entries(tournamentFormats).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {Object.entries(tournamentFormats).filter(([value]) => !editing || value !== "linked").map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </NativeSelect>
       </label>
-      {knockoutOnly ? (
+      {isLinkedPlayoffs(form) ? <LinkedPlayoffFields form={form} change={change} state={state}/> : knockoutOnly ? (
         <p className="help-text">Add at least two teams. All entries go into a seeded, single-elimination bracket. Empty places become automatic byes.</p>
       ) : <>
       <p className="help-text">Teams play everyone in their group once. Qualifiers advance to a single-elimination bracket.</p>

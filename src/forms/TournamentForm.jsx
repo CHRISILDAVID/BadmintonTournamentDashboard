@@ -30,6 +30,10 @@ function TournamentForm() {
         knockout: scoringRules(initial, "Final"),
         ...(isPlayoffFormat(initial) && { playoff: scoringRules(initial, PLAYOFF_STAGE) }),
       },
+      linkedPlayoffs: initial.linkedPlayoffs ?? {
+        mode: "final",
+        sources: [0, 1].map(() => ({ tournamentId: "", method: "bracket" })),
+      },
     };
   }),
     [step, setStep] = useState(1);
@@ -45,7 +49,7 @@ function TournamentForm() {
         if (
           await act(
             "tournament",
-            { ...form, tournamentId: existing?.id },
+            { ...form, tournamentId: existing?.id, manualSeeding: true },
             "Tournament saved",
             formRevision.current,
           )
@@ -109,7 +113,7 @@ function TournamentForm() {
             />
           </Field>
         </>
-      ) : <TournamentFormatFields form={form} setForm={setForm}/>}
+      ) : <TournamentFormatFields form={form} setForm={setForm} state={state} editing={!!existing}/>}
       <div className="modal-actions">
         {step === 2 ? (
           <Button variant="outline" className="btn" type="button" onClick={() => setStep(1)}>

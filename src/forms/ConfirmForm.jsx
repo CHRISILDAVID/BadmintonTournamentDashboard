@@ -22,8 +22,8 @@ function ConfirmForm() {
     returnMatch: `Return ${team(returning?.a)?.name || "this match"} vs ${team(returning?.b)?.name || "opponent"} to waiting? Use this only if play has not begun. The court will be freed and this game will return to the upcoming list.`,
     generate: knockoutOnly
       ? count < 2 ? "Add at least two teams before generating the knockout bracket."
-        : `Create the knockout bracket for ${t.name}? All ${count} teams enter by seed. The draw starts at the ${knockoutStage(size)}${byes ? ` with ${byes} automatic ${byes === 1 ? "bye" : "byes"}` : ""}.`
-      : `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft by seed. Late entries and removals remain available during the league.`,
+        : `Create the knockout bracket for ${t.name}? ${t.seedOrder ? `${t.seedOrder.length} of ${count} teams are seeded. Unseeded teams are drawn randomly.` : `All ${count} teams enter by seed.`} The draw starts at the ${knockoutStage(size)}${byes ? ` with ${byes} automatic ${byes === 1 ? "bye" : "byes"}` : ""}.`
+      : `Create round-robin fixtures for ${t?.name}? Teams will be distributed into ${t?.groups} balanced groups using a snake draft${t?.seedOrder ? " with random placement for unseeded teams" : " by seed"}. Late entries and removals remain available during the league.`,
     knockouts: isPlayoffFormat(t) ? `Create qualification playoffs and the knockout bracket for ${t.name}? Top ${directPlaces(t)} per group advance directly; playoff winners earn the remaining slots. Playoffs: ${scoringLabel(scoringRules(t, PLAYOFF_STAGE))}. Main knockout: ${scoringLabel(scoringRules(t, "Final"))}. Review final league standings before confirming. League ranks will not change after playoffs.` : `Advance the top ${t?.qualify} teams from every group to the knockout bracket? Rankings use wins, game difference, point difference, then original seed. Review standings before confirming.`,
     resetFixtures:
       "Remove the unplayed fixtures for this category and reopen team registration? Your teams will be kept.",

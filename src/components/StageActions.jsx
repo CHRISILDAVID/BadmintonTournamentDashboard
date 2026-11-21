@@ -2,7 +2,8 @@ import React from "react";
 
 import { tournamentProgress } from "../../shared/matches.js";
 
-import { isKnockoutOnly, isPlayoffFormat } from "../../shared/format.js";
+import { isKnockoutOnly, isLinkedPlayoffs, isPlayoffFormat } from "../../shared/format.js";
+import { linkedEntryConflict, qualifiesFromLeague } from "../../shared/linked-playoffs.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 
@@ -18,6 +19,8 @@ function StageActions() {
       const knockoutOnly = isKnockoutOnly(t);
       let description = knockoutOnly ? "Add teams, then generate the knockout bracket." : "Add players, then generate fixtures.";
       if (progress.champion) description = "Tournament complete";
+      else if (isLinkedPlayoffs(t)) description = linkedEntryConflict(state, t.id) || "Teams qualify automatically from the source categories. Winners advance through the linked bracket.";
+      else if (progress.hasFixtures && progress.remaining === 0 && qualifiesFromLeague(state, t.id)) description = "League complete. Final standings feed the linked playoffs.";
       else if (progress.canCreateKnockouts) description = "League complete. Ready for the next stage.";
       else if (progress.postseason) description = knockoutOnly
         ? "The knockout bracket is ready. Winners advance automatically."

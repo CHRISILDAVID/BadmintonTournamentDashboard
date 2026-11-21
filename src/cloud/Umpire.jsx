@@ -12,6 +12,7 @@ import { Modal } from "../components/common.jsx";
 import { Toaster } from "../components/ui/sonner.jsx";
 import DeskNavigation from "../components/DeskNavigation.jsx";
 import useScorerReturn from "../hooks/useScorerReturn.js";
+import { matchStageLabel } from "../../shared/matches.js";
 
 export default function Umpire({ onResultRecorded }) {
   const { state, page, modal, error, busy, setModal, setError } = useDesk();
@@ -45,7 +46,7 @@ export default function Umpire({ onResultRecorded }) {
     {pending.length > 0 && <section><h2>Saved work to synchronize or reconcile</h2>{pending.map(r => <button className="umpire-match" key={r.base.matchId} aria-label={`Open saved scoring work for match ${r.base.matchId.slice(0, 8)}`} onClick={() => setPrepared(r.prepared)}>
       <strong>{r.prepared.teams.find(t => t.id === r.prepared.match.a)?.name} vs {r.prepared.teams.find(t => t.id === r.prepared.match.b)?.name}</strong><span>Court {r.prepared.match.court} · {r.pending.length} pending · Match {r.base.matchId.slice(0, 8)}</span><span>{r.conflict || "Open saved scoring work"}</span>
     </button>)}</section>}
-    {page === "Standings" ? <Standings/> : <Matches key={page} history={page === "History"} onScore={match => setPrepared({ match, teams: state.teams, category: state.tournaments.find(t => t.id === match.tournamentId) })}/>}
+    {page === "Standings" ? <Standings/> : <Matches key={page} history={page === "History"} onScore={match => setPrepared({ match: { ...match, stageLabel: matchStageLabel(match, state.tournaments) }, teams: state.teams, category: state.tournaments.find(t => t.id === match.tournamentId) })}/>}
     </div>
     {modal && titles[modal.type] && <Modal title={titles[modal.type]} busy={busy} close={() => { setModal(null); setError(""); }}>
       {modal.type === "match" ? <MatchForm/> : <ConfirmForm/>}

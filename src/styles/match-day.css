@@ -33,7 +33,7 @@
 .arrival-explainer { padding-inline: 20px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--border); }
 .arrival-explainer summary { display: list-item; cursor: pointer; padding-block: 12px; min-height: 44px; }
 .arrival-explainer p { padding-bottom: 12px; max-width: 75ch; line-height: 21px; }
-.test-tools-toolbar { border-top: 1px solid var(--border); background: #f5f5f2; }
+.test-tools-toolbar { border-bottom: 1px solid var(--border); background: #f5f5f2; }
 .app-shell .stage-actions { margin: 16px 0; }
 .app-shell .stage-action { background: #edf3ee; border-color: #c8d5c9; }
 .app-shell .stage-action p { color: #425e4c; }

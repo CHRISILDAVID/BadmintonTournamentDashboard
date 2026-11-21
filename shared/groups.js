@@ -1,4 +1,4 @@
-import { isKnockoutOnly } from "./format.js";
+import { isKnockoutOnly, isLinkedPlayoffs } from "./format.js";
 
 export function hasLeagueDraw(state, tournamentId) {
   const tournament = state.tournaments.find(t => t.id === tournamentId);
@@ -9,7 +9,9 @@ export function hasLeagueDraw(state, tournamentId) {
 }
 
 export function teamEntryLockReason(state, tournamentId) {
-  if (!state.tournaments.some(t => t.id === tournamentId)) return "Tournament not found.";
+  const tournament = state.tournaments.find(t => t.id === tournamentId);
+  if (!tournament) return "Tournament not found.";
+  if (isLinkedPlayoffs(tournament)) return "Teams qualify from the linked categories.";
   return state.matches.some(m => m.tournamentId === tournamentId && m.stage !== "League")
     ? "Team entries are locked after the playoff or knockout draw is created." : "";
 }

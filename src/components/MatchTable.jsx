@@ -15,7 +15,7 @@ import { Button } from "../components/ui/button.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table.jsx";
 
 function MatchTable({ matches, history = false, onScore }) {
-  const { canManageMatches, admin, team, tournament, open, arrivalByMatch } = useDesk();
+  const { state, canManageMatches, admin, team, tournament, open, arrivalByMatch } = useDesk();
   const [, tick] = React.useState(0);
   React.useEffect(() => {
     if (history) return;
@@ -54,7 +54,7 @@ function MatchTable({ matches, history = false, onScore }) {
                 <small>{matchCategory(m, tournament(m.tournamentId))}</small>
               </TableCell>
               <TableCell>
-                {matchStageLabel(m)}
+                {matchStageLabel(m, state.tournaments)}
                 <small>{groupName(m.group)}</small>
               </TableCell>
               <TableCell>

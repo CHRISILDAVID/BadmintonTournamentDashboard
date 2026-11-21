@@ -1,4 +1,6 @@
 import { hasLeagueDraw } from "./groups.js";
+import { isLinkedPlayoffs } from "./format.js";
+import { qualifiesFromLeague } from "./linked-playoffs.js";
 
 export const hasTournamentDraw = (state, tournamentId) =>
   state.matches.some(m => m.tournamentId === tournamentId) || hasLeagueDraw(state, tournamentId);
@@ -8,7 +10,18 @@ export const canResetFixtures = (matches) =>
 
 // Read games saved before standalone games were renamed from Friendly to Custom.
 export const isCustomGame = match => ["custom", "friendly"].includes(match?.kind);
-export const matchStageLabel = match => isCustomGame(match) ? "Custom" : match.stage;
+export function matchStageLabel(match, tournaments = []) {
+  if (isCustomGame(match)) return "Custom";
+  if (match.stage !== "Final" && match.stage !== "Semifinal") return match.stage;
+  for (const t of tournaments) {
+    if (!isLinkedPlayoffs(t)) continue;
+    if (t.id === match.tournamentId)
+      return match.stage === "Final" ? "Grand Final" : `Grand Semifinal ${match.index + 1}`;
+    if (match.stage === "Final" && t.linkedPlayoffs.sources.some(source => source.tournamentId === match.tournamentId))
+      return "Category Final";
+  }
+  return match.stageLabel ?? match.stage;
+}
 export const matchesFilter = (match, filter) => filter === "all" ||
   (["custom", "friendly"].includes(filter) ? isCustomGame(match) : match.tournamentId === filter);
 export const matchCategory = (match, tournament) => isCustomGame(match) ? "Custom" : tournament?.name;
@@ -48,7 +61,7 @@ export function tournamentProgress(state, tournamentId) {
     postseason,
     remaining,
     champion,
-    canCreateKnockouts: hasLeague && remaining === 0 && !postseason &&
+    canCreateKnockouts: hasLeague && remaining === 0 && !postseason && !qualifiesFromLeague(state, tournamentId) &&
       qualifiers >= 2,
   };
 }

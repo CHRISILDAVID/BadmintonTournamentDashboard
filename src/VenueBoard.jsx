@@ -3,7 +3,7 @@ import { venueStore } from "./stores/venue.js";
 import VenueGrid from "./components/VenueGrid.jsx";
 import { Button } from "./components/ui/button.jsx";
 import { NativeSelect } from "./components/ui/native-select.jsx";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Maximize, Trophy, X, Pause, Play } from "lucide-react";
 import {
   displayTournamentOptions,
@@ -19,8 +19,8 @@ import VenueWidgets from "./components/VenueWidgets.jsx";
 import SharedLiveScores from "./components/SharedLiveScores.jsx";
 import { cleanLiveScoreLayout, cleanWidgetPreferences, visibleWidgets } from "./lib/venue-widgets.js";
 import { selectionKey } from "./lib/venue-layout.js";
-import { directPlaces, isKnockoutOnly, isPlayoffFormat } from "../shared/format.js";
-import { isCustomGame } from "../shared/matches.js";
+import { directPlaces, isKnockoutOnly, isLinkedPlayoffs, isPlayoffFormat } from "../shared/format.js";
+import { isCustomGame, matchStageLabel } from "../shared/matches.js";
 import logo from "../assets/logo.jpg";
 import { liveStore } from "./cloud/connection.js";
 import "./venue-board.css";
@@ -145,7 +145,7 @@ function ResultGroup({ group, teams }) {
                   def.{" "}
                   {teams.get(m.winner === m.a ? m.b : m.a)?.name || "Opponent"}
                 </span>
-                {m.stage !== "League" && <small>{m.stage}</small>}
+                {m.stage !== "League" && <small>{matchStageLabel(m)}</small>}
               </div>
               <b className="vb-final-score">{resultScore(m)}</b>
             </article>
@@ -158,20 +158,51 @@ function ResultGroup({ group, teams }) {
   );
 }
 
-function TournamentPanel({ data, upcoming, teams, liveMatches, sharedLiveScores, bracketView, playing, advance }) {
-  const { tournament: t, groups, onCourt, knockoutRounds, playoffs, hasKnockouts, champion } = data;
+function VenueStandings({ data, sharedLiveScores }) {
+  const ref = useRef(null);
+  const { tournament, groups, hasLeague, linkedPlaces } = data;
+  useLayoutEffect(() => {
+    const scroll = ref.current;
+    const viewport = scroll.closest(".vb-display-content");
+    const clippingAreas = [viewport, scroll.closest(".venue-grid-viewport"), scroll.closest(".venue-widget-canvas")].filter(Boolean);
+    const measure = () => {
+      const visibleBottom = Math.min(window.innerHeight, ...clippingAreas.map(area =>
+        area.getBoundingClientRect().top + area.clientTop + area.clientHeight));
+      const clipped = Math.max(0, Math.ceil(scroll.getBoundingClientRect().bottom - visibleBottom));
+      scroll.style.setProperty("--standings-clipped-bottom", `${Math.min(clipped, scroll.clientHeight)}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroll);
+    for (const area of clippingAreas) {
+      observer.observe(area);
+      area.addEventListener("scroll", measure, { passive: true });
+    }
+    const scores = viewport?.querySelector(":scope > .venue-shared-live");
+    if (scores) observer.observe(scores);
+    measure();
+    return () => {
+      observer.disconnect();
+      for (const area of clippingAreas) area.removeEventListener("scroll", measure);
+    };
+  }, [sharedLiveScores]);
+  return <div ref={ref} className="venue-widget-scroll venue-standings-scroll vb-scroll" data-auto-scroll="" tabIndex={0}
+    aria-label={`${tournament.name} standings, scroll for all groups`}>
+    <p className="venue-widget-note">{hasLeague ? (linkedPlaces ? `Top ${linkedPlaces} to linked playoffs` : isPlayoffFormat(tournament) ? `Top ${directPlaces(tournament)} direct · remaining places through playoffs` : `Top ${tournament.qualify} per group advance`) : "Entries · draw pending"}</p>
+    <div className="venue-standing-groups">{groups.map(group => <StandingsGroup key={group.key} group={group} tournament={tournament} hasLeague={hasLeague}/>)}</div>
+  </div>;
+}
+
+function TournamentPanel({ data, upcoming, teams, tournaments, liveMatches, sharedLiveScores, bracketView, playing, advance }) {
+  const { tournament: t, onCourt, knockoutRounds, playoffs, hasKnockouts, champion } = data;
   const results = [...data.resultGroups, ...(data.knockoutResults.length ? [{ key: "postseason", label: isKnockoutOnly(t) ? "Knockouts" : "Playoffs & knockouts", results: data.knockoutResults }] : [])];
   const scroll = (label, children) => <div className="venue-widget-scroll vb-scroll" data-auto-scroll="" tabIndex={0} aria-label={`${t.name} ${label}`}>{children}</div>;
   const renderWidget = widget => {
-    if (widget === "live") return <SharedLiveScores matches={liveMatches} teams={teams} tournament={t} showHeading={false}/>;
-    if (widget === "standings") return scroll("standings, scroll for all groups", <>
-      <p className="venue-widget-note">{data.hasLeague ? (isPlayoffFormat(t) ? `Top ${directPlaces(t)} direct · remaining places through playoffs` : `Top ${t.qualify} per group advance`) : "Entries · draw pending"}</p>
-      <div className="venue-standing-groups">{groups.map(group => <StandingsGroup key={group.key} group={group} tournament={t} hasLeague={data.hasLeague}/>)}</div>
-    </>);
+    if (widget === "live") return <SharedLiveScores matches={liveMatches} teams={teams} tournaments={tournaments} tournament={t} showHeading={false}/>;
+    if (widget === "standings") return <VenueStandings data={data} sharedLiveScores={sharedLiveScores}/>;
     if (widget === "upcoming") return scroll("upcoming games", <>
       <p className="venue-widget-note">{upcoming.length} ready · {onCourt.length} on court</p>
       {[...onCourt, ...upcoming].map(m => <div className={`vb-call-row ${m.status === "live" ? "is-live" : ""}`} key={m.id}>
-        <small>{groupName(m.group) || m.stage} · {m.status === "live" ? `On court ${m.court}` : "Ready to start"}</small>
+        <small>{groupName(m.group) || matchStageLabel(m, tournaments.values())} · {m.status === "live" ? `On court ${m.court}` : "Ready to start"}</small>
         <strong>{teams.get(m.a)?.name}<em> vs </em>{teams.get(m.b)?.name}</strong>
       </div>)}
       {!upcoming.length && !onCourt.length && <p className="vb-empty">{champion ? "All matches complete." : "No upcoming games ready to start."}</p>}
@@ -185,7 +216,7 @@ function TournamentPanel({ data, upcoming, teams, liveMatches, sharedLiveScores,
   return <article className="vb-tournament" aria-label={`${t.name} tournament board`}>
     <header className="vb-tournament-heading">
       <div><span className="vb-kicker">{t.size === 1 ? "SINGLES" : t.size === 2 ? "DOUBLES" : `${t.size}v${t.size}`} · {data.completed} / {data.total} MATCHES</span><h2>{t.name}</h2></div>
-      {champion ? <span className="vb-champion"><Trophy size={16}/>{champion.name}</span> : <span className="vb-stage">{hasKnockouts ? playoffs.some(m => m.status !== "completed") ? "PLAYOFFS" : "KNOCKOUTS" : data.hasLeague ? "LEAGUE" : "REGISTRATION"}</span>}
+      {champion ? <span className="vb-champion"><Trophy size={16}/>{champion.name}{isLinkedPlayoffs(t) && " · Overall champion"}</span> : <span className="vb-stage">{isLinkedPlayoffs(t) ? "LINKED PLAYOFFS" : hasKnockouts ? playoffs.some(m => m.status !== "completed") ? "PLAYOFFS" : "KNOCKOUTS" : data.hasLeague ? "LEAGUE" : "REGISTRATION"}</span>}
     </header>
     <VenueWidgets data={data} renderWidget={renderWidget} sharedLiveScores={sharedLiveScores}/>
   </article>;
@@ -396,7 +427,7 @@ export default function VenueBoard({ state: fullState, upcoming, connected }) {
       <div ref={contentRef} className={`vb-display-content${sharedLiveScores ? " has-shared-scores" : ""}${sharedLiveScores && scoresInView ? " scores-in-view" : ""}`}
         tabIndex={sharedLiveScores ? 0 : undefined} role="region" aria-label="Venue display content">
         {sharedLiveScores && <SharedLiveScores matches={liveMatches} teams={teams} tournaments={tournaments} flow={liveLayout.flow}/>}
-        <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} sharedLiveScores={sharedLiveScores}
+        <VenueGrid controls={layoutControls} panels={panels} renderPanel={data => <TournamentPanel data={data} teams={teams} tournaments={tournaments} sharedLiveScores={sharedLiveScores}
           liveMatches={liveMatches.filter(match => match.tournamentId === data.tournament.id)}
           upcoming={upcoming.filter(m => m.tournamentId === data.tournament.id)}
           bracketView={isKnockoutOnly(data.tournament) && data.knockoutRounds.length ? knockoutView(data.knockoutRounds, bracketViews[data.tournament.id]) : null}

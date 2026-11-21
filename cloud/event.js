@@ -1,10 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
-import { emptyState, applyAction, validateGames } from "../shared/tournament.js";
-import { scoringRules } from "../shared/format.js";
+import { emptyState, applyAction, validateGames, validateLinkedFixtures } from "../shared/tournament.js";
+import { isLinkedPlayoffs, scoringRules } from "../shared/format.js";
 import { newScore, reduceScore, publicScore } from "../shared/live-scoring.js";
 import { token, digest, json, check, cookie, sessionCookie, manager, readJson } from "./security.js";
 import { EventHistory } from "./history.js";
-import { isCustomGame } from "../shared/matches.js";
+import { isCustomGame, matchStageLabel } from "../shared/matches.js";
+import { linkedLeaguePlaces } from "../shared/linked-playoffs.js";
 
 const DAY = 86400000;
 const encode = JSON.stringify;
@@ -132,8 +133,17 @@ export class TournamentEvent extends DurableObject {
       const preset = this.preset(s.preset);
       if (!preset?.categories.length) return state;
       const ids = new Set(preset.categories);
-      return { ...state, tournaments: state.tournaments.filter(t => ids.has(t.id)),
-        teams: state.teams.filter(t => ids.has(t.tournamentId)), matches: state.matches.filter(m => ids.has(m.tournamentId)) };
+      const matches = state.matches.filter(m => ids.has(m.tournamentId));
+      const entrants = new Set(matches.flatMap(m => [m.a, m.b]).filter(Boolean));
+      return { ...state, tournaments: state.tournaments.filter(t => ids.has(t.id)).map(t => {
+        const places = linkedLeaguePlaces(state, t.id);
+        return places ? { ...t, linkedLeaguePlaces: places } : t;
+      }),
+        teams: state.teams.filter(t => ids.has(t.tournamentId) || entrants.has(t.id)),
+        matches: matches.map(m => {
+          const stageLabel = matchStageLabel(m, state.tournaments);
+          return stageLabel === m.stage ? m : { ...m, stageLabel };
+        }) };
     }
     if (s.role !== "umpire") return state;
     return { revision: state.revision, event: state.event, matches: state.matches,
@@ -550,13 +560,21 @@ export class TournamentEvent extends DurableObject {
       for (const row of s[key]) { check(typeof row.id === "string" && !ids.has(row.id), `Duplicate or invalid ${key} ID.`); ids.add(row.id); }
     }
     const teams = new Set(s.teams.map(t => t.id)), categories = new Set(s.tournaments.map(t => t.id));
-    for (const t of s.tournaments) applyAction(emptyState(), "tournament", t);
+    const sourceCategories = s.tournaments.filter(t => !isLinkedPlayoffs(t));
+    for (const t of s.tournaments)
+      applyAction(isLinkedPlayoffs(t) ? { ...emptyState(), tournaments: sourceCategories } : emptyState(), "tournament", t);
     const customGames = new Map(s.matches.filter(isCustomGame).map(m => [m.id, m]));
     for (const t of s.teams) check((categories.has(t.tournamentId) ||
       (t.tournamentId === null && customGames.has(t.customMatchId || t.friendlyMatchId) && [customGames.get(t.customMatchId || t.friendlyMatchId).a, customGames.get(t.customMatchId || t.friendlyMatchId).b].includes(t.id))) &&
       Array.isArray(t.players) && t.players.every(p => typeof p === "string"), "Invalid team.");
     for (const t of s.teams) check(t.arrivedAt == null ||
       (typeof t.arrivedAt === "string" && Number.isFinite(Date.parse(t.arrivedAt))), "Invalid team arrival time.");
+    for (const category of s.tournaments.filter(t => t.seedOrder !== undefined)) {
+      const entries = new Set(s.teams.filter(t => t.tournamentId === category.id).map(t => t.id));
+      check(!isLinkedPlayoffs(category) && Array.isArray(category.seedOrder) &&
+        new Set(category.seedOrder).size === category.seedOrder.length &&
+        category.seedOrder.every(id => entries.has(id)), "Invalid seed list.");
+    }
     const courts = new Set(), players = new Set();
     for (const m of s.matches) {
       if (isCustomGame(m)) {
@@ -567,8 +585,10 @@ export class TournamentEvent extends DurableObject {
         applyAction(emptyState(), "custom", { size: m.size, scoring: m.scoring, sides: entrants.map(t => t.players) });
         check(!m.bye && !m.aSource && !m.bSource, "Custom games cannot have tournament feeders or byes.");
       }
+      const config = s.tournaments.find(t => t.id === m.tournamentId);
+      const entryCategories = isLinkedPlayoffs(config) ? config.linkedPlayoffs.sources.map(source => source.tournamentId) : [m.tournamentId];
       check((isCustomGame(m) ? m.tournamentId === null : categories.has(m.tournamentId)) && (!m.a || teams.has(m.a)) && (!m.b || teams.has(m.b)) &&
-        [m.a, m.b].filter(Boolean).every(id => s.teams.find(t => t.id === id)?.tournamentId === m.tournamentId), "Invalid match references.");
+        [m.a, m.b].filter(Boolean).every(id => entryCategories.includes(s.teams.find(t => t.id === id)?.tournamentId)), "Invalid match references.");
       check(["upcoming", "live", "completed"].includes(m.status), "Invalid match status.");
       if (m.status === "completed" && !m.bye) {
         const winner = validateGames(m.games, scoringRules(s.tournaments.find(t => t.id === m.tournamentId), m.stage, m));
@@ -582,6 +602,7 @@ export class TournamentEvent extends DurableObject {
         }
       }
     }
+    validateLinkedFixtures(s);
     return s;
   }
 }

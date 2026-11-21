@@ -178,3 +178,81 @@ test("venue live scores show three columns and automatically scroll when a fourt
   await page.clock.runFor(4000);
   await expect.poll(() => scroll.evaluate(node => node.scrollLeft)).toBeGreaterThan(0);
 });
+
+test("venue standings auto-scroll through the last group with shared live scores above them", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  let state = emptyState();
+  const names = ["Pure Beginner", "Beginner"];
+  for (const name of names) {
+    state = applyAction(state, "tournament", { name, size: 2, groups: 4, qualify: 2, points: 15, cap: 21, bestOf: 1 });
+    const tournamentId = state.tournaments.at(-1).id;
+    state = applyAction(state, "teams", { tournamentId, teams: Array.from({ length: 14 }, (_, index) => ({
+      players: [`${name} ${index + 1} A`, `${name} ${index + 1} B`],
+    })) });
+    state = applyAction(state, "generate", { tournamentId });
+    state = applyAction(state, "start", { matchId: state.matches.find(m => m.tournamentId === tournamentId).id, court: state.tournaments.length });
+  }
+  const organizer = await owner();
+  await importFixture(organizer, state);
+  const ids = state.tournaments.map(t => t.id);
+  const layout = {
+    selection: { count: 2, ids },
+    savedLayouts: { [JSON.stringify([...ids].sort())]: {
+      liveScores: { position: "top", flow: "horizontal" },
+      widgets: Object.fromEntries(ids.map(id => [id, { visibility: { upcoming: "hide", results: "hide" } }])),
+    } },
+  };
+  const preset = (await request("preset", { name: "League standings", layout }, organizer.cookie)).data;
+  const invite = await invitation(organizer, "display", "League standings", preset.id);
+  await page.clock.install();
+  await page.goto(invite.url);
+  await page.getByRole("combobox", { name: "Number of tournaments" }).selectOption("2");
+  await expect(page.getByRole("region", { name: "Live scores across all matches" }).locator(".live-score-card")).toHaveCount(2);
+  const lastGroupRows = page.locator(".venue-standings-scroll .vb-standing-group:last-child tbody tr:last-child");
+  await expect(lastGroupRows).toHaveCount(2);
+  const visibleRows = () => lastGroupRows.evaluateAll(rows => rows.map(row => {
+    const bounds = row.getBoundingClientRect();
+    const own = row.closest(".venue-standings-scroll").getBoundingClientRect();
+    const viewport = row.closest(".vb-display-content").getBoundingClientRect();
+    return bounds.top >= own.top && bounds.bottom <= Math.min(own.bottom, viewport.bottom);
+  }));
+  expect(await visibleRows()).toEqual([false, false]);
+  const seen = new Set();
+  for (let second = 0; second < 60 && seen.size < 2; second++) {
+    await page.clock.runFor(1000);
+    (await visibleRows()).forEach((visible, index) => { if (visible) seen.add(index); });
+  }
+  expect(seen.size).toBe(2);
+  expect(await page.locator(".vb-display-content").evaluate(node => node.scrollTop)).toBe(0);
+});
+
+test("wheel scrolling over match cards moves each league knockout bracket vertically", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 580 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  let state = emptyState();
+  for (const name of ["Pure Beginner", "Beginner"]) {
+    state = applyAction(state, "tournament", { name, size: 1, groups: 4, qualify: 2, points: 15, cap: 21, bestOf: 1 });
+    const tournamentId = state.tournaments.at(-1).id;
+    state = applyAction(state, "teams", { tournamentId, teams: Array.from({ length: 12 }, (_, i) => ({ players: [`${name} Player ${i + 1}`] })) });
+    state = applyAction(state, "generate", { tournamentId });
+    state = applyAction(state, "randomComplete", { tournamentId });
+    state = applyAction(state, "knockouts", { tournamentId });
+  }
+  const organizer = await owner();
+  await importFixture(organizer, state);
+  const preset = (await request("preset", { name: "League knockout brackets" }, organizer.cookie)).data;
+  await page.goto((await invitation(organizer, "display", "League knockout brackets", preset.id)).url);
+  await page.getByRole("combobox", { name: "Number of tournaments" }).selectOption("2");
+
+  const brackets = ["Pure Beginner", "Beginner"].map(name =>
+    page.getByRole("region", { name: `${name} knockout bracket`, exact: true }));
+  for (const [index, bracket] of brackets.entries()) {
+    const firstRow = bracket.getByRole("region", { name: /Quarterfinal matches/ });
+    await firstRow.getByRole("article").first().hover();
+    await page.mouse.wheel(0, 50);
+    await expect.poll(() => bracket.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+    expect(await brackets[1 - index].evaluate(node => node.scrollTop)).toBe(0);
+    await page.mouse.wheel(0, -160);
+    await expect.poll(() => bracket.evaluate(node => node.scrollTop)).toBe(0);
+  }
+});

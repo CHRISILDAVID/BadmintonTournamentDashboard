@@ -64,7 +64,7 @@
 .vb-bracket-tree { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding:0 10px 10px; overscroll-behavior:contain; }
 .vb-bracket-round { min-width:0; }
 .vb-bracket-round h4 { margin:0; padding:6px 2px; color:#587566; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
-.vb-bracket-row-scroll { overflow-x:auto; overflow-y:hidden; overscroll-behavior:contain; }
+.vb-bracket-row-scroll { overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; }
 .vb-bracket-matches { display:grid; grid-template-columns:repeat(var(--round-matches),minmax(0,1fr)); width:100%; min-width:calc(var(--round-matches) * 256px); padding:0 0 18px; }
 .vb-bracket-cell { position:relative; min-width:0; display:flex; justify-content:center; padding:0 10px; }
 .vb-bracket-cell .vb-ko-card { width:236px; flex-shrink:0; }

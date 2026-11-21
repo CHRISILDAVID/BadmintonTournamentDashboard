@@ -27,6 +27,7 @@ import SettingsPage from "./pages/SettingsPage.jsx";
 import TournamentForm from "./forms/TournamentForm.jsx";
 import ScoringForm from "./forms/ScoringForm.jsx";
 import TeamForm from "./forms/TeamForm.jsx";
+import SeedsForm from "./forms/SeedsForm.jsx";
 import MatchForm from "./forms/MatchForm.jsx";
 import CustomGameForm from "./forms/CustomGameForm.jsx";
 import ConfirmForm from "./forms/ConfirmForm.jsx";
@@ -34,6 +35,7 @@ import { currentSession } from "./cloud/storage.js";
 import Umpire from "./cloud/Umpire.jsx";
 import Scorer from "./cloud/Scorer.jsx";
 import { isKnockoutOnly } from "../shared/format.js";
+import { matchStageLabel } from "../shared/matches.js";
 import "./styles/match-day.css";
 
 function MatchScorer({ match, teams, category, onClose, onResultRecorded, returnLabel }) {
@@ -79,7 +81,7 @@ function App() {
   };
   if (modal?.type === "scorer") {
     const match = state.matches.find(m => m.id === modal.matchId);
-    if (match) return <MatchScorer key={match.id} match={match} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} returnLabel={page === "History" ? "Match history" : page} onClose={() => setModal(null)} onResultRecorded={onResultRecorded}/>;
+    if (match) return <MatchScorer key={match.id} match={{ ...match, stageLabel: matchStageLabel(match, state.tournaments) }} teams={state.teams} category={state.tournaments.find(t => t.id === match.tournamentId)} returnLabel={page === "History" ? "Match history" : page} onClose={() => setModal(null)} onResultRecorded={onResultRecorded}/>;
   }
   if (currentSession()?.role === "umpire") return <Umpire onResultRecorded={onResultRecorded}/>;
   const titles = {
@@ -168,6 +170,7 @@ function App() {
                   ? "Edit tournament"
                   : "Create a tournament",
                 team: modal.team ? "Edit team" : "Add a team",
+                seeds: "Manage seeds",
                 import: "Import your teams",
                 match: "Match desk",
                 custom: "Create a custom game",
@@ -183,7 +186,7 @@ function App() {
                 scoring: "Correct tournament scoring",
               }[modal.type]
             }
-            wide={["tournament", "scoring", "import", "groups", "editKnockouts", "custom"].includes(modal.type)}
+            wide={["tournament", "scoring", "import", "seeds", "groups", "editKnockouts", "custom"].includes(modal.type)}
             close={() => {
               setModal(null);
               setError("");
@@ -197,6 +200,8 @@ function App() {
               <ScoringForm />
             ) : modal.type === "team" || modal.type === "import" ? (
               <TeamForm importing={modal.type === "import"} />
+            ) : modal.type === "seeds" ? (
+              <SeedsForm />
             ) : modal.type === "match" ? (
               <MatchForm />
             ) : modal.type === "editKnockouts" ? (

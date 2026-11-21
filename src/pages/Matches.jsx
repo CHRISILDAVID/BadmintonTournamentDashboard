@@ -61,6 +61,13 @@ function Matches({ history = false, onScore }) {
   };
   return (
     <section className="panel matches-panel">
+      {!history && admin && testTools && filter !== "custom" && <div className="toolbar test-tools-toolbar">
+        <Button variant="destructive" className="btn danger" disabled={busy || !unfinishedCount}
+          onClick={() => open({ type: "randomComplete", tournament: filter === "all" ? undefined : tournament(filter) })}>
+          Testing: complete unfinished matches
+        </Button>
+        <span className="help-text">{unfinishedCount} unfinished games in {filter === "all" ? "all tournaments" : tournament(filter)?.name}, across every stage. Uses random scores.</span>
+      </div>}
       {!history && scoringMatches.length > 0 && <section className="point-scoring-strip" aria-labelledby="on-court-heading">
         <h2 id="on-court-heading">On court <span>{scoringMatches.length}</span></h2>
         <div className="point-scoring-toolbar">{scoringMatches.map(match => {
@@ -120,13 +127,6 @@ function Matches({ history = false, onScore }) {
       {!history && <StageActions />}
       {!history && matchOrder === "arrival" && <details className="arrival-explainer"><summary>How arrival priority works</summary><p>Ready matches come first when both teams have arrived and their players are free. The longest-waiting team gets priority; each team's wait restarts after a completed match. Umpires can still choose any eligible game.</p></details>}
       {!matches.length && filtered && hasRecords ? <Empty title="No matches found" action={<Button variant="outline" onClick={reset}>Reset filters</Button>}>Try another player name or reset your filters to see {history ? "completed" : "all"} matches.</Empty> : <MatchTable matches={matches} history={history} onScore={openScorer} />}
-      {!history && admin && testTools && filter !== "custom" && <div className="toolbar test-tools-toolbar">
-        <Button variant="destructive" className="btn danger" disabled={busy || !unfinishedCount}
-          onClick={() => open({ type: "randomComplete", tournament: filter === "all" ? undefined : tournament(filter) })}>
-          Testing: complete unfinished matches
-        </Button>
-        <span className="help-text">{unfinishedCount} unfinished games in {filter === "all" ? "all tournaments" : tournament(filter)?.name}, across every stage. Uses random scores.</span>
-      </div>}
     </section>
   );
 }

@@ -10,6 +10,7 @@ test("cloud organizer can confirm random results for just the selected category"
   await page.goto(`${origin}/matches?tournament=${t.id}`);
   const button = page.getByRole("button", { name: "Testing: complete unfinished matches", exact: true });
   await expect(button).toBeEnabled();
+  await expect(page.locator(".matches-panel > :first-child").getByRole("button", { name: "Testing: complete unfinished matches" })).toBeVisible();
   await button.click();
   await expect(page.getByRole("dialog")).toContainText(t.name);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();

@@ -18,7 +18,12 @@ export function Modal({ title, children, close, wide, busy = false }) {
   const previous = useRef(document.activeElement);
   useEffect(() => () => previous.current?.focus(), []);
   return <Dialog open onOpenChange={open => { if (!open) close(); }}>
-    <DialogContent className={`desk-dialog bg-card ${wide ? "sm:max-w-3xl" : "sm:max-w-xl"}`} onCloseAutoFocus={e => { e.preventDefault(); previous.current?.focus(); }}>
+    <DialogContent className={`desk-dialog bg-card ${wide ? "sm:max-w-3xl" : "sm:max-w-xl"}`}
+      onEscapeKeyDown={event => {
+        if (event.target instanceof Element && event.target.matches('[role="combobox"][aria-expanded="true"]'))
+          event.preventDefault();
+      }}
+      onCloseAutoFocus={e => { e.preventDefault(); previous.current?.focus(); }}>
       <DialogHeader className="mb-3 pr-6 text-left">
         <DialogDescription className="text-xs font-semibold tracking-widest text-primary">SHUTTLEHUB TOURNAMENT DESK</DialogDescription>
         <DialogTitle className="text-2xl leading-tight">{title}</DialogTitle>

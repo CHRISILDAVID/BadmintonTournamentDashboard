@@ -5,7 +5,7 @@ import { groupName, time } from "../utils.js";
 import { tournamentProgress } from "../../shared/matches.js";
 
 import { groupEditLockReason, hasLeagueDraw, teamEntryLockReason } from "../../shared/groups.js";
-import { isKnockoutOnly } from "../../shared/format.js";
+import { isKnockoutOnly, isLinkedPlayoffs, teamSeed } from "../../shared/format.js";
 
 import { useDesk } from "../hooks/useDesk.jsx";
 import { Empty, Pill } from "../components/common.jsx";
@@ -56,6 +56,8 @@ function Teams() {
         )}
         {admin && (
           <>
+            {state.tournaments.some(t => !isLinkedPlayoffs(t)) && <Button variant="outline" className="btn"
+              onClick={() => open({ type: "seeds", tournament: isLinkedPlayoffs(selectedTournament) ? undefined : selectedTournament })}>Manage seeds</Button>}
             <Button variant="outline" className="btn" onClick={() => open({ type: "import" })}>
               <Upload size={16} />
               Import teams
@@ -96,10 +98,11 @@ function Teams() {
                 const category = tournament(t.tournamentId);
                 const groupLock = isKnockoutOnly(category) ? "" : groupEditLockReason(state, t.tournamentId);
                 const namesLocked = !!tournamentProgress(state, t.tournamentId).champion;
+                const rank = teamSeed(category, t);
                 return (
                 <TableRow key={t.id}>
                   <TableCell data-label="Seed">
-                    <span className="seed">{t.seed}</span>
+                    <span className="seed">{rank || "Unseeded"}</span>
                   </TableCell>
                   <TableCell>
                     <strong>{t.name}</strong>
